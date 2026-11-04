@@ -22,6 +22,8 @@ Solaria applies that pattern to agents:
 
 Solaria never runs the agent loop itself. Existing runtimes and platforms do that well. Solaria defines, deploys and tracks.
 
+Some hosts have their own declarative tooling, such as `ant apply` for Claude Managed Agents. Those tools cover one host each. Solaria's job is one neutral definition that keeps the same identity across all of them.
+
 ## What a card will look like
 
 This is the planned `v1alpha1` format. It isn't implemented yet.

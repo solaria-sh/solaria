@@ -14,3 +14,6 @@ Each significant design decision is recorded here using [MADR](https://adr.githu
 | [0008](0008-agent-identity.md) | Agent identity: logical ID, two digests, host binding | accepted |
 | [0009](0009-state.md) | State: local per environment, locking, backend interface | accepted |
 | [0010](0010-promotion-policy-out-of-scope.md) | Promotion and autonomy policy are out of scope | accepted |
+| [0011](0011-managed-agents-provider-calls-the-api.md) | The `managed-agents` provider calls the API directly | accepted |
+
+ADRs 0005–0009 were revised on 2026-11-04 with findings from the [M1 spikes](../spikes/).

@@ -53,7 +53,12 @@ This follows the [OpenTelemetry GenAI conventions](https://github.com/open-telem
 - `gen_ai.agent.version` = `resolvedDigest`;
 - namespaced extras: `solaria.agent.spec_digest`, `solaria.environment`.
 
-Providers inject these where the runtime allows it, for example through `OTEL_RESOURCE_ATTRIBUTES`.
+Providers inject these where the runtime allows it. Neither v0 runtime fully allows it today (M1 spikes):
+
+- **gitagent** ignores `OTEL_RESOURCE_ATTRIBUTES` and sends only `service.name` and `service.version`. The provider sets `OTEL_SERVICE_NAME=<agent name>`, and we'll propose upstream support for the standard variable.
+- **Managed Agents** spans already carry `gen_ai.agent.id` and `gen_ai.agent.name`, but no agent version, and destinations can't add attributes.
+
+So **Solaria's state is the join key**: a trace's host ID (plus the session's pinned version, where known) maps through the binding `history` to `resolvedDigest`. An OTel Collector `resource` processor can attach the attributes downstream when needed.
 
 ### Host metadata
 

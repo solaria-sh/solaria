@@ -41,7 +41,14 @@ Chosen option: "Local, gitignored state per environment, behind a backend interf
 
 **Working practice:** every developer has personal environments (`local-<name>`), with name-prefixed host objects so nobody collides. Shared environments are applied from one place only: CI once it exists, one agreed person until then.
 
-**Rollback:** check out an earlier commit and apply it. If `history` already holds a binding with the same `resolvedDigest`, a provider may point back to it instead of creating a new host version. Managed Agents can do this, because sessions pin `{id, version}`.
+**Rollback:** check out an earlier commit and apply it. How that lands depends on the host:
+
+- **Managed Agents** can't revert an agent's "latest". Re-applying old content creates version N+1 with the old `resolvedDigest`, and `history` records that both versions share it. Consumers that pin sessions to `{id, version}` read the current binding from state, so they can also pin the older version directly.
+- **Container placements** re-tag or rebuild the image for that digest.
+
+**Drift:** each entry also stores a `remoteHash`, a hash of the host's normalized response as of the last apply (an idea taken from `ant apply`'s `claude-lock.json`). A refresh that finds a different hash reports drift, such as a change made in a console. Normalization fills in server-side defaults first, so they don't show up as false drift.
+
+**Destroy is host-specific and shown as such in the plan.** For example, Managed Agents agents can only be archived, irreversibly, so plan shows `-/archive`.
 
 ### Consequences
 
