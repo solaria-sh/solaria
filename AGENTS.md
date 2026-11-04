@@ -27,6 +27,8 @@ To update expected output after an intended change, run `go test ./... -update` 
 - `internal/config/`: finds YAML files, checks each document against its schema, and decodes it. Errors carry file, line and column.
 - `internal/validate/`: checks across resources (references, files on disk, skills, portability warnings).
 - `internal/diag/`: diagnostics shared by all of the above.
+- `internal/resolve/`: applies environment overrides and references, reads instruction and skill files, and builds the `Definition` that providers render and digests hash.
+- `internal/digest/`: RFC 8785 canonical JSON and SHA-256.
 - `internal/provider/`: the provider interface. `internal/providers/<name>/` holds the implementations.
 - `internal/engine/`, `internal/state/`, `internal/resolve/`, `internal/digest/`: the core.
 - `docs/adr/`: architecture decisions. `docs/spikes/`: research notes that feed them.
@@ -40,5 +42,6 @@ Everything is under `internal/` until the API stabilizes. Don't add public packa
 - User-facing errors name the file and field so the problem can be fixed.
 - Unit tests must not use the network, Docker or real credentials. Use fakes (`httptest`, interface fakes). Integration tests are opt-in through `SOLARIA_IT_*` environment variables.
 - Secrets never reach state, digests, logs, plan output or rendered files. Only the names of secret references do.
+- Anything that changes `resolve.Definition` or its normalization changes every digest. Bump `resolve.Format`, update ADR 0008, and only then regenerate the golden files.
 - Conventional Commits, signed off (`git commit -s`).
 - A change to an architectural decision needs an updated or new ADR in the same pull request.

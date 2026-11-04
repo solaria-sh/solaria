@@ -13,3 +13,4 @@ All notable changes to this project are documented here. The format follows [Kee
 - `solaria.sh/v1alpha1` resource types: Agent, Environment, McpServer.
 - JSON Schema for every kind in `schemas/v1alpha1/`, generated from the Go types, and `solaria schema` to print it.
 - `solaria validate`: schema checks, references, instruction and skill files, and portability warnings, each with file, line and column. `-o json` for tools.
+- Environment resolution: overrides (field replacement, JSON Merge Patch for provider fields), references, label selectors, and `specDigest`/`resolvedDigest` over a versioned, normalized definition (`solaria.sh/definition/v1`).

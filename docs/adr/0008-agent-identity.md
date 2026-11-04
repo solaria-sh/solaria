@@ -44,6 +44,21 @@ What the digest input includes and excludes:
 - **Secrets:** only their reference names, never their values.
 - **Excluded:** the provider and placement, so the digest identifies the agent independently of the host.
 
+**Digest input format `solaria.sh/definition/v1`** (implemented in `internal/resolve`). The format name is part of the input, so a new format gives new digests on purpose. Normalization rules:
+
+- **Left out:** the agent's name and labels (the logical ID covers who it is), the environment's sandbox, secrets and telemetry, and secret values.
+- **Instructions:** file contents in the listed order. File names don't count, so renaming a file keeps the digest.
+- **Skills:** keyed by skill name. Each holds a map of file path (forward slashes) to SHA-256. Hidden files and folders are skipped, and so are file modes.
+- **Line endings:** CRLF becomes LF in instruction and skill files that contain no NUL byte, so Windows and Unix checkouts agree.
+- **Order:**
+  - sorted where order carries no meaning: `tools.builtin`, `allowTools`, `permissions.ask`;
+  - kept where it does: instructions, `model.fallback`.
+- **MCP servers:** the referenced McpServer spec, keyed by name.
+- **Values:** `limits.timeout` is normalized (`90m` and `1h30m` are equal). Empty lists encode as `[]`.
+- **Overrides:**
+  - `model` and `limits` replace field by field;
+  - `providers` merges as an [RFC 7386](https://www.rfc-editor.org/rfc/rfc7386) JSON Merge Patch, where `null` removes a field.
+
 ### Observability
 
 This follows the [OpenTelemetry GenAI conventions](https://github.com/open-telemetry/semantic-conventions-genai) (currently at Development stability):
@@ -74,7 +89,14 @@ Signing digests (sigstore/cosign, A2A signed Agent Cards) is deferred.
 
 ### Confirmation
 
-Golden tests: reordering keys or files leaves the digest unchanged; changing one byte of a skill changes it; environment overrides change `resolvedDigest` but not `specDigest`.
+Golden tests, in `internal/resolve`, check that:
+
+- reordering keys, documents, files or unordered lists leaves the digest unchanged;
+- changing line endings or adding a hidden file leaves it unchanged;
+- changing one byte of a skill changes it;
+- environment overrides change `resolvedDigest` but not `specDigest`.
+
+The golden files pin the digests themselves, so an accidental format change fails the build.
 
 ## More information
 

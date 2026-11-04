@@ -23,6 +23,7 @@ import (
 	"github.com/renantarouco/solaria/internal/api/v1alpha1"
 	"github.com/renantarouco/solaria/internal/config"
 	"github.com/renantarouco/solaria/internal/diag"
+	"github.com/renantarouco/solaria/internal/resolve"
 )
 
 // Validate checks every resource in the set.
@@ -133,7 +134,7 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 
 	selected := map[string]bool{}
 	for _, a := range set.Kind(v1alpha1.KindAgent) {
-		if spec.Agents == nil || matches(spec.Agents.Selector.MatchLabels, a.Agent().Metadata.Labels) {
+		if resolve.Selected(&spec, a.Agent()) {
 			selected[a.Name] = true
 		}
 	}
@@ -186,15 +187,6 @@ func passthrough(r *config.Resource, providers map[string]map[string]any, path .
 			"%s.%s: fields for one provider make %s less portable", field, name, r.ID()))
 	}
 	return diags
-}
-
-func matches(want, have map[string]string) bool {
-	for k, v := range want {
-		if have[k] != v {
-			return false
-		}
-	}
-	return true
 }
 
 // looksLikePath tells a Dockerfile path from an image reference such as

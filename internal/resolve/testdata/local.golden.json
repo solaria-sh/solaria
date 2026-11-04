@@ -1,0 +1,104 @@
+[
+  {
+    "id": "Agent/helper",
+    "provider": "gitagent",
+    "placement": "docker",
+    "specDigest": "sha256:f5cb564aade5b9a0225bc3f44d6ebe43c6783ea48e6e6a8f016e35c89c42d808",
+    "resolvedDigest": "sha256:f5cb564aade5b9a0225bc3f44d6ebe43c6783ea48e6e6a8f016e35c89c42d808",
+    "definition": {
+      "format": "solaria.sh/definition/v1",
+      "instructions": [
+        "You review pull requests.\n"
+      ],
+      "model": {
+        "preferred": "anthropic:claude-haiku-5-5",
+        "fallback": []
+      },
+      "tools": {
+        "builtin": [],
+        "mcp": {}
+      },
+      "skills": {},
+      "permissions": {
+        "ask": []
+      },
+      "limits": {},
+      "providers": {}
+    }
+  },
+  {
+    "id": "Agent/reviewer",
+    "provider": "gitagent",
+    "placement": "docker",
+    "specDigest": "sha256:5bb93c87859f250a1e731831f406d313200a6834b89fdfd242694518a347ffd6",
+    "resolvedDigest": "sha256:557ac38d5d17813bd8d32d458b029f920ec2cb03464a4929152350cc85729db4",
+    "definition": {
+      "format": "solaria.sh/definition/v1",
+      "description": "Reviews pull requests",
+      "instructions": [
+        "You review pull requests.\n",
+        "Never approve your own changes.\n"
+      ],
+      "model": {
+        "preferred": "anthropic:claude-haiku-5-5",
+        "fallback": [],
+        "effort": "high"
+      },
+      "tools": {
+        "builtin": [
+          "grep",
+          "read",
+          "shell"
+        ],
+        "mcp": {
+          "git-host": {
+            "spec": {
+              "remotes": [
+                {
+                  "type": "streamable-http",
+                  "url": "https://git.example.com/mcp",
+                  "headers": [
+                    {
+                      "name": "Authorization",
+                      "secretRef": "GIT_HOST_TOKEN"
+                    }
+                  ]
+                }
+              ]
+            },
+            "allowTools": [
+              "add_comment",
+              "get_pull_request"
+            ]
+          }
+        }
+      },
+      "skills": {
+        "review-rubric": {
+          "files": {
+            "SKILL.md": "sha256:e5fcf5e406796a33031c192180ab837c22ec62b6f20f5eb7417403dee8d9aca7",
+            "scripts/score.sh": "sha256:491f382b74fa9c39516b575698a8d72ba645ee73bb71a05e0256d54222153edc"
+          }
+        }
+      },
+      "permissions": {
+        "ask": [
+          "git-host/add_comment",
+          "shell"
+        ]
+      },
+      "limits": {
+        "maxTurns": 10,
+        "timeout": "1h30m0s"
+      },
+      "providers": {
+        "gitagent": {
+          "profile": "fast"
+        },
+        "managed-agents": {
+          "inference_geo": "eu"
+        }
+      }
+    }
+  }
+]
