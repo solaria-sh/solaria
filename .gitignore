@@ -1,0 +1,21 @@
+# Build output
+/bin/
+/dist/
+
+# Solaria state, locks and rendered artifacts
+.solaria/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Test and coverage output
+*.test
+*.out
+coverage.*
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
