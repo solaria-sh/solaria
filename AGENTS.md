@@ -29,8 +29,9 @@ To update expected output after an intended change, run `go test ./... -update` 
 - `internal/diag/`: diagnostics shared by all of the above.
 - `internal/resolve/`: applies environment overrides and references, reads instruction and skill files, and builds the `Definition` that providers render and digests hash.
 - `internal/digest/`: RFC 8785 canonical JSON and SHA-256.
-- `internal/provider/`: the provider interface. `internal/providers/<name>/` holds the implementations.
-- `internal/engine/`, `internal/state/`, `internal/resolve/`, `internal/digest/`: the core.
+- `internal/provider/`: the provider interface, plans and field diffs. `internal/providers/<name>/` holds the implementations; `internal/providers/stub/` is the file-backed test provider used by examples and end-to-end tests.
+- `internal/engine/`: refresh, plan, capability checks, apply and plan rendering. `internal/state/`: the state format and the local backend with its lock.
+- `examples/`: runnable projects. `examples/hello` uses the stub provider and is copied into the end-to-end scripts.
 - `docs/adr/`: architecture decisions. `docs/spikes/`: research notes that feed them.
 
 Everything is under `internal/` until the API stabilizes. Don't add public packages without an ADR. The one exception is `schemas/`, which only embeds the published schema files (`go:embed` can't reach them from `internal/`).

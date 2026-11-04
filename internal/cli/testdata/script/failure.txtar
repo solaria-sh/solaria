@@ -1,0 +1,39 @@
+# A failing step stops the apply; steps already done stay recorded.
+! exec solaria apply -e local --auto-approve
+stderr '^Error: create Agent/b-fails: stub: failing apply of Agent/b-fails as providers.stub.fail asks$'
+stdout '^Apply stopped. Steps completed before the error are recorded in state \(serial 1\).$'
+stdout '^  Agent/a-works: stub_'
+grep '"Agent/a-works"' .solaria/state/local.json
+! grep '"Agent/b-fails"' .solaria/state/local.json
+! exists .solaria/state/local.lock
+
+# A failing destroy keeps the entry, so it can be retried.
+replace solaria.yaml 'fail: apply' 'fail: destroy'
+exec solaria apply -e local --auto-approve
+! exec solaria destroy -e local --auto-approve
+stderr 'failing destroy of Agent/b-fails'
+grep '"Agent/b-fails"' .solaria/state/local.json
+
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: a-works}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: b-fails}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  providers:
+    stub: {fail: apply}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec: {provider: stub, placement: file}
+-- role.md --
+Do the work.

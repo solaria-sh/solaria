@@ -26,6 +26,11 @@ wherever it runs.`,
 
 	root.AddCommand(
 		newValidateCommand(),
+		newPlanCommand(),
+		newApplyCommand(),
+		newStatusCommand(),
+		newDestroyCommand(),
+		newForceUnlockCommand(),
 		newSchemaCommand(),
 		newVersionCommand(),
 	)
@@ -36,9 +41,13 @@ wherever it runs.`,
 // Main runs the solaria command with the process's arguments and returns
 // its exit code.
 func Main() int {
-	if err := NewRootCommand().Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
-		return 1
+	err := NewRootCommand().Execute()
+	if err == nil {
+		return 0
 	}
-	return 0
+	code, quiet := exitCode(err)
+	if !quiet {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+	}
+	return code
 }

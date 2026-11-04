@@ -1,0 +1,36 @@
+# A lock left by another run blocks writes, and says how to release it.
+! exec solaria apply -e local --auto-approve
+stderr '^Error: environment "local" is locked by ci \(apply, since 2026-11-04T10:00:00Z, lock 11111111-2222-4333-8444-555555555555\); if no one is using it, run: solaria force-unlock -e local 11111111-2222-4333-8444-555555555555$'
+! exists .solaria/stub
+
+# Plan only reads, so it isn't blocked.
+exec solaria plan -e local
+stdout '\+ Agent/a'
+
+! exec solaria force-unlock -e local wrong-nonce
+stderr 'is locked with 11111111-2222-4333-8444-555555555555, not wrong-nonce'
+exec solaria force-unlock -e local 11111111-2222-4333-8444-555555555555
+stdout '^Environment local is unlocked.$'
+! exec solaria force-unlock -e local 11111111-2222-4333-8444-555555555555
+stderr 'is not locked'
+
+# Apply takes the lock and releases it.
+exec solaria apply -e local --auto-approve
+! exists .solaria/state/local.lock
+
+-- .solaria/state/local.lock --
+{"nonce": "11111111-2222-4333-8444-555555555555", "operation": "apply", "who": "ci", "created": "2026-11-04T10:00:00Z"}
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: a}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec: {provider: stub, placement: file}
+-- role.md --
+Do the work.

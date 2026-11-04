@@ -151,9 +151,9 @@ func (c *compiled) leaf(e *jsonschema.ValidationError, file string, root *yaml.N
 	msg := e.ErrorKind.LocalizedString(printer)
 	kwLoc := keywordLocation(e)
 	if ty, ok := e.ErrorKind.(*kind.Type); ok && slices.Contains(ty.Want, "string") &&
-		node != nil && node.Kind == yaml.ScalarNode && node.ShortTag() != "!!str" && node.ShortTag() != "!!null" {
-		// YAML reads 1.10, true and 2 as numbers or booleans, which is
-		// rarely what a version or label value means.
+		node != nil && node.Kind == yaml.ScalarNode && node.ShortTag() != "!!str" && node.Value != "" && node.Value != "~" {
+		// YAML reads 1.10, true, 2 and null as numbers, booleans and
+		// null, which is rarely what a version, label or name means.
 		msg = fmt.Sprintf("%s is a %s in YAML; quote it (%q) to make it a string", node.Value, ty.Got, node.Value)
 	}
 	if m, ok := e.ErrorKind.(*kind.MinItems); ok {

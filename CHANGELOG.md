@@ -14,3 +14,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - JSON Schema for every kind in `schemas/v1alpha1/`, generated from the Go types, and `solaria schema` to print it.
 - `solaria validate`: schema checks, references, instruction and skill files, and portability warnings, each with file, line and column. `-o json` for tools.
 - Environment resolution: overrides (field replacement, JSON Merge Patch for provider fields), references, label selectors, and `specDigest`/`resolvedDigest` over a versioned, normalized definition (`solaria.sh/definition/v1`).
+- Local state per environment (`.solaria/state/<env>.json`) with lineage, serial, history, lock files and stale-write protection.
+- `solaria plan`, `apply`, `status`, `destroy` and `force-unlock`. Plans check provider capabilities before any host call, refresh to detect drift and deleted objects, and show field-level changes and digests. `plan --detailed-exitcode` for CI.
+- `stub` provider, which keeps host objects in files, and `examples/hello`.

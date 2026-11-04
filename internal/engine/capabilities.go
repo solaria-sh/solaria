@@ -1,0 +1,88 @@
+package engine
+
+import (
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/renantarouco/solaria/internal/diag"
+	"github.com/renantarouco/solaria/internal/provider"
+	"github.com/renantarouco/solaria/internal/resolve"
+)
+
+// checkCapabilities reports what an agent needs that the host can't do,
+// before any host call. Errors stop the plan; warnings explain degraded
+// behavior.
+func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string) diag.List {
+	var diags diag.List
+	where := fmt.Sprintf("%s on %s/%s", a.ID(), a.Provider, a.Placement)
+	errorf := func(format string, args ...any) {
+		diags = append(diags, diag.Errorf(file, diag.Pos{}, "%s: %s", where, fmt.Sprintf(format, args...)))
+	}
+	warnf := func(format string, args ...any) {
+		diags = append(diags, diag.Warnf(file, diag.Pos{}, "%s: %s", where, fmt.Sprintf(format, args...)))
+	}
+	d := a.Definition
+
+	if caps.ModelProviders != nil {
+		if mp, _, _ := strings.Cut(d.Model.Preferred, ":"); !slices.Contains(caps.ModelProviders, mp) {
+			errorf("model %s isn't available; this host runs %s models only", d.Model.Preferred, strings.Join(caps.ModelProviders, ", "))
+		}
+	}
+	if len(d.Model.Fallback) > 0 {
+		if !caps.Fallback {
+			warnf("model.fallback is ignored; this host has no model fallback")
+		} else if caps.ModelProviders != nil {
+			for _, m := range d.Model.Fallback {
+				if mp, _, _ := strings.Cut(m, ":"); !slices.Contains(caps.ModelProviders, mp) {
+					warnf("fallback model %s is skipped; this host runs %s models only", m, strings.Join(caps.ModelProviders, ", "))
+				}
+			}
+		}
+	}
+
+	for _, name := range sortedKeys(d.Tools.MCP) {
+		offered := Transports(d.Tools.MCP[name])
+		if !slices.ContainsFunc(offered, func(t string) bool { return slices.Contains(caps.MCPTransports, t) }) {
+			errorf("McpServer %q offers %s, and this host connects over %s only", name, orNone(offered), orNone(caps.MCPTransports))
+		}
+	}
+
+	if a.Env.Sandbox != nil && a.Env.Sandbox.Image != "" && !caps.SandboxImage {
+		errorf("sandbox.image isn't supported here; describe the sandbox with packages instead (ADR 0007)")
+	}
+	if len(d.Permissions.Ask) > 0 && !caps.Approvals {
+		warnf("this host can't ask for approval in unattended runs, so %s will be denied", strings.Join(d.Permissions.Ask, ", "))
+	}
+	return diags
+}
+
+// Transports lists the MCP transports a server offers, in a stable order.
+func Transports(s resolve.MCPServer) []string {
+	var out []string
+	if len(s.Spec.Packages) > 0 {
+		out = append(out, provider.TransportStdio)
+	}
+	for _, r := range s.Spec.Remotes {
+		if t := string(r.Type); !slices.Contains(out, t) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func orNone(xs []string) string {
+	if len(xs) == 0 {
+		return "nothing"
+	}
+	return strings.Join(xs, ", ")
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}

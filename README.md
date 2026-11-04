@@ -4,7 +4,7 @@
 
 Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 
-> **Status: pre-alpha.** The architecture is recorded in [`docs/adr/`](docs/adr/). `solaria validate` and `solaria schema` work today; `plan` and `apply` come next. See the [roadmap](#roadmap).
+> **Status: pre-alpha.** The architecture is recorded in [`docs/adr/`](docs/adr/). The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with the `stub` provider; the gitagent and Claude Managed Agents providers come next. See the [roadmap](#roadmap).
 
 ## Why
 
@@ -26,7 +26,7 @@ Some hosts have their own declarative tooling, such as `ant apply` for Claude Ma
 
 ## What a card will look like
 
-This is the `v1alpha1` format. `solaria validate` checks it; nothing deploys it yet.
+This is the `v1alpha1` format.
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -50,11 +50,30 @@ spec:
 ```console
 $ solaria validate
 valid: 1 Agent, 2 Environments, 1 McpServer
-$ solaria plan -e local-gitagent      # planned
-$ solaria apply -e ma-cloud           # planned
+$ solaria plan -e local-gitagent
+$ solaria apply -e ma-cloud
 ```
 
 The same card, applied to two hosts, changes only the environment.
+
+## Try it
+
+[`examples/hello`](examples/hello) runs the whole workflow with the `stub` provider. It writes its "host objects" to files, so it needs no credentials:
+
+```console
+$ go install github.com/renantarouco/solaria/cmd/solaria@latest
+$ cd examples/hello
+$ solaria plan -e local
+Environment local (stub/file)
+
+  + Agent/hello
+      resolvedDigest: sha256:08ffaed7b158
+
+Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.
+$ solaria apply -e local
+$ solaria status
+$ solaria destroy -e local
+```
 
 For completion and checks in your editor, save the schema and point the YAML language server at it:
 

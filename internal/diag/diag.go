@@ -101,3 +101,13 @@ func (l List) Sort() {
 		)
 	})
 }
+
+// String formats the list one diagnostic per line.
+func (l List) String() string {
+	var b strings.Builder
+	for _, d := range l {
+		b.WriteString(d.String())
+		b.WriteByte('\n')
+	}
+	return b.String()
+}

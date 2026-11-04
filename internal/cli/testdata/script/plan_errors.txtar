@@ -1,0 +1,38 @@
+# Problems that stop a plan before any host call.
+! exec solaria plan -e nowhere
+stderr '^Error: no Environment named "nowhere"$'
+
+! exec solaria plan -e unknown-provider
+stderr '^Error: unknown provider "nowhere"; this build has stub$'
+
+! exec solaria plan -e unknown-placement
+stderr '^Error: provider stub has no placement "cloud"; it has \[file\]$'
+
+! exec solaria plan
+stderr 'required flag\(s\) "environment" not set'
+
+# An invalid configuration is never planned.
+replace solaria.yaml 'instructions: [role.md]' 'instructions: [missing.md]'
+! exec solaria plan -e unknown-provider
+stderr '^solaria.yaml:5:18: error: spec.instructions\[0\]: file "missing.md" not found$'
+stderr '^Error: configuration has 1 error; run solaria validate for details$'
+
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: a}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: unknown-provider}
+spec: {provider: nowhere, placement: file}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: unknown-placement}
+spec: {provider: stub, placement: cloud}
+-- role.md --
+Do the work.

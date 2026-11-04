@@ -1,0 +1,29 @@
+# The smallest Solaria project: one agent, deployed with the stub provider,
+# which writes "host objects" to files under .solaria/stub/. It needs no
+# credentials, so it's the place to try plan and apply.
+#
+#   solaria validate
+#   solaria plan -e local
+#   solaria apply -e local
+#   solaria status
+#   solaria destroy -e local
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: hello
+spec:
+  description: Says hello
+  instructions: [instructions.md]
+  model:
+    preferred: anthropic:claude-haiku-5-5
+  tools:
+    builtin: [read]
+  limits: {maxTurns: 5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: local
+spec:
+  provider: stub
+  placement: file

@@ -36,6 +36,13 @@ Chosen option: "Local, gitignored state per environment, behind a backend interf
   - a `history` of earlier bindings.
 - **Locking:** `.solaria/state/<environment>.lock` holds a nonce. Every command that writes takes the lock, and `solaria force-unlock <nonce>` releases a stuck one.
 - **Stale writes:** a write is refused when its lineage differs or its serial is behind.
+- **Writes per apply** (as implemented in M4):
+  - One write per apply, so `serial` counts applies.
+  - When a step fails, the steps completed before it are still written.
+  - Deletes run first, then the other steps by logical ID.
+  - `plan` only reads, so it takes no lock.
+  - The local backend writes `.solaria/.gitignore` (`*`), so state stays out of git without setup.
+  - `destroy` works from state alone, even after the environment left the configuration.
 - **No secrets:** state holds only reference names, so it's safe to read and share, unlike Terraform's state.
 - **`StateBackend` interface from day one:** the local backend is the only implementation in v0. Remote backends with real locking (Azure Blob leases, S3, HTTP) come later.
 

@@ -81,6 +81,14 @@ type Provider interface {
 
 The engine checks these at plan time, before any host call. `Import` follows later. In v0, providers are compiled in and live under `internal/`. Out-of-process plugins come later.
 
+**As implemented in M4** (`internal/provider`):
+
+- **Identity methods:** the interface also has `Name`, `Version` (recorded in state) and `Placements`.
+- **Plan:** providers build on `provider.DefaultPlan`, which computes create, update or no-op and the field diff. A provider then adjusts the result, for example turning an update into a replace or adding notes.
+- **Apply** returns the host binding and a `remoteHash`. The engine writes the state entry itself: digests, source commit, history.
+- **Engine-level replace:** when an agent's environment moves to another provider or placement, the engine plans a replace. It destroys the object with the old provider, then applies with the new one.
+- **Test provider `stub`:** its placement `file` keeps host objects as JSON files under `.solaria/stub/`. It's the null provider of the plan, renamed because YAML reads an unquoted `null` as no value.
+
 ### Consequences
 
 - Good, because the same card can run under several runtimes on one machine for comparison.
@@ -97,3 +105,4 @@ Every provider has capability tests, and golden tests of what it sends to its ho
 - [Foundry hosted agents](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)
 - [gitagent](https://github.com/open-gitagent/gitagent)
 - Revised 2026-11-04 after the M1 spikes: gitagent rendering, Go SDK worker. The `managed-agents` implementation approach is in ADR 0011.
+- Revised in M4: the interface as implemented, and the `stub` test provider.
