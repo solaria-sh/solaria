@@ -1,0 +1,120 @@
+# A complete, valid project: one agent, one MCP server, two environments.
+exec solaria validate
+cmp stdout want.txt
+! stderr .
+
+# The same with JSON output.
+exec solaria validate -o json
+cmp stdout want.json
+
+-- want.txt --
+valid: 1 Agent, 2 Environments, 1 McpServer
+-- want.json --
+{
+  "valid": true,
+  "resources": [
+    {
+      "kind": "Environment",
+      "name": "ma-cloud",
+      "file": "environments/cloud.yaml"
+    },
+    {
+      "kind": "Environment",
+      "name": "local-gitagent",
+      "file": "environments/local.yaml"
+    },
+    {
+      "kind": "Agent",
+      "name": "reviewer",
+      "file": "solaria.yaml"
+    },
+    {
+      "kind": "McpServer",
+      "name": "git-host",
+      "file": "solaria.yaml"
+    }
+  ],
+  "diagnostics": []
+}
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: reviewer
+  labels: {team: core}
+spec:
+  description: Reviews pull requests
+  instructions: [instructions/role.md, instructions/rules.md]
+  model:
+    preferred: anthropic:claude-sonnet-5-5
+    fallback: [openai:gpt-6-astra]
+    effort: high
+  tools:
+    builtin: [shell, read, grep]
+    mcp:
+      - ref: git-host
+        allowTools: [get_pull_request, add_comment]
+  skills: [skills/review-rubric]
+  permissions:
+    ask: [shell, git-host/add_comment]
+  limits: {maxTurns: 40, timeout: 30m}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: git-host}
+spec:
+  description: Git hosting API
+  packages:
+    - registryType: npm
+      identifier: "@example/git-host-mcp"
+      version: 1.4.2
+      transport: {type: stdio}
+      packageArguments:
+        - {type: named, name: --read-only, value: "false"}
+      environmentVariables:
+        - {name: GIT_HOST_TOKEN, secretRef: GIT_HOST_TOKEN}
+  remotes:
+    - type: streamable-http
+      url: https://git.example.com/mcp
+      headers:
+        - {name: Authorization, secretRef: GIT_HOST_TOKEN}
+-- environments/local.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec:
+  provider: gitagent
+  placement: docker
+  sandbox:
+    packages: {apt: [ripgrep], npm: [pnpm]}
+    network: {mode: limited, allow: [git.example.com, "*.npmjs.org"], packageManagers: true}
+    resources: {memory: 8Gi, disk: 10Gi}
+  secrets: {source: dotenv, path: ../.env}
+  telemetry: {endpoint: "http://localhost:4318"}
+  overrides:
+    reviewer:
+      model: {preferred: anthropic:claude-haiku-5-5}
+      limits: {maxTurns: 10}
+-- environments/cloud.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec:
+  provider: managed-agents
+  placement: cloud
+  agents:
+    selector:
+      matchLabels: {team: core}
+-- instructions/role.md --
+You review pull requests.
+-- instructions/rules.md --
+Never approve your own changes.
+-- skills/review-rubric/SKILL.md --
+---
+name: review-rubric
+description: How to grade a pull request.
+---
+Grade correctness first.
+-- unrelated/workflow.yml --
+# Not a Solaria file, and not even valid YAML: discovery must skip it.
+on: [push

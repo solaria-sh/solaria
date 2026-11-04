@@ -1,0 +1,57 @@
+# Schema errors point at the field at fault, with suggestions for typos.
+! exec solaria validate
+cmp stdout want.txt
+stderr '^Error: validation failed with 11 errors$'
+
+-- want.txt --
+agent.yaml:4:9: error: metadata.name: "Reviewer" is not a valid name: use lowercase letters, digits and hyphens, starting and ending with a letter or digit
+agent.yaml:6:17: error: spec.instructions: needs at least 1 item
+agent.yaml:8:16: error: spec.model.preferred: "claude-sonnet" is not provider:model, such as anthropic:claude-sonnet-5-5
+agent.yaml:9:13: error: spec.model.effort: value must be one of 'low', 'medium', 'high', 'xhigh', 'max'
+agent.yaml:11:22: error: spec.tools.builtin[1]: value must be one of 'shell', 'read', 'write', 'edit', 'glob', 'grep', 'web_fetch', 'web_search'
+agent.yaml:12:3: error: spec: unknown field "limts"; did you mean "limits"?
+agent.yaml:13:21: error: spec.limits.timeout: "30 minutes" is not a duration such as 30m or 1h30m
+agent.yaml:19:3: error: spec: missing required field "model"
+mcp.yaml:5:3: error: spec: set packages, remotes, or both
+mcp.yaml:11:18: error: metadata.labels.tier: 1 is a number in YAML; quote it ("1") to make it a string
+mcp.yaml:17:11: error: spec.remotes[0].headers[0]: set exactly one of value and secretRef
+-- agent.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: Reviewer
+spec:
+  instructions: []
+  model:
+    preferred: claude-sonnet
+    effort: hgh
+  tools:
+    builtin: [shell, bash]
+  limts: {maxTurns: 3}
+  limits: {timeout: 30 minutes}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: no-model}
+spec:
+  instructions: [role.md]
+-- mcp.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: empty}
+spec:
+  description: offers no way to reach it
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata:
+  name: both
+  labels: {tier: 1}
+spec:
+  remotes:
+    - type: streamable-http
+      url: https://example.com/mcp
+      headers:
+        - {name: Authorization, value: x, secretRef: TOKEN}
+-- role.md --
+Role.

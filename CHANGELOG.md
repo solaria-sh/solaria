@@ -9,3 +9,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Repository foundation: license, contributing guide, code of conduct, security policy.
 - Architecture decision records 0001–0010.
 - `solaria version` command.
+- M1 spike notes for gitagent v3 and Claude Managed Agents; ADR 0011 (the `managed-agents` provider calls the API directly).
+- `solaria.sh/v1alpha1` resource types: Agent, Environment, McpServer.
+- JSON Schema for every kind in `schemas/v1alpha1/`, generated from the Go types, and `solaria schema` to print it.
+- `solaria validate`: schema checks, references, instruction and skill files, and portability warnings, each with file, line and column. `-o json` for tools.

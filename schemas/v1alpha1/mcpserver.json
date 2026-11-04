@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solaria.sh/schemas/v1alpha1/mcpserver.json",
+  "$defs": {
+    "KeyValue": {
+      "oneOf": [
+        {
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "required": [
+            "secretRef"
+          ]
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the header or variable."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value, when it isn't secret."
+        },
+        "secretRef": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "A named value, given inline or as a reference to a secret. Set exactly one of value and secretRef."
+    },
+    "MCPArgument": {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "named"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "name"
+        ]
+      },
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "positional",
+            "named"
+          ],
+          "description": "positional or named."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a named argument, such as --port."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value of the argument."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type",
+        "value"
+      ],
+      "description": "One argument passed to a server package."
+    },
+    "MCPPackage": {
+      "properties": {
+        "registryType": {
+          "type": "string",
+          "enum": [
+            "npm",
+            "pypi"
+          ],
+          "description": "Package registry: npm or pypi."
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Package name in its registry."
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact package version."
+        },
+        "transport": {
+          "$ref": "#/$defs/MCPPackageTransport",
+          "description": "Transport the package speaks."
+        },
+        "packageArguments": {
+          "items": {
+            "$ref": "#/$defs/MCPArgument"
+          },
+          "type": "array",
+          "description": "Arguments passed to the server when it starts."
+        },
+        "environmentVariables": {
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "type": "array",
+          "description": "Environment variables set for the server process."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "registryType",
+        "identifier",
+        "version",
+        "transport"
+      ],
+      "description": "A server package to install and run."
+    },
+    "MCPPackageTransport": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "stdio"
+          ],
+          "description": "Always stdio."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "description": "The transport a package speaks."
+    },
+    "MCPRemote": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "streamable-http",
+            "sse"
+          ],
+          "description": "Remote transport: streamable-http or sse."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the endpoint."
+        },
+        "headers": {
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "type": "array",
+          "description": "Headers sent with every request."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "type",
+        "url"
+      ],
+      "description": "A server endpoint."
+    },
+    "McpServerSpec": {
+      "anyOf": [
+        {
+          "required": [
+            "packages"
+          ]
+        },
+        {
+          "required": [
+            "remotes"
+          ]
+        }
+      ],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Description of the server."
+        },
+        "packages": {
+          "items": {
+            "$ref": "#/$defs/MCPPackage"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "Packages that run the server locally, inside the sandbox, over stdio."
+        },
+        "remotes": {
+          "items": {
+            "$ref": "#/$defs/MCPRemote"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "Endpoints to connect to."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Offers one or more ways to reach an MCP server. Each provider picks one its placement supports."
+    },
+    "ObjectMeta": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 63
+          },
+          "propertyNames": {
+            "maxLength": 253,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "Identifies a resource."
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "const": "solaria.sh/v1alpha1",
+      "description": "API version of this resource."
+    },
+    "kind": {
+      "const": "McpServer",
+      "description": "Kind of this resource."
+    },
+    "metadata": {
+      "$ref": "#/$defs/ObjectMeta",
+      "description": "Identifies the server."
+    },
+    "spec": {
+      "$ref": "#/$defs/McpServerSpec",
+      "description": "Describes how to reach the server."
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "title": "Solaria McpServer",
+  "description": "A reusable MCP server definition, in a subset of the MCP Registry server.json shape."
+}

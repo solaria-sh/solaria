@@ -14,7 +14,7 @@ LDFLAGS := -s -w \
 GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 GOVULNCHECK   := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 
-.PHONY: all build test lint fmt vuln tidy-check check clean
+.PHONY: all build test lint fmt vuln tidy-check schema check-schema check clean
 
 all: check build
 
@@ -36,7 +36,13 @@ vuln: ## Check dependencies for known vulnerabilities
 tidy-check: ## Fail if go.mod or go.sum need tidying
 	go mod tidy -diff
 
-check: tidy-check lint test vuln ## Everything CI runs
+schema: ## Regenerate schemas/ from internal/api
+	go run ./internal/schemagen/cmd/schemagen
+
+check-schema: schema ## Fail if schemas/ is out of date
+	git diff --exit-code -- schemas/
+
+check: tidy-check lint test vuln ## Everything CI runs (tests include the schema drift check)
 
 clean:
 	rm -rf bin dist

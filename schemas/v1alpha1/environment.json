@@ -1,0 +1,427 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solaria.sh/schemas/v1alpha1/environment.json",
+  "$defs": {
+    "AgentOverride": {
+      "properties": {
+        "model": {
+          "$ref": "#/$defs/ModelOverride",
+          "description": "Model fields to replace."
+        },
+        "limits": {
+          "$ref": "#/$defs/LimitsSpec",
+          "description": "Limits to replace."
+        },
+        "providers": {
+          "additionalProperties": {
+            "type": "object"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Providers fields to merge over the agent's own."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Changes an agent in one environment."
+    },
+    "AgentSelection": {
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/LabelSelector",
+          "description": "Matches agents by label."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "selector"
+      ],
+      "description": "Selects agents."
+    },
+    "EnvironmentSpec": {
+      "properties": {
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Who runs the agent loop, for example gitagent or managed-agents."
+        },
+        "placement": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Where the provider's sandbox lives, for example docker, cloud or self-hosted."
+        },
+        "agents": {
+          "$ref": "#/$defs/AgentSelection",
+          "description": "Which agents this environment receives. When omitted, it receives every agent."
+        },
+        "sandbox": {
+          "$ref": "#/$defs/SandboxSpec",
+          "description": "The machine the agents' tools run on."
+        },
+        "secrets": {
+          "$ref": "#/$defs/SecretsSpec",
+          "description": "Where secret values are read from when applying."
+        },
+        "telemetry": {
+          "$ref": "#/$defs/TelemetrySpec",
+          "description": "Where agents send OpenTelemetry data."
+        },
+        "overrides": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AgentOverride"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Changes to agents in this environment only, keyed by agent name."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "provider",
+        "placement"
+      ],
+      "description": "Describes where and how agents run."
+    },
+    "KeyValue": {
+      "oneOf": [
+        {
+          "required": [
+            "value"
+          ]
+        },
+        {
+          "required": [
+            "secretRef"
+          ]
+        }
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the header or variable."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value, when it isn't secret."
+        },
+        "secretRef": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "A named value, given inline or as a reference to a secret. Set exactly one of value and secretRef."
+    },
+    "LabelSelector": {
+      "properties": {
+        "matchLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Selects resources that have all these labels."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "matchLabels"
+      ],
+      "description": "Matches resources by label."
+    },
+    "LimitsSpec": {
+      "properties": {
+        "maxTurns": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Most model calls in one run."
+        },
+        "timeout": {
+          "type": "string",
+          "pattern": "^([0-9]+(h|m|s))+$",
+          "description": "Longest a run may take, as a duration such as 30m or 1h30m."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Bounds each run of an agent."
+    },
+    "ModelOverride": {
+      "properties": {
+        "preferred": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:[^ ]+$",
+          "description": "Preferred model, as provider:model."
+        },
+        "fallback": {
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:[^ ]+$"
+          },
+          "type": "array",
+          "description": "Fallback models, replacing the agent's list."
+        },
+        "effort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "description": "Effort level."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Replaces some of an agent's model fields."
+    },
+    "NetworkSpec": {
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "limited",
+            "unrestricted"
+          ],
+          "description": "limited (only allowed hosts) or unrestricted."
+        },
+        "allow": {
+          "items": {
+            "type": "string",
+            "pattern": "^(\\*\\.)?[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Extra hosts the sandbox may reach in limited mode."
+        },
+        "packageManagers": {
+          "type": "boolean",
+          "description": "Allows the package managers' registries in limited mode."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Controls outbound network access."
+    },
+    "ObjectMeta": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 63
+          },
+          "propertyNames": {
+            "maxLength": 253,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "Identifies a resource."
+    },
+    "PackagesSpec": {
+      "properties": {
+        "apt": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "APT packages."
+        },
+        "cargo": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Cargo crates."
+        },
+        "gem": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Ruby gems."
+        },
+        "go": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Go modules, installed with go install."
+        },
+        "npm": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "npm packages, installed globally."
+        },
+        "pip": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "pip packages."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Lists packages per package manager."
+    },
+    "ResourcesSpec": {
+      "properties": {
+        "memory": {
+          "type": "string",
+          "pattern": "^[0-9]+(Ki|Mi|Gi|Ti)?$",
+          "description": "Memory cap, such as 8Gi."
+        },
+        "disk": {
+          "type": "string",
+          "pattern": "^[0-9]+(Ki|Mi|Gi|Ti)?$",
+          "description": "Disk cap, such as 10Gi."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Caps sandbox resources."
+    },
+    "SandboxSpec": {
+      "properties": {
+        "packages": {
+          "$ref": "#/$defs/PackagesSpec",
+          "description": "Packages to install, by package manager, in each manager's own pin syntax."
+        },
+        "network": {
+          "$ref": "#/$defs/NetworkSpec",
+          "description": "Outbound network access. When omitted, access is limited to the hosts the agents need."
+        },
+        "resources": {
+          "$ref": "#/$defs/ResourcesSpec",
+          "description": "Memory and disk caps, where the placement allows them."
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Replaces the generated sandbox image: a container image reference, or a path to a Dockerfile relative to this file. Only container placements accept it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Describes a sandbox in a form every placement understands."
+    },
+    "SecretsSpec": {
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "env",
+            "dotenv"
+          ],
+          "description": "env (the process environment) or dotenv (a .env file)."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path of the dotenv file, relative to this file. Defaults to .env."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "source"
+      ],
+      "description": "Says where secret values come from."
+    },
+    "TelemetrySpec": {
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of an OTLP receiver, such as http://localhost:4318."
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "grpc",
+            "http/protobuf"
+          ],
+          "description": "OTLP protocol. Defaults to http/protobuf."
+        },
+        "headers": {
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "type": "array",
+          "description": "Headers sent with every export."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "endpoint"
+      ],
+      "description": "Says where agents send OpenTelemetry data."
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "const": "solaria.sh/v1alpha1",
+      "description": "API version of this resource."
+    },
+    "kind": {
+      "const": "Environment",
+      "description": "Kind of this resource."
+    },
+    "metadata": {
+      "$ref": "#/$defs/ObjectMeta",
+      "description": "Identifies the environment."
+    },
+    "spec": {
+      "$ref": "#/$defs/EnvironmentSpec",
+      "description": "Describes the environment."
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "title": "Solaria Environment",
+  "description": "Binds agents to a provider and placement, and says how their sandbox, secrets and telemetry are set up there."
+}

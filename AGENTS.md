@@ -12,21 +12,26 @@ Solaria is a Go CLI that plans and applies agent definitions across hosts, Terra
 make build     # bin/solaria
 make test      # go test -race ./...
 make lint      # golangci-lint
+make schema    # regenerate schemas/ after changing internal/api
 make check     # everything CI runs; run this before you finish
 ```
 
-To update golden files after an intended output change, run `go test ./... -update` and review the diff.
+To update expected output after an intended change, run `go test ./... -update` and review the diff. CLI behavior is tested with [testscript](https://pkg.go.dev/github.com/rogpeppe/go-internal/testscript) scripts in `internal/cli/testdata/script/`; add a script there for any new command or diagnostic.
 
 ## Layout
 
 - `cmd/solaria/`: the entry point only. No logic here.
 - `internal/cli/`: cobra commands. Keep them thin; they call into the engine.
-- `internal/api/v1alpha1/`: resource types (Agent, Environment, McpServer). These are the source of truth for the JSON Schema in `schemas/`.
+- `internal/api/v1alpha1/`: resource types (Agent, Environment, McpServer). These are the source of truth for the JSON Schema in `schemas/`. Field doc comments become schema descriptions, so write them for people editing cards.
+- `internal/schemagen/`: generates `schemas/v1alpha1/*.json` from the types. A test fails when the committed files are stale.
+- `internal/config/`: finds YAML files, checks each document against its schema, and decodes it. Errors carry file, line and column.
+- `internal/validate/`: checks across resources (references, files on disk, skills, portability warnings).
+- `internal/diag/`: diagnostics shared by all of the above.
 - `internal/provider/`: the provider interface. `internal/providers/<name>/` holds the implementations.
 - `internal/engine/`, `internal/state/`, `internal/resolve/`, `internal/digest/`: the core.
 - `docs/adr/`: architecture decisions. `docs/spikes/`: research notes that feed them.
 
-Everything is under `internal/` until the API stabilizes. Don't add public packages without an ADR.
+Everything is under `internal/` until the API stabilizes. Don't add public packages without an ADR. The one exception is `schemas/`, which only embeds the published schema files (`go:embed` can't reach them from `internal/`).
 
 ## Conventions
 

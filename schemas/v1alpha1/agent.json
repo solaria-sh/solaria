@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solaria.sh/schemas/v1alpha1/agent.json",
+  "$defs": {
+    "AgentSpec": {
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "What the agent is for. Hosts that list agents show it."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "Markdown files, relative to this file, joined in order to form the system prompt."
+        },
+        "model": {
+          "$ref": "#/$defs/ModelSpec",
+          "description": "The model the agent uses."
+        },
+        "tools": {
+          "$ref": "#/$defs/ToolsSpec",
+          "description": "Tools the agent may use."
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Paths to Agent Skills folders, relative to this file. Each folder holds a SKILL.md."
+        },
+        "permissions": {
+          "$ref": "#/$defs/PermissionsSpec",
+          "description": "Narrows how the agent may use its tools."
+        },
+        "limits": {
+          "$ref": "#/$defs/LimitsSpec",
+          "description": "Bounds each run of the agent."
+        },
+        "providers": {
+          "additionalProperties": {
+            "type": "object"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Fields passed unchanged to one provider, keyed by provider name. Using them makes the agent less portable, and validate reports it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "instructions",
+        "model"
+      ],
+      "description": "Describes an agent independently of the host it runs on."
+    },
+    "LimitsSpec": {
+      "properties": {
+        "maxTurns": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Most model calls in one run."
+        },
+        "timeout": {
+          "type": "string",
+          "pattern": "^([0-9]+(h|m|s))+$",
+          "description": "Longest a run may take, as a duration such as 30m or 1h30m."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Bounds each run of an agent."
+    },
+    "MCPToolRef": {
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of an McpServer resource."
+        },
+        "allowTools": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "The server's tools this agent may call. When omitted, every tool the server offers is allowed."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ref"
+      ],
+      "description": "References an McpServer and narrows which of its tools the agent may call."
+    },
+    "ModelSpec": {
+      "properties": {
+        "preferred": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*:[^ ]+$",
+          "description": "Preferred model, as provider:model, for example anthropic:claude-sonnet-5-5."
+        },
+        "fallback": {
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*:[^ ]+$"
+          },
+          "type": "array",
+          "description": "Fallback models, tried in order on hosts that support fallback."
+        },
+        "effort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "description": "How much reasoning the model should spend. Providers map it to the closest setting their host has."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "preferred"
+      ],
+      "description": "Selects a model as provider:model strings."
+    },
+    "ObjectMeta": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 63
+          },
+          "propertyNames": {
+            "maxLength": 253,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "Identifies a resource."
+    },
+    "PermissionsSpec": {
+      "properties": {
+        "ask": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Tools that need a person's approval before each call: a builtin name, or server/tool for an MCP tool. On hosts without approvals in unattended runs, these tools are denied, and plan says so."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Narrows how the agent may use its tools."
+    },
+    "ToolsSpec": {
+      "properties": {
+        "builtin": {
+          "items": {
+            "type": "string",
+            "enum": [
+              "shell",
+              "read",
+              "write",
+              "edit",
+              "glob",
+              "grep",
+              "web_fetch",
+              "web_search"
+            ]
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Builtin tools, by Solaria's host-neutral names. Providers map them to their host's own tools."
+        },
+        "mcp": {
+          "items": {
+            "$ref": "#/$defs/MCPToolRef"
+          },
+          "type": "array",
+          "description": "MCP servers the agent uses, by reference to McpServer resources."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Lists the tools an agent may use. Tools not listed are not available."
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "const": "solaria.sh/v1alpha1",
+      "description": "API version of this resource."
+    },
+    "kind": {
+      "const": "Agent",
+      "description": "Kind of this resource."
+    },
+    "metadata": {
+      "$ref": "#/$defs/ObjectMeta",
+      "description": "Identifies the agent."
+    },
+    "spec": {
+      "$ref": "#/$defs/AgentSpec",
+      "description": "Describes the agent."
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "title": "Solaria Agent",
+  "description": "Declares what an agent is: its instructions, model, tools, skills and limits. Where it runs is decided by an Environment."
+}

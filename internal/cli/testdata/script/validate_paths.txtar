@@ -1,0 +1,46 @@
+# Discovery: explicit files, missing paths, skipped directories, empty
+# projects.
+! exec solaria validate nope.yaml
+cmp stdout want-missing.txt
+
+# An explicitly named file is parsed even without solaria.sh/ in it.
+! exec solaria validate other/broken.yml
+cmp stdout want-explicit.txt
+
+# Hidden directories, node_modules, vendor and testdata are skipped, and so
+# are YAML files that never mention solaria.sh/.
+! exec solaria validate
+cmp stdout want-empty.txt
+stderr '^Error: validation failed with 1 error$'
+
+! exec solaria validate -o json
+cmp stdout want-empty.json
+
+-- want-missing.txt --
+nope.yaml: error: not found
+-- want-explicit.txt --
+other/broken.yml:1: error: invalid YAML: did not find expected ',' or ']'
+-- want-empty.txt --
+error: no solaria.sh resources found in .
+-- want-empty.json --
+{
+  "valid": false,
+  "resources": [],
+  "diagnostics": [
+    {
+      "severity": "error",
+      "message": "no solaria.sh resources found in ."
+    }
+  ]
+}
+-- other/broken.yml --
+on: [push
+-- .hidden/agent.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+-- node_modules/pkg/agent.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+-- testdata/agent.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent

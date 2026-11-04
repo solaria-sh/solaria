@@ -18,7 +18,10 @@ make test
 | `make test` | Runs the unit tests with the race detector |
 | `make lint` | Runs golangci-lint (installed on demand with `go run`) |
 | `make vuln` | Runs govulncheck |
+| `make schema` | Regenerates `schemas/` from the Go types in `internal/api` |
 | `make check` | Everything CI runs |
+
+After changing a resource type, run `make schema` and commit the result; the tests fail otherwise. After an intended change to CLI output, run `go test ./internal/cli -update` and review the diff.
 
 Unit tests never touch the network or real hosts. Integration tests that do are opt-in through environment variables, documented next to each test.
 

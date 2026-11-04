@@ -4,7 +4,7 @@
 
 Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 
-> **Status: pre-alpha, design stage.** The architecture is recorded in [`docs/adr/`](docs/adr/). Only `solaria version` works today. See the [roadmap](#roadmap).
+> **Status: pre-alpha.** The architecture is recorded in [`docs/adr/`](docs/adr/). `solaria validate` and `solaria schema` work today; `plan` and `apply` come next. See the [roadmap](#roadmap).
 
 ## Why
 
@@ -26,7 +26,7 @@ Some hosts have their own declarative tooling, such as `ant apply` for Claude Ma
 
 ## What a card will look like
 
-This is the planned `v1alpha1` format. It isn't implemented yet.
+This is the `v1alpha1` format. `solaria validate` checks it; nothing deploys it yet.
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -48,11 +48,24 @@ spec:
 ```
 
 ```console
-$ solaria plan -e local-gitagent
-$ solaria apply -e ma-cloud
+$ solaria validate
+valid: 1 Agent, 2 Environments, 1 McpServer
+$ solaria plan -e local-gitagent      # planned
+$ solaria apply -e ma-cloud           # planned
 ```
 
 The same card, applied to two hosts, changes only the environment.
+
+For completion and checks in your editor, save the schema and point the YAML language server at it:
+
+```console
+$ solaria schema > solaria.schema.json
+```
+
+```yaml
+# yaml-language-server: $schema=./solaria.schema.json
+apiVersion: solaria.sh/v1alpha1
+```
 
 ## Roadmap
 

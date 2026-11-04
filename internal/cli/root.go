@@ -2,6 +2,9 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +24,21 @@ wherever it runs.`,
 		SilenceErrors: true,
 	}
 
-	root.AddCommand(newVersionCommand())
+	root.AddCommand(
+		newValidateCommand(),
+		newSchemaCommand(),
+		newVersionCommand(),
+	)
 
 	return root
+}
+
+// Main runs the solaria command with the process's arguments and returns
+// its exit code.
+func Main() int {
+	if err := NewRootCommand().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return 1
+	}
+	return 0
 }
