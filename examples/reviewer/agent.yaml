@@ -1,0 +1,33 @@
+# The reviewer agent and the MCP server it uses. Nothing here names a
+# host: environments.yaml decides where it runs.
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: reviewer
+  labels: {team: platform}
+spec:
+  description: Reviews a change in the current repository and flags risky edits
+  instructions: [instructions/role.md, instructions/rules.md]
+  model:
+    preferred: anthropic:claude-sonnet-5-5
+    effort: high
+  tools:
+    builtin: [shell, read]
+    mcp:
+      - ref: deepwiki
+        allowTools: [ask_question, read_wiki_contents]
+  skills: [skills/review-rubric]
+  limits: {maxTurns: 30, timeout: 10m}
+---
+# DeepWiki answers questions about public GitHub repositories, such as the
+# libraries a change depends on. It's a public remote server and needs no
+# credentials.
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata:
+  name: deepwiki
+spec:
+  description: Questions and answers about public GitHub repositories
+  remotes:
+    - type: streamable-http
+      url: https://mcp.deepwiki.com/mcp

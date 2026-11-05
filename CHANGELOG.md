@@ -22,3 +22,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - `managed-agents` provider (placements `cloud` and `self-hosted`): creates one Managed Agents environment per Solaria environment, uploads skills pinned by version, and creates or updates agents with version checks, logical IDs and digests in their metadata. On `self-hosted` it builds and runs a worker container on the Solaria sandbox base; the first apply stops with Console instructions for the environment key. Refresh detects agents and environments changed or archived outside Solaria, and destroy archives agents.
 - Environment-level host objects (ADR 0012): plans, state and `status` show an object the environment's agents share, such as the Managed Agents environment, as `Environment/<name>`.
 - `ma-cloud` and `ma-self-hosted` environments in `examples/hello`.
+- `examples/reviewer`: one agent deployed unchanged to gitagent, Managed Agents cloud and Managed Agents self-hosted.
+- Documentation: concepts, a card reference generated from the schema with `make schema`, and a page per provider.
+- Release tooling: GoReleaser builds binaries, checksums and SBOMs, a multi-platform image on GHCR and a Homebrew cask, with keyless cosign signatures; a tag starts the release workflow, which leaves a draft release to review.

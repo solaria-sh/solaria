@@ -1,0 +1,134 @@
+# Release configuration (ADR 0003). The release workflow runs it on a v*
+# tag; `make release-snapshot` runs it locally without publishing.
+version: 2
+
+project_name: solaria
+
+before:
+  hooks:
+    - go mod tidy -diff
+
+builds:
+  - id: solaria
+    main: ./cmd/solaria
+    binary: solaria
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/renantarouco/solaria/internal/version.Version={{ .Version }}
+      - -X github.com/renantarouco/solaria/internal/version.Commit={{ .FullCommit }}
+      - -X github.com/renantarouco/solaria/internal/version.Date={{ .CommitDate }}
+    # Reproducible: the same commit builds the same bytes.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: solaria
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - NOTICE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+# An SPDX SBOM for each archive, made with syft.
+sboms:
+  - artifacts: archive
+
+# Keyless signing: in the release workflow, cosign signs with the
+# workflow's GitHub OIDC identity, recorded in Sigstore's transparency log.
+# Verify with:
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/renantarouco/solaria/' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     checksums.txt
+signs:
+  - id: checksums
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--bundle=${signature}", "--yes", "${artifact}"]
+
+dockers_v2:
+  - id: solaria
+    ids: [solaria]
+    dockerfile: Dockerfile.release
+    images:
+      - ghcr.io/renantarouco/solaria
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: Plan and apply agent definitions across hosts
+      org.opencontainers.image.source: https://github.com/renantarouco/solaria
+      org.opencontainers.image.licenses: Apache-2.0
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .CommitDate }}"
+    sbom: true
+
+docker_signs:
+  - cmd: cosign
+    artifacts: manifests
+    args: ["sign", "--yes", "${artifact}@${digest}"]
+
+homebrew_casks:
+  - name: solaria
+    ids: [solaria]
+    homepage: https://github.com/renantarouco/solaria
+    description: Plan and apply agent definitions across hosts
+    license: Apache-2.0
+    repository:
+      owner: renantarouco
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: solaria-release
+      email: solaria-release@users.noreply.github.com
+    # Prereleases don't update the tap.
+    skip_upload: auto
+    hooks:
+      post:
+        # The binary isn't notarized, so macOS would quarantine it.
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/solaria"]
+          end
+
+release:
+  github:
+    owner: renantarouco
+    name: solaria
+  # A person reviews and publishes each release.
+  draft: true
+  prerelease: auto
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^build\\(deps\\):"
+
+snapshot:
+  # Docker tags can't hold "+", so no build metadata.
+  version_template: "{{ incpatch .Version }}-snapshot.{{ .ShortCommit }}"

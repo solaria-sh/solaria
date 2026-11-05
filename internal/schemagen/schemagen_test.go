@@ -3,6 +3,8 @@ package schemagen
 import (
 	"encoding/json"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -35,6 +37,20 @@ func TestCommittedSchemasAreCurrent(t *testing.T) {
 	slices.Sort(generated)
 	if !slices.Equal(generated, committed) {
 		t.Errorf("committed schema files %v, generated %v; run make schema and delete stale files", committed, generated)
+	}
+}
+
+// TestCommittedReferenceIsCurrent fails when the card reference wasn't
+// regenerated with the schema.
+func TestCommittedReferenceIsCurrent(t *testing.T) {
+	t.Chdir("../..")
+	want, err := Reference()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.FromSlash(ReferenceFile))
+	if err != nil || string(got) != string(want) {
+		t.Errorf("%s is out of date; run make schema", ReferenceFile)
 	}
 }
 

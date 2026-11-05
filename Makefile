@@ -1,5 +1,6 @@
 GOLANGCI_LINT_VERSION ?= v2.15.0
 GOVULNCHECK_VERSION   ?= v1.9.0
+GORELEASER_VERSION    ?= v2.20.0
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --verify --quiet HEAD)
@@ -13,8 +14,9 @@ LDFLAGS := -s -w \
 
 GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 GOVULNCHECK   := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+GORELEASER    ?= go run github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
-.PHONY: all build test lint fmt vuln tidy-check schema check-schema check clean
+.PHONY: all build test lint fmt vuln tidy-check schema check-schema check release-check release-snapshot clean
 
 all: check build
 
@@ -36,13 +38,19 @@ vuln: ## Check dependencies for known vulnerabilities
 tidy-check: ## Fail if go.mod or go.sum need tidying
 	go mod tidy -diff
 
-schema: ## Regenerate schemas/ from internal/api
+schema: ## Regenerate schemas/ and docs/reference.md from internal/api
 	go run ./internal/schemagen/cmd/schemagen
 
 check-schema: schema ## Fail if schemas/ is out of date
-	git diff --exit-code -- schemas/
+	git diff --exit-code -- schemas/ docs/reference.md
 
 check: tidy-check lint test vuln ## Everything CI runs (tests include the schema drift check)
+
+release-check: ## Validate .goreleaser.yaml
+	$(GORELEASER) check
+
+release-snapshot: ## Build a local release into dist/ without signing or publishing
+	$(GORELEASER) release --snapshot --clean --skip=sign
 
 clean:
 	rm -rf bin dist

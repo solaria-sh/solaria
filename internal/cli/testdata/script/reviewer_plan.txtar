@@ -1,0 +1,29 @@
+# examples/reviewer is the v0 success test: one card, three environments.
+# Only the environments differ, and none of these plans needs Docker, an
+# API key or the network.
+env ANTHROPIC_API_KEY=
+env ANTHROPIC_ENVIRONMENT_KEY=
+mkdir reviewer/instructions reviewer/skills/review-rubric
+cp $EXAMPLES/reviewer/agent.yaml $EXAMPLES/reviewer/environments.yaml reviewer
+cp $EXAMPLES/reviewer/instructions/role.md $EXAMPLES/reviewer/instructions/rules.md reviewer/instructions
+cp $EXAMPLES/reviewer/skills/review-rubric/SKILL.md reviewer/skills/review-rubric
+cd reviewer
+
+exec solaria validate
+stdout '^valid: 1 Agent, 3 Environments, 1 McpServer$'
+
+# Both Managed Agents placements deploy the same definition, so they share
+# a resolvedDigest. local-gitagent overrides the model, so its differs.
+exec solaria plan -e ma-cloud
+stdout '^  \+ Environment/ma-cloud$'
+stdout '^      resolvedDigest: sha256:ff171fe9c371$'
+stderr 'limits aren''t enforced on Managed Agents'
+
+exec solaria plan -e ma-self-hosted
+stdout '^      resolvedDigest: sha256:ff171fe9c371$'
+stdout 'note: the worker needs the environment''s key'
+
+exec solaria plan -e local-gitagent
+stdout '^      resolvedDigest: sha256:3b017ab6c64e$'
+stdout 'note: builds solaria/local-gitagent/reviewer:3b017ab6c64e'
+stderr 'model.effort is ignored'

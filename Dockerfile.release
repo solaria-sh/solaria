@@ -1,0 +1,9 @@
+# The ghcr.io/renantarouco/solaria image, built by GoReleaser from the
+# release binaries (see .goreleaser.yaml). It's meant for CI jobs that plan
+# and apply; providers that build images, such as gitagent, need a docker
+# CLI and engine, which this image doesn't have.
+FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/solaria /usr/bin/solaria
+WORKDIR /work
+ENTRYPOINT ["/usr/bin/solaria"]

@@ -4,7 +4,7 @@
 
 Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 
-> **Status: pre-alpha.** The architecture is recorded in [`docs/adr/`](docs/adr/). The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with the `stub` test provider and with `gitagent`, which builds each agent into a local container image. The Claude Managed Agents provider comes next. See the [roadmap](#roadmap).
+> **Status: pre-alpha.** The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with three providers: `stub` for tests, `gitagent` in a local container, and Claude Managed Agents in the cloud or with a self-hosted sandbox. The format may still change before 1.0. Start with the [concepts](docs/concepts.md), and see the [roadmap](#roadmap).
 
 ## Why
 
@@ -24,9 +24,9 @@ Solaria never runs the agent loop itself. Existing runtimes and platforms do tha
 
 Some hosts have their own declarative tooling, such as `ant apply` for Claude Managed Agents. Those tools cover one host each. Solaria's job is one neutral definition that keeps the same identity across all of them.
 
-## What a card will look like
+## What a card looks like
 
-This is the `v1alpha1` format.
+This is the `v1alpha1` format. Every field is in the [card reference](docs/reference.md).
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -102,6 +102,8 @@ $ solaria apply -e ma-cloud
 
 `ma-self-hosted` keeps the agent loop on Anthropic's side but runs its tools in a worker container on your machine. Its first `apply` creates the environment and stops, saying how to get the environment's key from the Claude Console. Store the key as `ANTHROPIC_ENVIRONMENT_KEY` and apply again to start the worker.
 
+[`examples/reviewer`](examples/reviewer) takes one agent through all three hosts.
+
 For completion and checks in your editor, save the schema and point the YAML language server at it:
 
 ```console
@@ -112,6 +114,10 @@ $ solaria schema > solaria.schema.json
 # yaml-language-server: $schema=./solaria.schema.json
 apiVersion: solaria.sh/v1alpha1
 ```
+
+## Documentation
+
+The [documentation](docs/README.md) covers the concepts, every card field, each provider, and the decisions behind them.
 
 ## Roadmap
 

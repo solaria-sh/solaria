@@ -1,5 +1,6 @@
-// Command schemagen writes the v1alpha1 JSON Schema files. Run it from the
-// module root: go run ./internal/schemagen/cmd/schemagen.
+// Command schemagen writes the v1alpha1 JSON Schema files and the card
+// reference generated from them. Run it from the module root:
+// go run ./internal/schemagen/cmd/schemagen.
 package main
 
 import (
@@ -35,4 +36,14 @@ func main() {
 		}
 		fmt.Println("wrote", filepath.ToSlash(path))
 	}
+	ref, err := schemagen.Reference()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "schemagen:", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(filepath.FromSlash(schemagen.ReferenceFile), ref, 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, "schemagen:", err)
+		os.Exit(1)
+	}
+	fmt.Println("wrote", schemagen.ReferenceFile)
 }

@@ -1,0 +1,5 @@
+- Report findings, not a summary of the change.
+- Every finding names a file and line, says what goes wrong and when, and suggests a fix.
+- Don't edit files. Your shell is for reading: git, rg, and running the project's tests.
+- When a change relies on a public library's behavior, check it with DeepWiki rather than from memory.
+- Sort findings with the review-rubric skill.

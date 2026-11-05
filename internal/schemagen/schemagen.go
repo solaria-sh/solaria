@@ -45,12 +45,18 @@ var kinds = []kindSchema{
 // Generate returns the schema files by name. It reads doc comments from the
 // Go sources, so it must run with the module root as working directory.
 func Generate() (map[string][]byte, error) {
+	out, _, err := generate()
+	return out, err
+}
+
+// generate returns the schema files and the combined schema they end with.
+func generate() (map[string][]byte, *jsonschema.Schema, error) {
 	out := make(map[string][]byte, len(kinds)+1)
 	perKind := make(map[string]*jsonschema.Schema, len(kinds))
 	for _, k := range kinds {
 		r, err := newReflector()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		file := schemas.File(k.kind)
 		s := r.Reflect(k.typ)
@@ -59,21 +65,21 @@ func Generate() (map[string][]byte, error) {
 		extend(s, k.kind)
 		b, err := encode(s)
 		if err != nil {
-			return nil, fmt.Errorf("encode %s: %w", file, err)
+			return nil, nil, fmt.Errorf("encode %s: %w", file, err)
 		}
 		out[file] = b
 		perKind[k.kind] = s
 	}
 	c, err := combined(perKind)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	b, err := encode(c)
 	if err != nil {
-		return nil, fmt.Errorf("encode %s: %w", schemas.CombinedFile, err)
+		return nil, nil, fmt.Errorf("encode %s: %w", schemas.CombinedFile, err)
 	}
 	out[schemas.CombinedFile] = b
-	return out, nil
+	return out, c, nil
 }
 
 // tidyComment unwraps a doc comment onto one line and, for type comments,
