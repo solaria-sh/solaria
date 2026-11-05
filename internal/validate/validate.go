@@ -168,7 +168,7 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 				warnf(r.Pos("spec", "sandbox", "network", "packageManagers"), "spec.sandbox.network.packageManagers is ignored when mode is unrestricted")
 			}
 		}
-		if looksLikePath(sb.Image) {
+		if v1alpha1.IsDockerfilePath(sb.Image) {
 			if err := regularFile(r.Dir(), sb.Image); err != nil {
 				errorf(r.Pos("spec", "sandbox", "image"), "spec.sandbox.image: %v", err)
 			}
@@ -187,17 +187,6 @@ func passthrough(r *config.Resource, providers map[string]map[string]any, path .
 			"%s.%s: fields for one provider make %s less portable", field, name, r.ID()))
 	}
 	return diags
-}
-
-// looksLikePath tells a Dockerfile path from an image reference such as
-// ghcr.io/org/image:tag.
-func looksLikePath(s string) bool {
-	if s == "" {
-		return false
-	}
-	base := strings.ToLower(filepath.Base(s))
-	return strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") || filepath.IsAbs(s) ||
-		base == "dockerfile" || strings.HasSuffix(base, ".dockerfile")
 }
 
 func regularFile(dir, rel string) error {

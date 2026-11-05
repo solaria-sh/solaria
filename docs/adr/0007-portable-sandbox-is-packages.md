@@ -52,6 +52,18 @@ The card's `packages` are installed on top, with the same 8 GB / 10 GB caps. A b
 | `resources` | not configurable (fixed limits); a value above them fails plan, others are ignored with a note |
 | `network` omitted | sent explicitly as `limited` with no extra hosts, never left to the host's `unrestricted` default |
 
+**As implemented in M5** (`internal/providers/gitagent`):
+
+- **No published base image yet.** The base is a stage of the generated Dockerfile, so Docker's layer cache shares it across agents, and nothing has to be published first.
+- **Pinned inputs:**
+  - `ubuntu:noble-<date>`;
+  - Node 24, copied from the official `node` image (Ubuntu 24.04's apt has Node 18);
+  - Python 3.12, GCC 13, OpenJDK 21, Go, Rust, Ruby and PHP from apt;
+  - `uv`, so PyPI MCP servers run with `uvx`.
+- **Packages** install in exec form: names are arguments, never shell text, and a name starting with `-` fails plan.
+- **Not enforced:** Docker can't enforce `network.allow` host lists or `resources.disk`, so plan warns about them. `resources.memory` becomes `docker run --memory`, defaulting to 8 GiB.
+- **`image`:** a reference is used as the base. A Dockerfile is built first, tagged `solaria/<env>/<agent>-sandbox:<digest>`, and the generated Dockerfile starts from it. The environment's packages go on top in both cases.
+
 ### Consequences
 
 - Good, because one package list produces both the cloud environment and the local image.
@@ -70,3 +82,4 @@ Golden tests cover Dockerfile generation, and capability tests confirm `cloud` r
 - [Managed Agents: cloud sandbox reference](https://platform.claude.com/docs/en/managed-agents/cloud-sandboxes-reference)
 - Spikes: [gitagent v3](../spikes/2026-11-gitagent-v3.md), [Managed Agents API](../spikes/2026-11-managed-agents-api.md)
 - Revised 2026-11-04 after the M1 spikes: Ubuntu 24.04 base, sandbox base image, mapping table.
+- Revised in M5: how the base image is built.

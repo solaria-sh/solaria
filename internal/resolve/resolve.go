@@ -35,6 +35,14 @@ type Agent struct {
 	Placement   string
 	// Env is the environment's own spec: sandbox, secrets, telemetry.
 	Env *v1alpha1.EnvironmentSpec
+	// EnvDir is the folder of the environment's file, which relative paths
+	// in Env (sandbox.image, secrets.path) start from.
+	EnvDir string
+	// SkillDirs maps each skill's name to its folder, for providers that
+	// copy skills to the host. The files to copy are the keys of
+	// Definition.Skills[name].Files; read them with ReadText so they match
+	// the digest.
+	SkillDirs map[string]string
 	// Definition is the agent after overrides: what actually runs.
 	Definition Definition
 	// SpecDigest identifies the agent as written, before overrides. It is
@@ -84,7 +92,7 @@ func Selected(env *v1alpha1.EnvironmentSpec, a *v1alpha1.Agent) bool {
 }
 
 func agent(set *config.Set, r *config.Resource, env *v1alpha1.Environment) (Agent, error) {
-	spec, err := definition(set, r)
+	spec, skillDirs, err := definition(set, r)
 	if err != nil {
 		return Agent{}, err
 	}
@@ -109,6 +117,8 @@ func agent(set *config.Set, r *config.Resource, env *v1alpha1.Environment) (Agen
 		Provider:       env.Spec.Provider,
 		Placement:      env.Spec.Placement,
 		Env:            &env.Spec,
+		EnvDir:         filepath.Dir(set.Lookup(v1alpha1.KindEnvironment, env.Metadata.Name).File),
+		SkillDirs:      skillDirs,
 		Definition:     resolved,
 		SpecDigest:     specDigest,
 		ResolvedDigest: resolvedDigest,
@@ -116,7 +126,7 @@ func agent(set *config.Set, r *config.Resource, env *v1alpha1.Environment) (Agen
 }
 
 // definition builds the normalized definition of an agent as written.
-func definition(set *config.Set, r *config.Resource) (Definition, error) {
+func definition(set *config.Set, r *config.Resource) (Definition, map[string]string, error) {
 	s := r.Agent().Spec
 	d := Definition{
 		Format:       Format,
@@ -136,7 +146,7 @@ func definition(set *config.Set, r *config.Resource) (Definition, error) {
 	for _, path := range s.Instructions {
 		b, err := os.ReadFile(filepath.Join(r.Dir(), filepath.FromSlash(path)))
 		if err != nil {
-			return Definition{}, fmt.Errorf("read instructions %s: %w", path, err)
+			return Definition{}, nil, fmt.Errorf("read instructions %s: %w", path, err)
 		}
 		d.Instructions = append(d.Instructions, string(normalizeText(b)))
 	}
@@ -149,7 +159,7 @@ func definition(set *config.Set, r *config.Resource) (Definition, error) {
 		for _, ref := range t.MCP {
 			srv := set.Lookup(v1alpha1.KindMcpServer, ref.Ref)
 			if srv == nil {
-				return Definition{}, fmt.Errorf("no McpServer named %q", ref.Ref)
+				return Definition{}, nil, fmt.Errorf("no McpServer named %q", ref.Ref)
 			}
 			m := MCPServer{Spec: srv.McpServer().Spec}
 			if ref.AllowTools != nil {
@@ -159,14 +169,16 @@ func definition(set *config.Set, r *config.Resource) (Definition, error) {
 		}
 	}
 
+	skillDirs := map[string]string{}
 	for _, path := range s.Skills {
 		folder := filepath.Join(r.Dir(), filepath.FromSlash(path))
 		sk, err := skill(folder)
 		if err != nil {
-			return Definition{}, fmt.Errorf("read skill %s: %w", path, err)
+			return Definition{}, nil, fmt.Errorf("read skill %s: %w", path, err)
 		}
 		// validate guarantees the skill's name matches its folder.
 		d.Skills[filepath.Base(folder)] = sk
+		skillDirs[filepath.Base(folder)] = folder
 	}
 
 	if p := s.Permissions; p != nil {
@@ -175,14 +187,14 @@ func definition(set *config.Set, r *config.Resource) (Definition, error) {
 	if l := s.Limits; l != nil {
 		lim, err := limits(Limits{}, l)
 		if err != nil {
-			return Definition{}, err
+			return Definition{}, nil, err
 		}
 		d.Limits = lim
 	}
 	for name, fields := range s.Providers {
 		d.Providers[name] = mergePatch(nil, fields).(map[string]any)
 	}
-	return d, nil
+	return d, skillDirs, nil
 }
 
 // override applies an environment's override to a definition, returning a
@@ -299,6 +311,16 @@ func skill(folder string) (Skill, error) {
 		return Skill{}, err
 	}
 	return Skill{Files: files}, nil
+}
+
+// ReadText reads a file the way digests see it: with CRLF line endings
+// turned into LF, unless the file is binary.
+func ReadText(path string) ([]byte, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeText(b), nil
 }
 
 // normalizeText turns CRLF line endings into LF in text, so a checkout on

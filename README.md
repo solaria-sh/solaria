@@ -4,7 +4,7 @@
 
 Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 
-> **Status: pre-alpha.** The architecture is recorded in [`docs/adr/`](docs/adr/). The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with the `stub` provider; the gitagent and Claude Managed Agents providers come next. See the [roadmap](#roadmap).
+> **Status: pre-alpha.** The architecture is recorded in [`docs/adr/`](docs/adr/). The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with the `stub` test provider and with `gitagent`, which builds each agent into a local container image. The Claude Managed Agents provider comes next. See the [roadmap](#roadmap).
 
 ## Why
 
@@ -73,6 +73,15 @@ Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.
 $ solaria apply -e local
 $ solaria status
 $ solaria destroy -e local
+```
+
+The same agent, in its `local-gitagent` environment, becomes a [gitagent](https://github.com/open-gitagent/gitagent) container image. Its digest is the same, because only the environment differs. This needs Docker, and the first build takes several minutes. `apply` prints the command that runs the image, and the task goes after it:
+
+```console
+$ solaria apply -e local-gitagent
+$ export ANTHROPIC_API_KEY=...
+$ docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace \
+    --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158 -p "Say hello."
 ```
 
 For completion and checks in your editor, save the schema and point the YAML language server at it:

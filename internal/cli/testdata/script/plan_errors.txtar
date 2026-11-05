@@ -3,7 +3,7 @@
 stderr '^Error: no Environment named "nowhere"$'
 
 ! exec solaria plan -e unknown-provider
-stderr '^Error: unknown provider "nowhere"; this build has stub$'
+stderr '^Error: unknown provider "nowhere"; this build has gitagent, stub$'
 
 ! exec solaria plan -e unknown-placement
 stderr '^Error: provider stub has no placement "cloud"; it has \[file\]$'

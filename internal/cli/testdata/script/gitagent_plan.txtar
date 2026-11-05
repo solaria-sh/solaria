@@ -1,0 +1,58 @@
+# Planning for gitagent needs no Docker: plan only reads state, and there is
+# none yet. The agent gets the same digest it has on the stub provider.
+mkdir hello
+cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md hello
+cd hello
+exec solaria plan -e local-gitagent
+cmp stdout ../plan.txt
+! stderr .
+exec solaria plan -e local
+stdout 'resolvedDigest: sha256:08ffaed7b158'
+
+# What gitagent can't express fails the plan, before any host call.
+cd ../mixed
+! exec solaria plan -e local-gitagent
+stderr 'error: Agent/hello on gitagent/docker: gitagent can narrow MCP tools only when every McpServer ref lists allowTools: docs list them and notes don''t'
+stderr 'warning: Agent/hello on gitagent/docker: web_search isn''t available on gitagent; the agent runs without it'
+! stdout .
+
+-- plan.txt --
+Environment local-gitagent (gitagent/docker)
+
+  + Agent/hello
+      resolvedDigest: sha256:08ffaed7b158
+      note: builds solaria/local-gitagent/hello:08ffaed7b158 for linux/amd64; the first build compiles gitagent and the sandbox base, which takes several minutes
+
+Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.
+-- mixed/instructions.md --
+Say hello.
+-- mixed/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: hello}
+spec:
+  instructions: [instructions.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  tools:
+    builtin: [read, web_search]
+    mcp: [{ref: docs, allowTools: [search]}, {ref: notes}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: docs}
+spec:
+  remotes: [{type: streamable-http, url: "https://docs.example.com/mcp"}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: notes}
+spec:
+  remotes: [{type: streamable-http, url: "https://notes.example.com/mcp"}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec:
+  provider: gitagent
+  placement: docker
+  sandbox: {network: {mode: unrestricted}}

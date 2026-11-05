@@ -1,5 +1,10 @@
 package v1alpha1
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 // ObjectMeta identifies a resource.
 type ObjectMeta struct {
 	// Unique name per kind. Lowercase letters, digits and
@@ -162,6 +167,22 @@ type EnvironmentSpec struct {
 	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
 	// Changes to agents in this environment only, keyed by agent name.
 	Overrides map[string]AgentOverride `json:"overrides,omitempty"`
+	// Settings for the environment's provider, keyed by provider name, such
+	// as the platform gitagent builds images for. Each provider documents
+	// its own settings. They describe the host, not the agents, so they
+	// aren't part of any agent's digest.
+	Providers map[string]map[string]any `json:"providers,omitempty"`
+}
+
+// IsDockerfilePath tells a Dockerfile path in sandbox.image from an image
+// reference such as ghcr.io/org/image:tag.
+func IsDockerfilePath(image string) bool {
+	if image == "" {
+		return false
+	}
+	base := strings.ToLower(filepath.Base(image))
+	return strings.HasPrefix(image, "./") || strings.HasPrefix(image, "../") || filepath.IsAbs(image) ||
+		base == "dockerfile" || strings.HasSuffix(base, ".dockerfile")
 }
 
 // AgentSelection selects agents.

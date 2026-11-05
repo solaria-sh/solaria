@@ -17,3 +17,5 @@ All notable changes to this project are documented here. The format follows [Kee
 - Local state per environment (`.solaria/state/<env>.json`) with lineage, serial, history, lock files and stale-write protection.
 - `solaria plan`, `apply`, `status`, `destroy` and `force-unlock`. Plans check provider capabilities before any host call, refresh to detect drift and deleted objects, and show field-level changes and digests. `plan --detailed-exitcode` for CI.
 - `stub` provider, which keeps host objects in files, and `examples/hello`.
+- `gitagent` provider (placement `docker`): renders the card into gitagent's config layer, generates a Dockerfile from the environment's sandbox on a cloud-like Ubuntu 24.04 base, builds `solaria/<env>/<agent>:<digest>` with the docker CLI, and records a ready `docker run` command. Plans rebuild when the sandbox changes, and refresh detects images rebuilt or removed outside Solaria.
+- Environment `providers.<name>` for host settings, such as `providers.gitagent.platform`.

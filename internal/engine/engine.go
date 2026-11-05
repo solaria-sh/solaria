@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 	"time"
@@ -29,6 +30,8 @@ type Engine struct {
 	NewProvider func(name string, opts provider.Options) (provider.Provider, error)
 	// WorkDir is the project directory, passed to providers.
 	WorkDir string
+	// Log receives providers' progress output. Nil means discard.
+	Log io.Writer
 	// Source and Who are recorded with every applied entry.
 	Source state.Source
 	Who    string
@@ -336,7 +339,7 @@ func (e *Engine) provider(plan *Plan, name string) (provider.Provider, error) {
 	if p, ok := plan.providers[name]; ok {
 		return p, nil
 	}
-	p, err := e.NewProvider(name, provider.Options{Environment: plan.Environment, WorkDir: e.WorkDir})
+	p, err := e.NewProvider(name, provider.Options{Environment: plan.Environment, WorkDir: e.WorkDir, Log: e.Log})
 	if err != nil {
 		return nil, err
 	}

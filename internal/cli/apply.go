@@ -32,7 +32,7 @@ apply would create, update, replace or delete. It changes nothing.`,
 			if err != nil {
 				return err
 			}
-			plan, err := makePlan(cmd, newEngine(set, &f), f.env, engine.PlanOptions{Refresh: refresh, Destroy: destroy})
+			plan, err := makePlan(cmd, newEngine(cmd, set, &f), f.env, engine.PlanOptions{Refresh: refresh, Destroy: destroy})
 			if err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ It holds the environment's lock throughout and records the result in state.`,
 			if err != nil {
 				return err
 			}
-			return run(cmd, newEngine(set, &f), f.env, "apply", engine.PlanOptions{Refresh: refresh}, autoApprove)
+			return run(cmd, newEngine(cmd, set, &f), f.env, "apply", engine.PlanOptions{Refresh: refresh}, autoApprove)
 		},
 	}
 	f.register(cmd, true)
@@ -93,7 +93,7 @@ environment was removed from the configuration.`,
 			if err != nil {
 				return err
 			}
-			return run(cmd, newEngine(set, &f), f.env, "destroy", engine.PlanOptions{Refresh: true, Destroy: true}, autoApprove)
+			return run(cmd, newEngine(cmd, set, &f), f.env, "destroy", engine.PlanOptions{Refresh: true, Destroy: true}, autoApprove)
 		},
 	}
 	f.register(cmd, true)
@@ -191,6 +191,10 @@ func summary(w io.Writer, operation string, plan *engine.Plan, applyErr error) {
 				fmt.Fprintf(&b, " version %s", e.Binding.Version)
 			}
 			fmt.Fprintf(&b, " (%s)\n", provider.ShortDigest(e.ResolvedDigest))
+			// A provider's run output is how to start the agent.
+			if run := e.Binding.Outputs["run"]; run != "" {
+				fmt.Fprintf(&b, "    run: %s\n", run)
+			}
 		}
 	}
 	_, _ = io.WriteString(w, b.String())

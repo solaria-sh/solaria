@@ -1,2 +1,4 @@
 # Generated schemas and test scripts are compared byte for byte.
 * text=auto eol=lf
+# This fixture tests CRLF handling, so it keeps its line endings.
+internal/providers/gitagent/testdata/full/role.md -text

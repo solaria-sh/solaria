@@ -98,7 +98,10 @@ Golden tests, in `internal/resolve`, check that:
 
 The golden files pin the digests themselves, so an accidental format change fails the build.
 
+**What the digests don't cover.** The environment's sandbox, secrets and telemetry are left out, so the same agent has the same digest everywhere. A host still needs to notice when they change. Providers do that with digests of their own, kept in the binding's outputs. For example, gitagent keeps one each for the sandbox, the generated image and the run command. A provider plans an update when one of them moves, even though the agent's digests stay the same.
+
 ## More information
 
 - [RFC 8785: JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
 - [OTel GenAI attributes](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/registry/attributes/gen-ai.md)
+- Revised in M5: how providers track environment changes the digests leave out.

@@ -76,6 +76,8 @@ Reusable kinds come in two sorts:
 
 `spec.providers.<name>` holds raw fields that are passed unchanged to one provider, for example Managed Agents' `inference_geo`. Without it, cards could only use features every host supports. `validate` reports cards that use passthrough, so lost portability is never silent.
 
+An Environment has its own `spec.providers.<name>` for **host settings**, such as the platform gitagent builds for. They describe where agents run, not the agents, so they're not part of any digest, and `validate` doesn't report them: an environment is host-specific by nature. Each provider checks its own settings at plan time.
+
 ### Consequences
 
 - Good, because instructions, skills and tools reuse AGENTS.md, Agent Skills and MCP instead of inventing formats.
@@ -90,3 +92,4 @@ Reusable kinds come in two sorts:
 
 - [AGENTS.md](https://agents.md/), [Agent Skills](https://agentskills.io), [MCP](https://modelcontextprotocol.io)
 - [Managed Agents: agent setup](https://platform.claude.com/docs/en/managed-agents/agent-setup)
+- Revised in M5: Environment `providers` for host settings.

@@ -29,7 +29,7 @@ To update expected output after an intended change, run `go test ./... -update` 
 - `internal/diag/`: diagnostics shared by all of the above.
 - `internal/resolve/`: applies environment overrides and references, reads instruction and skill files, and builds the `Definition` that providers render and digests hash.
 - `internal/digest/`: RFC 8785 canonical JSON and SHA-256.
-- `internal/provider/`: the provider interface, plans and field diffs. `internal/providers/<name>/` holds the implementations; `internal/providers/stub/` is the file-backed test provider used by examples and end-to-end tests.
+- `internal/provider/`: the provider interface, plans and field diffs. `internal/providers/<name>/` holds the implementations; `internal/providers/stub/` is the file-backed test provider used by examples and end-to-end tests. `internal/providers/gitagent/` builds container images; its golden files are in `testdata/*.golden` (`go test ./internal/providers/gitagent -update`), and `SOLARIA_IT_DOCKER=1` runs its integration test against real Docker.
 - `internal/engine/`: refresh, plan, capability checks, apply and plan rendering. `internal/state/`: the state format and the local backend with its lock.
 - `examples/`: runnable projects. `examples/hello` uses the stub provider and is copied into the end-to-end scripts.
 - `docs/adr/`: architecture decisions. `docs/spikes/`: research notes that feed them.

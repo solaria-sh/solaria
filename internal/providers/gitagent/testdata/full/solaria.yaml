@@ -1,0 +1,58 @@
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec:
+  description: Reviews pull requests.
+  instructions: [role.md, rules.md]
+  model:
+    preferred: anthropic:claude-sonnet-5-5
+    fallback: [openai:gpt-6-astra]
+  tools:
+    builtin: [shell, read, edit, grep]
+    mcp:
+      - {ref: github, allowTools: [create_issue, get_pull_request]}
+      - {ref: docs, allowTools: [search]}
+  skills: [skills/triage]
+  permissions: {ask: [shell, github/create_issue]}
+  limits: {maxTurns: 40, timeout: 15m}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: github}
+spec:
+  packages:
+    - registryType: npm
+      identifier: "@modelcontextprotocol/server-github"
+      version: "2025.4.8"
+      transport: {type: stdio}
+      packageArguments: [{type: named, name: --toolsets, value: issues}]
+      environmentVariables: [{name: GITHUB_PERSONAL_ACCESS_TOKEN, secretRef: GITHUB_TOKEN}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: docs}
+spec:
+  packages: [{registryType: pypi, identifier: docs-mcp, version: "1.2.0", transport: {type: stdio}}]
+  remotes:
+    - type: sse
+      url: https://docs.example.com/sse
+    - type: streamable-http
+      url: https://docs.example.com/mcp
+      headers: [{name: Authorization, secretRef: DOCS_TOKEN}, {name: X-Team, value: platform}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec:
+  provider: gitagent
+  placement: docker
+  sandbox:
+    packages: {apt: [jq, "ripgrep=14.1.0-1"], pip: [ruff==0.9.0], go: [golang.org/x/tools/cmd/goimports@v0.30.0]}
+    network: {mode: unrestricted}
+    resources: {memory: 4Gi}
+  secrets: {source: dotenv}
+  telemetry:
+    endpoint: http://host.docker.internal:4318
+    headers: [{name: x-tenant, value: acme}]
+  providers:
+    gitagent: {platform: linux/arm64}

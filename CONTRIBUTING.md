@@ -23,7 +23,11 @@ make test
 
 After changing a resource type, run `make schema` and commit the result; the tests fail otherwise. After an intended change to CLI output, run `go test ./internal/cli -update` and review the diff.
 
-Unit tests never touch the network or real hosts. Integration tests that do are opt-in through environment variables, documented next to each test.
+Unit tests never touch the network or real hosts. Integration tests that do are opt-in through environment variables, documented next to each test:
+
+```console
+$ SOLARIA_IT_DOCKER=1 go test ./internal/providers/gitagent -run Integration -v -timeout 50m
+```
 
 ## Making changes
 

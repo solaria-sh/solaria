@@ -1,0 +1,29 @@
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: helper}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5, effort: low}
+  tools:
+    builtin: [read, write, web_fetch, glob]
+    mcp: [{ref: notes}]
+  permissions: {ask: [write]}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: notes}
+spec:
+  remotes: [{type: streamable-http, url: "https://notes.example.com/mcp"}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev}
+spec:
+  provider: gitagent
+  placement: docker
+  sandbox:
+    image: ./sandbox.Dockerfile
+    resources: {disk: 10Gi}
+  telemetry: {endpoint: "http://localhost:4318"}
+  providers:
+    gitagent: {colour: blue}

@@ -89,6 +89,26 @@ The engine checks these at plan time, before any host call. `Import` follows lat
 - **Engine-level replace:** when an agent's environment moves to another provider or placement, the engine plans a replace. It destroys the object with the old provider, then applies with the new one.
 - **Test provider `stub`:** its placement `file` keeps host objects as JSON files under `.solaria/stub/`. It's the null provider of the plan, renamed because YAML reads an unquoted `null` as no value.
 
+**`gitagent` as implemented in M5** (`internal/providers/gitagent`). It refines the spike's plan in these ways:
+
+- **Instructions go to `prompts/rules.md`, not `prompts/system.md`.** gitagent's own system prompt explains its tools and how to finish a task (`task_complete`). Replacing it would break unattended runs, so the card's instructions follow it.
+- **Tool lists:**
+  - gitagent matches tool names exactly, and MCP tools are named `<server>__<tool>`, which aren't known before connecting.
+  - When every MCP ref lists `allowTools`, the entrypoint gets `--allowed-tools`.
+  - When none do, it gets `--disallowed-tools` for the built-ins the card leaves out.
+  - A mix can't be expressed, so plan fails.
+  - Tools under `permissions.ask` are removed or denied.
+  - `glob`, `grep`, `web_fetch` and `web_search` have no gitagent tool, so plan warns.
+- **Secrets:** a `secretRef` becomes `${NAME}` in `gitagent.yaml`, without the `SOLARIA_SECRET_` prefix the spike suggested. The run command then passes the same names that are in the secret source: `--env NAME` for `env`, `--env-file` for `dotenv`.
+- **MCP transport:** a remote is used when the server has one, so the agent talks to the same server it would on a cloud host. Otherwise `npx`/`uvx` runs the package.
+- **Images:**
+  - `solaria/<env>/<agent>:<resolvedDigest[:12]>`, with the environment in the name, so two environments never share a tag.
+  - The host ID is the repository and the version is the image ID, so a rebuild or retag outside Solaria is drift.
+  - The previous tag is removed after a successful build.
+- **Platform:** `linux/amd64` by default, as in the cloud sandbox; `providers.gitagent.platform: linux/arm64` builds natively on Arm machines. gitagent compiles on the build machine's own architecture and cross-compiles when the target differs, so an amd64 image on an Arm Mac doesn't compile Rust under emulation.
+- **The image runs as root** with `HOME=/root`, as verified in the spike. A non-root user with the caller's UID comes later.
+- **Apply prints the run command:** `docker run … <image>`, followed by `-p "<task>"`. It mounts the current folder as `/workspace` and names API keys and secrets without their values. The build context stays under `.solaria/gitagent/<env>/<agent>/` for inspection.
+
 ### Consequences
 
 - Good, because the same card can run under several runtimes on one machine for comparison.
@@ -106,3 +126,4 @@ Every provider has capability tests, and golden tests of what it sends to its ho
 - [gitagent](https://github.com/open-gitagent/gitagent)
 - Revised 2026-11-04 after the M1 spikes: gitagent rendering, Go SDK worker. The `managed-agents` implementation approach is in ADR 0011.
 - Revised in M4: the interface as implemented, and the `stub` test provider.
+- Revised in M5: `gitagent` as implemented.

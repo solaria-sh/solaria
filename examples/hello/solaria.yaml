@@ -1,12 +1,19 @@
-# The smallest Solaria project: one agent, deployed with the stub provider,
-# which writes "host objects" to files under .solaria/stub/. It needs no
-# credentials, so it's the place to try plan and apply.
+# The smallest Solaria project: one agent and two environments.
+#
+# local uses the stub provider, which writes "host objects" to files under
+# .solaria/stub/. It needs no credentials, so it's the place to try plan
+# and apply:
 #
 #   solaria validate
 #   solaria plan -e local
 #   solaria apply -e local
 #   solaria status
 #   solaria destroy -e local
+#
+# local-gitagent builds the same agent into a gitagent container image with
+# the local docker CLI. Planning needs nothing; apply needs Docker, and the
+# first build takes several minutes. Running the image needs
+# ANTHROPIC_API_KEY: apply prints the docker run command.
 apiVersion: solaria.sh/v1alpha1
 kind: Agent
 metadata:
@@ -27,3 +34,13 @@ metadata:
 spec:
   provider: stub
   placement: file
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: local-gitagent
+spec:
+  provider: gitagent
+  placement: docker
+  sandbox:
+    network: {mode: unrestricted}

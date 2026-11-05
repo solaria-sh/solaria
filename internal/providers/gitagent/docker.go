@@ -1,0 +1,123 @@
+package gitagent
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"maps"
+	"os/exec"
+	"slices"
+	"strings"
+)
+
+// Docker is the part of the docker CLI the provider uses. Tests replace it.
+type Docker interface {
+	// Build builds an image, writing progress to log.
+	Build(ctx context.Context, req BuildRequest, log io.Writer) error
+	// Inspect returns the image a reference points to, or nil when there
+	// is none.
+	Inspect(ctx context.Context, ref string) (*Image, error)
+	// Remove removes an image reference. A reference that doesn't exist
+	// isn't an error.
+	Remove(ctx context.Context, ref string) error
+}
+
+// BuildRequest is one docker build.
+type BuildRequest struct {
+	// Context is the build context folder.
+	Context string
+	// Dockerfile is the Dockerfile's path.
+	Dockerfile string
+	Tag        string
+	Platform   string
+	Labels     map[string]string
+}
+
+// Image is what Inspect reports.
+type Image struct {
+	ID     string
+	Labels map[string]string
+}
+
+// CLI runs the docker command found on PATH. Docker-compatible CLIs with
+// BuildKit (OrbStack, Colima, Podman's docker alias) work as well.
+type CLI struct {
+	// Command is the program to run. Empty means docker.
+	Command string
+}
+
+func (c CLI) command() string {
+	if c.Command == "" {
+		return "docker"
+	}
+	return c.Command
+}
+
+// Build runs docker build.
+func (c CLI) Build(ctx context.Context, req BuildRequest, log io.Writer) error {
+	args := []string{"build", "--progress", "plain", "--platform", req.Platform, "--tag", req.Tag, "--file", req.Dockerfile}
+	for _, k := range slices.Sorted(maps.Keys(req.Labels)) {
+		args = append(args, "--label", k+"="+req.Labels[k])
+	}
+	args = append(args, req.Context)
+	cmd := exec.CommandContext(ctx, c.command(), args...)
+	cmd.Stdout = log
+	cmd.Stderr = log
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker build of %s: %w (the build output above says why)", req.Tag, c.explain(err))
+	}
+	return nil
+}
+
+// Inspect runs docker image inspect.
+func (c CLI) Inspect(ctx context.Context, ref string) (*Image, error) {
+	out, stderr, err := c.run(ctx, "image", "inspect", "--format", "{{json .}}", ref)
+	if err != nil {
+		if notFound(stderr) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("docker image inspect %s: %w: %s", ref, c.explain(err), strings.TrimSpace(stderr))
+	}
+	var v struct {
+		ID     string `json:"Id"`
+		Config struct {
+			Labels map[string]string `json:"Labels"`
+		} `json:"Config"`
+	}
+	if err := json.Unmarshal(out, &v); err != nil {
+		return nil, fmt.Errorf("docker image inspect %s: %w", ref, err)
+	}
+	return &Image{ID: v.ID, Labels: v.Config.Labels}, nil
+}
+
+// Remove runs docker image rm.
+func (c CLI) Remove(ctx context.Context, ref string) error {
+	_, stderr, err := c.run(ctx, "image", "rm", ref)
+	if err != nil && !notFound(stderr) {
+		return fmt.Errorf("docker image rm %s: %w: %s", ref, c.explain(err), strings.TrimSpace(stderr))
+	}
+	return nil
+}
+
+func (c CLI) run(ctx context.Context, args ...string) (stdout []byte, stderr string, err error) {
+	var errb bytes.Buffer
+	cmd := exec.CommandContext(ctx, c.command(), args...)
+	cmd.Stderr = &errb
+	out, err := cmd.Output()
+	return out, errb.String(), err
+}
+
+// explain turns a missing docker binary into advice.
+func (c CLI) explain(err error) error {
+	if _, ok := err.(*exec.Error); ok { //nolint:errorlint // exec.Error is returned unwrapped
+		return fmt.Errorf("the gitagent provider needs the %s CLI, and it isn't on PATH: %w", c.command(), err)
+	}
+	return err
+}
+
+func notFound(stderr string) bool {
+	s := strings.ToLower(stderr)
+	return strings.Contains(s, "no such image") || strings.Contains(s, "image not known")
+}

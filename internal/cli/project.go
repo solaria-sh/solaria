@@ -66,8 +66,9 @@ func printDiagnostics(w io.Writer, diags diag.List) error {
 	return nil
 }
 
-func newEngine(set *config.Set, f *projectFlags) *engine.Engine {
+func newEngine(cmd *cobra.Command, set *config.Set, f *projectFlags) *engine.Engine {
 	return &engine.Engine{
+		Log:         cmd.ErrOrStderr(),
 		Set:         set,
 		Backend:     &state.Local{Dir: f.stateDir},
 		NewProvider: providers.New,

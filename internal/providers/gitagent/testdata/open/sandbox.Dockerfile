@@ -1,0 +1,2 @@
+FROM ubuntu:noble-20261024.1
+RUN apt-get update && apt-get install -y nodejs

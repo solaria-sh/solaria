@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"io"
 
 	"github.com/renantarouco/solaria/internal/diag"
 	"github.com/renantarouco/solaria/internal/resolve"
@@ -45,6 +46,9 @@ type Options struct {
 	Environment string
 	// WorkDir is the project directory, for providers that keep files.
 	WorkDir string
+	// Log receives progress from long operations, such as image builds.
+	// Nil means discard.
+	Log io.Writer
 }
 
 // Factory creates a provider.
