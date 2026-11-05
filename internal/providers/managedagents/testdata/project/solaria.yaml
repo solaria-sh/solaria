@@ -1,0 +1,49 @@
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec:
+  description: Reviews pull requests.
+  instructions: [role.md]
+  model:
+    preferred: anthropic:claude-sonnet-5-5
+    effort: high
+  tools:
+    builtin: [shell, read, grep, web_fetch]
+    mcp:
+      - {ref: docs, allowTools: [search]}
+  skills: [skills/triage]
+  permissions: {ask: [shell]}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: docs}
+spec:
+  remotes:
+    - type: sse
+      url: https://docs.example.com/sse
+    - type: streamable-http
+      url: https://docs.example.com/mcp
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec:
+  provider: managed-agents
+  placement: cloud
+  sandbox:
+    packages: {pip: [ruff==0.9.0]}
+    network: {mode: limited, allow: [pypi.org], packageManagers: true}
+  providers:
+    managed-agents: {namePrefix: solaria-test-}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-self-hosted}
+spec:
+  provider: managed-agents
+  placement: self-hosted
+  sandbox:
+    packages: {apt: [jq]}
+    resources: {memory: 4Gi}
+  providers:
+    managed-agents: {environmentKeySecret: SOLARIA_TEST_ENVIRONMENT_KEY}

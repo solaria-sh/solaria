@@ -33,15 +33,17 @@ What we take from `ant apply`:
 
 `solaria export --format ant` may come later, for teams that want to hand a project over to `ant apply`.
 
+**As implemented in M6:** the provider uses the SDK's typed request params rather than raw JSON, so an SDK update that renames a field fails to compile instead of failing at apply. Drift needs no normalization: the agent's version and the environment's `updated_at` change with every change on the host. Rollback works as ADR 0009 describes: old content becomes a new version. Details are in ADR 0006, and the shared environment in ADR 0012.
+
 ### Consequences
 
 - Good, because one engine and one state format work across all providers.
 - Good, because the README can position Solaria clearly: `ant apply` covers one host, Solaria covers many with a neutral card and one identity per agent.
-- Bad, because Solaria has to track a beta API's changes itself, through Dependabot updates of the SDK and normalization tests.
+- Bad, because Solaria has to track a beta API's changes itself, through Dependabot updates of the SDK and golden request tests.
 
 ### Confirmation
 
-Golden tests of request bodies for each resource and operation, and normalization tests built from recorded responses.
+Golden transcripts of the requests for each resource and operation, made against a fake API (`httptest`).
 
 ## Pros and cons of the options
 

@@ -1,15 +1,16 @@
 package gitagent
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/renantarouco/solaria/internal/api/v1alpha1"
+	"github.com/renantarouco/solaria/internal/providers/container"
 )
 
-// Pinned inputs of every image. Changing one changes every agent's image
-// digest, so the next plan rebuilds them.
+// Pinned inputs of the gitagent stage. Changing one changes every agent's
+// image digest, so the next plan rebuilds them. The sandbox base's own pins
+// are in the container package.
 const (
 	// GitagentCommit is the gitagent source the image builds, until v3 has
 	// release binaries (see the gitagent spike).
@@ -17,10 +18,6 @@ const (
 	gitagentRepo   = "https://github.com/open-gitagent/gitagent.git"
 	// rustImage matches the toolchain gitagent's rust-toolchain.toml pins.
 	rustImage = "rust:1.99.0-bookworm"
-	// ubuntuImage is the cloud sandbox's OS (ADR 0007).
-	ubuntuImage = "ubuntu:noble-20261024.1"
-	nodeImage   = "node:24.22.2-bookworm-slim"
-	uvVersion   = "0.13.7"
 )
 
 type dockerfileData struct {
@@ -33,8 +30,6 @@ type dockerfileData struct {
 
 // dockerfile generates the image's Dockerfile. Stages that don't depend on
 // the agent come first, so Docker reuses them across agents and rebuilds.
-// Package names reach commands as exec-form arguments, never through a
-// shell's parsing.
 func dockerfile(d dockerfileData) []byte {
 	var b strings.Builder
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format, args...) }
@@ -63,44 +58,7 @@ func dockerfile(d dockerfileData) []byte {
 	w("    cargo build --release --locked --target \"$target\" --bin gitagent; \\\n")
 	w("    cp \"target/$target/release/gitagent\" /usr/local/bin/gitagent\n\n")
 
-	if d.Base != "" {
-		w("# The environment's own sandbox image.\n")
-		w("FROM %s AS base\n\n", d.Base)
-	} else {
-		w("# The Solaria sandbox base: the cloud sandbox's OS and runtimes (ADR 0007).\n")
-		w("FROM %s AS node\n\n", nodeImage)
-		w("FROM %s AS base\n", ubuntuImage)
-		w("ENV DEBIAN_FRONTEND=noninteractive\n")
-		w("RUN apt-get update && apt-get install -y --no-install-recommends \\\n")
-		w("      build-essential ca-certificates cargo curl git golang-go openjdk-21-jdk-headless \\\n")
-		w("      php-cli python3 python3-pip python3-venv ruby-full rustc unzip xz-utils \\\n")
-		w(" && rm -rf /var/lib/apt/lists/*\n")
-		w("COPY --from=node /usr/local/bin/node /usr/local/bin/node\n")
-		w("COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules\n")
-		w("RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \\\n")
-		w(" && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \\\n")
-		w(" && pip install --no-cache-dir --break-system-packages uv==%s\n", uvVersion)
-		w("ENV GOPATH=/opt/go GOBIN=/usr/local/bin CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH\n\n")
-	}
-
-	w("# The environment's packages.\n")
-	w("FROM base AS sandbox\n")
-	if p := d.Packages; p != nil {
-		run := func(cmd []string, pkgs []string) {
-			if len(pkgs) == 0 {
-				return
-			}
-			w("RUN %s\n", jsonArray(append(cmd, pkgs...)))
-		}
-		run([]string{"/bin/sh", "-c", `apt-get update && apt-get install -y --no-install-recommends "$@" && rm -rf /var/lib/apt/lists/*`, "apt"}, p.APT)
-		run([]string{"cargo", "install", "--locked"}, p.Cargo)
-		run([]string{"gem", "install", "--no-document"}, p.Gem)
-		// go install takes one module per call when versions are given.
-		run([]string{"/bin/sh", "-c", `for m in "$@"; do go install "$m"; done`, "go"}, p.Go)
-		run([]string{"npm", "install", "--global"}, p.NPM)
-		run([]string{"pip", "install", "--no-cache-dir", "--break-system-packages"}, p.Pip)
-	}
-	w("\n")
+	container.WriteSandboxStages(&b, d.Base, d.Packages)
 
 	w("# The agent: gitagent and its config layer. Only these layers change when\n")
 	w("# the card does.\n")
@@ -116,16 +74,6 @@ func dockerfile(d dockerfileData) []byte {
 	if len(d.Deny) > 0 {
 		entry = append(entry, "--disallowed-tools", strings.Join(d.Deny, ","))
 	}
-	w("ENTRYPOINT %s\n", jsonArray(entry))
+	w("ENTRYPOINT %s\n", container.JSONArray(entry))
 	return []byte(b.String())
-}
-
-// jsonArray encodes an exec-form instruction's arguments, leaving & < >
-// readable.
-func jsonArray(args []string) string {
-	var b strings.Builder
-	enc := json.NewEncoder(&b)
-	enc.SetEscapeHTML(false)
-	_ = enc.Encode(args) // strings always encode
-	return strings.TrimSuffix(b.String(), "\n")
 }

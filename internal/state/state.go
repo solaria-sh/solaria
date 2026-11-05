@@ -26,8 +26,30 @@ type State struct {
 	// is refused, so a stale copy can't overwrite newer state.
 	Serial      int    `json:"serial"`
 	Environment string `json:"environment"`
+	// Host is the environment's own host object, for providers whose host
+	// keeps one that all agents share (ADR 0012).
+	Host *EnvironmentEntry `json:"host,omitempty"`
 	// Agents by logical ID, such as Agent/reviewer.
 	Agents map[string]*Entry `json:"agents"`
+}
+
+// EnvironmentEntry is an environment's own host object, such as a Managed
+// Agents environment.
+type EnvironmentEntry struct {
+	ID              string `json:"id"`
+	Provider        string `json:"provider"`
+	ProviderVersion string `json:"providerVersion"`
+	Placement       string `json:"placement"`
+	// Digest identifies the applied config, as the provider computes it.
+	Digest string `json:"digest"`
+	// Config is the applied config in the provider's own terms, for
+	// showing what a plan changes. It never holds secret values.
+	Config     map[string]any `json:"config,omitempty"`
+	Binding    Binding        `json:"binding"`
+	RemoteHash string         `json:"remoteHash,omitempty"`
+	Source     Source         `json:"source"`
+	AppliedAt  time.Time      `json:"appliedAt"`
+	AppliedBy  string         `json:"appliedBy,omitempty"`
 }
 
 // New returns an empty state for an environment, with a fresh lineage.

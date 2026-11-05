@@ -14,6 +14,17 @@
 # the local docker CLI. Planning needs nothing; apply needs Docker, and the
 # first build takes several minutes. Running the image needs
 # ANTHROPIC_API_KEY: apply prints the docker run command.
+#
+# ma-cloud deploys the same agent to Claude Managed Agents, which runs it on
+# Anthropic's side. Planning needs nothing; apply and refresh need
+# ANTHROPIC_API_KEY, and apply creates real objects: a Managed Agents
+# environment and agent, both named hello-example-*. Destroy archives the
+# agent, which can't be undone, and deletes the environment.
+#
+# ma-self-hosted is Managed Agents with the sandbox on this machine: apply
+# also builds and runs a worker container, which needs Docker and the
+# environment's key. The first apply creates the environment and stops to
+# say how to get the key from the Claude Console.
 apiVersion: solaria.sh/v1alpha1
 kind: Agent
 metadata:
@@ -44,3 +55,23 @@ spec:
   placement: docker
   sandbox:
     network: {mode: unrestricted}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: ma-cloud
+spec:
+  provider: managed-agents
+  placement: cloud
+  providers:
+    managed-agents: {namePrefix: hello-example-}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: ma-self-hosted
+spec:
+  provider: managed-agents
+  placement: self-hosted
+  providers:
+    managed-agents: {namePrefix: hello-example-}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/renantarouco/solaria/internal/provider"
+	"github.com/renantarouco/solaria/internal/providers/container"
 )
 
 // TestDockerIntegration builds a real image, runs a scripted task in it and
@@ -54,7 +55,7 @@ spec:
 
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	defer cancel()
-	p := NewWithDocker(provider.Options{Environment: "solaria-it", WorkDir: project, Log: testLog{t}}, CLI{})
+	p := NewWithDocker(provider.Options{Environment: "solaria-it", WorkDir: project, Log: testLog{t}}, container.CLI{})
 	a := load(t, project, "solaria-it")
 	pl, err := p.Plan(ctx, a, nil)
 	if err != nil {

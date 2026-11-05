@@ -1,0 +1,56 @@
+# Planning for Managed Agents needs no API key: plan only reads state, and
+# there is none yet. The agent gets the same digest it has everywhere else.
+env ANTHROPIC_API_KEY=
+env ANTHROPIC_ENVIRONMENT_KEY=
+mkdir hello
+cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md hello
+cd hello
+exec solaria plan -e ma-cloud
+cmp stdout ../cloud.txt
+stderr '^solaria.yaml: warning: Agent/hello on managed-agents/cloud: limits aren''t enforced on Managed Agents'
+exec solaria plan -e ma-self-hosted
+cmp stdout ../self-hosted.txt
+
+# What Managed Agents can't express fails the plan, before any host call.
+cd ../other
+! exec solaria plan -e ma-cloud
+stderr '^solaria.yaml: error: Agent/hello on managed-agents/cloud: model openai:gpt-6-astra isn''t available; this host runs anthropic models only$'
+stderr '^solaria.yaml: error: sandbox.packages need sandbox.network.packageManagers: true under limited networking'
+! stdout .
+
+-- cloud.txt --
+Environment ma-cloud (managed-agents/cloud)
+
+  + Environment/ma-cloud
+
+  + Agent/hello
+      resolvedDigest: sha256:08ffaed7b158
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.
+-- self-hosted.txt --
+Environment ma-self-hosted (managed-agents/self-hosted)
+
+  + Environment/ma-self-hosted
+      note: the worker needs the environment's key in the environment variables as ANTHROPIC_ENVIRONMENT_KEY; apply creates the environment and then says how to get one
+
+  + Agent/hello
+      resolvedDigest: sha256:08ffaed7b158
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.
+-- other/instructions.md --
+Say hello.
+-- other/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: hello}
+spec:
+  instructions: [instructions.md]
+  model: {preferred: "openai:gpt-6-astra"}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec:
+  provider: managed-agents
+  placement: cloud
+  sandbox: {packages: {pip: [ruff]}}

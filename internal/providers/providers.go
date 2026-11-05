@@ -8,12 +8,14 @@ import (
 
 	"github.com/renantarouco/solaria/internal/provider"
 	"github.com/renantarouco/solaria/internal/providers/gitagent"
+	"github.com/renantarouco/solaria/internal/providers/managedagents"
 	"github.com/renantarouco/solaria/internal/providers/stub"
 )
 
 var factories = map[string]provider.Factory{
-	gitagent.Name: gitagent.New,
-	stub.Name:     stub.New,
+	gitagent.Name:      gitagent.New,
+	managedagents.Name: managedagents.New,
+	stub.Name:          stub.New,
 }
 
 // Names lists the available providers, sorted.

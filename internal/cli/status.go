@@ -101,7 +101,11 @@ func writeStatus(w io.Writer, set *config.Set, st *state.State) error {
 	}
 	// Writes to a strings.Builder can't fail.
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "  AGENT\tPROVIDER\tHOST ID\tVERSION\tDIGEST\tAPPLIED\tCONFIGURATION")
+	_, _ = fmt.Fprintln(tw, "  OBJECT\tPROVIDER\tHOST ID\tVERSION\tDIGEST\tAPPLIED\tCONFIGURATION")
+	if h := st.Host; h != nil {
+		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s\n", h.ID, h.Provider, h.Placement, h.Binding.HostID,
+			orDash(h.Binding.Version), provider.ShortDigest(h.Digest), h.AppliedAt.Format("2006-01-02 15:04"), "shared by the agents")
+	}
 	ids := st.IDs()
 	for id := range desired {
 		if st.Agents[id] == nil {

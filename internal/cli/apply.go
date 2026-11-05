@@ -181,6 +181,9 @@ func summary(w io.Writer, operation string, plan *engine.Plan, applyErr error) {
 		c, u, r, d := plan.Counts()
 		fmt.Fprintf(&b, "\n%s complete: %d created, %d updated, %d replaced, %d deleted. State serial %d.\n", operation, c, u, r, d, plan.Serial())
 	}
+	if h := plan.HostEntry(); h != nil && plan.Host != nil && plan.Host.Action != provider.NoOp && plan.Host.Action != provider.Delete {
+		fmt.Fprintf(&b, "  %s: %s\n", h.ID, h.Binding.HostID)
+	}
 	for _, s := range plan.Steps {
 		if s.Action == provider.NoOp || s.Action == provider.Delete || s.Desired == nil {
 			continue

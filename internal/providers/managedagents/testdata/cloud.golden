@@ -1,0 +1,584 @@
+### create
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  + Environment/ma-cloud
+
+  + Agent/reviewer
+      resolvedDigest: sha256:e5264a3555c6
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.
+--- apply requests
+POST /v1/environments
+  {
+    "config": {
+      "networking": {
+        "allow_mcp_servers": true,
+        "allow_package_managers": true,
+        "allowed_hosts": [
+          "pypi.org"
+        ],
+        "type": "limited"
+      },
+      "packages": {
+        "apt": [],
+        "cargo": [],
+        "gem": [],
+        "go": [],
+        "npm": [],
+        "pip": [
+          "ruff==0.9.0"
+        ],
+        "type": "packages"
+      },
+      "type": "cloud"
+    },
+    "description": "Solaria environment ma-cloud",
+    "metadata": {
+      "solaria_environment": "ma-cloud"
+    },
+    "name": "solaria-test-ma-cloud"
+  }
+POST /v1/skills
+  field display_name: solaria-test-triage
+  file files[] triage/SKILL.md (text/plain):
+    | ---
+    | name: triage
+    | description: Sort review findings by severity.
+    | ---
+    | 
+    | Sort findings: blocking, then important, then nits.
+POST /v1/agents
+  {
+    "description": "Reviews pull requests.",
+    "mcp_servers": [
+      {
+        "name": "docs",
+        "type": "url",
+        "url": "https://docs.example.com/mcp"
+      }
+    ],
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Agent/reviewer",
+      "solaria_resolved_digest": "sha256:e5264a3555c672c006435903f3271411dd509c553a63f51150aa6433b2c49ed4",
+      "solaria_spec_digest": "sha256:e5264a3555c672c006435903f3271411dd509c553a63f51150aa6433b2c49ed4"
+    },
+    "model": {
+      "effort": "high",
+      "id": "claude-sonnet-5-5"
+    },
+    "name": "solaria-test-reviewer",
+    "skills": [
+      {
+        "skill_id": "skill_02",
+        "type": "custom",
+        "version": "skillver_03"
+      }
+    ],
+    "system": "You review pull requests for correctness.",
+    "tools": [
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "grep",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "read",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "bash",
+            "permission_policy": {
+              "type": "always_ask"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "web_fetch",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false
+        },
+        "type": "agent_toolset_20260401"
+      },
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "search",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false,
+          "permission_policy": {
+            "type": "always_allow"
+          }
+        },
+        "mcp_server_name": "docs",
+        "type": "mcp_toolset"
+      }
+    ]
+  }
+
+### unchanged
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+No changes. The environment matches the configuration.
+--- refresh requests
+GET /v1/agents/agent_04
+GET /v1/environments/env_01
+--- apply requests
+
+### edit the instructions and the skill
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  ~ Agent/reviewer
+      ~ instructions[0]: text changed (1 line -> 1 line)
+      ~ skills.triage.files.SKILL.md: sha256:5cfd7f59d395 -> sha256:af90c410b928
+      resolvedDigest: sha256:e5264a3555c6 -> sha256:8e3dd40de83c
+      note: creates a new agent version; sessions pinned to an earlier one keep it
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_04
+GET /v1/environments/env_01
+--- apply requests
+POST /v1/skills/skill_02/versions
+  file files[] triage/SKILL.md (text/plain):
+    | ---
+    | name: triage
+    | description: Sort review findings by severity.
+    | ---
+    | 
+    | Sort findings: blocking first.
+POST /v1/agents/agent_04
+  {
+    "description": "Reviews pull requests.",
+    "mcp_servers": [
+      {
+        "name": "docs",
+        "type": "url",
+        "url": "https://docs.example.com/mcp"
+      }
+    ],
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Agent/reviewer",
+      "solaria_resolved_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d",
+      "solaria_spec_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d"
+    },
+    "model": {
+      "effort": "high",
+      "id": "claude-sonnet-5-5"
+    },
+    "name": "solaria-test-reviewer",
+    "skills": [
+      {
+        "skill_id": "skill_02",
+        "type": "custom",
+        "version": "skillver_05"
+      }
+    ],
+    "system": "You review pull requests for correctness and tests.",
+    "tools": [
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "grep",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "read",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "bash",
+            "permission_policy": {
+              "type": "always_ask"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "web_fetch",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false
+        },
+        "type": "agent_toolset_20260401"
+      },
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "search",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false,
+          "permission_policy": {
+            "type": "always_allow"
+          }
+        },
+        "mcp_server_name": "docs",
+        "type": "mcp_toolset"
+      }
+    ],
+    "version": 1
+  }
+
+### changed outside Solaria
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  ~ Agent/reviewer (changed outside Solaria since the last apply)
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_04
+GET /v1/environments/env_01
+--- apply requests
+POST /v1/agents/agent_04
+  {
+    "description": "Reviews pull requests.",
+    "mcp_servers": [
+      {
+        "name": "docs",
+        "type": "url",
+        "url": "https://docs.example.com/mcp"
+      }
+    ],
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Agent/reviewer",
+      "solaria_resolved_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d",
+      "solaria_spec_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d"
+    },
+    "model": {
+      "effort": "high",
+      "id": "claude-sonnet-5-5"
+    },
+    "name": "solaria-test-reviewer",
+    "skills": [
+      {
+        "skill_id": "skill_02",
+        "type": "custom",
+        "version": "skillver_05"
+      }
+    ],
+    "system": "You review pull requests for correctness and tests.",
+    "tools": [
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "grep",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "read",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "bash",
+            "permission_policy": {
+              "type": "always_ask"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "web_fetch",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false
+        },
+        "type": "agent_toolset_20260401"
+      },
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "search",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false,
+          "permission_policy": {
+            "type": "always_allow"
+          }
+        },
+        "mcp_server_name": "docs",
+        "type": "mcp_toolset"
+      }
+    ],
+    "version": 3
+  }
+
+### stale plan
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  ~ Agent/reviewer
+      ~ instructions[0]: text changed (1 line -> 1 line)
+      resolvedDigest: sha256:8e3dd40de83c -> sha256:69db323e544a
+      note: creates a new agent version; sessions pinned to an earlier one keep it
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
+--- apply requests
+POST /v1/agents/agent_04
+  {
+    "description": "Reviews pull requests.",
+    "mcp_servers": [
+      {
+        "name": "docs",
+        "type": "url",
+        "url": "https://docs.example.com/mcp"
+      }
+    ],
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Agent/reviewer",
+      "solaria_resolved_digest": "sha256:69db323e544a7852782d7a689f282d2707bc8146fdbfaae280f79de09051e521",
+      "solaria_spec_digest": "sha256:69db323e544a7852782d7a689f282d2707bc8146fdbfaae280f79de09051e521"
+    },
+    "model": {
+      "effort": "high",
+      "id": "claude-sonnet-5-5"
+    },
+    "name": "solaria-test-reviewer",
+    "skills": [
+      {
+        "skill_id": "skill_02",
+        "type": "custom",
+        "version": "skillver_05"
+      }
+    ],
+    "system": "You review pull requests.",
+    "tools": [
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "grep",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "read",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "bash",
+            "permission_policy": {
+              "type": "always_ask"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "web_fetch",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false
+        },
+        "type": "agent_toolset_20260401"
+      },
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "search",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false,
+          "permission_policy": {
+            "type": "always_allow"
+          }
+        },
+        "mcp_server_name": "docs",
+        "type": "mcp_toolset"
+      }
+    ],
+    "version": 4
+  }
+--- error
+update Agent/reviewer: agent_04 changed on the host since it was planned; plan again, with refresh, to see how: POST "$API/v1/agents/agent_04": 409 Conflict {"error":{"message":"version 4 is not the latest (5)","type":"invalid_request_error"},"type":"error"}
+
+
+### drop the skill
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  ~ Agent/reviewer (changed outside Solaria since the last apply)
+      ~ instructions[0]: text changed (1 line -> 1 line)
+      ~ skills.triage: {files} -> (none)
+      resolvedDigest: sha256:8e3dd40de83c -> sha256:dca3a601547b
+      note: creates a new agent version; sessions pinned to an earlier one keep it
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_04
+GET /v1/environments/env_01
+--- apply requests
+POST /v1/agents/agent_04
+  {
+    "description": "Reviews pull requests.",
+    "mcp_servers": [
+      {
+        "name": "docs",
+        "type": "url",
+        "url": "https://docs.example.com/mcp"
+      }
+    ],
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Agent/reviewer",
+      "solaria_resolved_digest": "sha256:dca3a601547bc6728c75b7a7e7671c9775dc043f80ad1d82c8f4e91f7e6206f3",
+      "solaria_spec_digest": "sha256:dca3a601547bc6728c75b7a7e7671c9775dc043f80ad1d82c8f4e91f7e6206f3"
+    },
+    "model": {
+      "effort": "high",
+      "id": "claude-sonnet-5-5"
+    },
+    "name": "solaria-test-reviewer",
+    "skills": [],
+    "system": "You review pull requests.",
+    "tools": [
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "grep",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "read",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "bash",
+            "permission_policy": {
+              "type": "always_ask"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "web_fetch",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false
+        },
+        "type": "agent_toolset_20260401"
+      },
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "search",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false,
+          "permission_policy": {
+            "type": "always_allow"
+          }
+        },
+        "mcp_server_name": "docs",
+        "type": "mcp_toolset"
+      }
+    ],
+    "version": 5
+  }
+GET /v1/skills/skill_02/versions
+DELETE /v1/skills/skill_02/versions/skillver_03
+DELETE /v1/skills/skill_02/versions/skillver_05
+DELETE /v1/skills/skill_02
+
+### destroy
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  -/archive Agent/reviewer
+      host: agent_04 version 6
+
+  - Environment/ma-cloud
+      host: env_01
+
+Plan: 0 to create, 0 to update, 0 to replace, 2 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_04
+GET /v1/environments/env_01
+--- apply requests
+POST /v1/agents/agent_04/archive
+DELETE /v1/environments/env_01
+POST /v1/environments/env_01/archive
+

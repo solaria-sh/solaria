@@ -84,6 +84,24 @@ $ docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace 
     --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158 -p "Say hello."
 ```
 
+In `ma-cloud`, the same agent goes to [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview), which runs it on Anthropic's side. Again only the environment differs. `apply` creates real objects in your Anthropic organization, named `hello-example-*`, and `destroy` archives the agent, which can't be undone:
+
+```console
+$ export ANTHROPIC_API_KEY=...
+$ solaria plan -e ma-cloud
+Environment ma-cloud (managed-agents/cloud)
+
+  + Environment/ma-cloud
+
+  + Agent/hello
+      resolvedDigest: sha256:08ffaed7b158
+
+Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.
+$ solaria apply -e ma-cloud
+```
+
+`ma-self-hosted` keeps the agent loop on Anthropic's side but runs its tools in a worker container on your machine. Its first `apply` creates the environment and stops, saying how to get the environment's key from the Claude Console. Store the key as `ANTHROPIC_ENVIRONMENT_KEY` and apply again to start the worker.
+
 For completion and checks in your editor, save the schema and point the YAML language server at it:
 
 ```console

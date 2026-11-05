@@ -109,6 +109,22 @@ The engine checks these at plan time, before any host call. `Import` follows lat
 - **The image runs as root** with `HOME=/root`, as verified in the spike. A non-root user with the caller's UID comes later.
 - **Apply prints the run command:** `docker run … <image>`, followed by `-p "<task>"`. It mounts the current folder as `/workspace` and names API keys and secrets without their values. The build context stays under `.solaria/gitagent/<env>/<agent>/` for inspection.
 
+**`managed-agents` as implemented in M6** (`internal/providers/managedagents`, ADR 0011):
+
+- **One Managed Agents environment per Solaria environment,** shared by its agents, planned as `Environment/<name>` (ADR 0012). Each agent becomes a Managed Agents agent.
+- **Names:** host objects are named after the environment and the agent, behind an optional `providers.managed-agents.namePrefix`, so personal environments don't collide.
+- **Metadata:** every agent carries `solaria_logical_id`, `solaria_environment`, `solaria_spec_digest` and `solaria_resolved_digest`; the environment carries `solaria_environment`.
+- **Tools:**
+  - The built-in toolset starts with every tool off, and enables each tool the card lists (`shell` becomes `bash`).
+  - Tools under `permissions.ask` get `always_ask`, the rest `always_allow`. Solaria always sets the policy, because MCP toolsets would otherwise default to `always_ask`.
+  - `allowTools` becomes the MCP toolset's configs, with its default config off.
+- **MCP:** remotes only, streamable HTTP before SSE. Anthropic opens the connections on both placements.
+- **Skills** are uploaded as custom skills, named after the skill, and always pinned by version ID. A changed skill gets a new version, and a dropped one is deleted once the agent no longer refers to it.
+- **Updates** send the agent's version, so a change made on the host since the plan is refused (409) rather than overwritten. A refreshed plan that shows drift updates from the version it saw.
+- **Passthrough:** an agent's `providers.managed-agents` fields go into the request as they are, except fields Solaria owns, which fail validation.
+- **Self-hosted worker:** a Go program built on the SDK's `EnvironmentWorker`, compiled into an image on the Solaria sandbox base (ADR 0007), and run as `solaria-<env>-worker` with `--restart unless-stopped`. The environment key reaches docker through its own environment, never its arguments. The first apply creates the environment, then stops and says how to get the key; a plan sees a worker that isn't running and starts it again.
+- **Destroy** archives agents, which can't be undone, deletes their skills, and deletes the environment, or archives it when sessions still refer to it.
+
 ### Consequences
 
 - Good, because the same card can run under several runtimes on one machine for comparison.

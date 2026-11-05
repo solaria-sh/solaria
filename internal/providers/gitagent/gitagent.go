@@ -30,6 +30,7 @@ import (
 
 	"github.com/renantarouco/solaria/internal/diag"
 	"github.com/renantarouco/solaria/internal/provider"
+	"github.com/renantarouco/solaria/internal/providers/container"
 	"github.com/renantarouco/solaria/internal/resolve"
 	"github.com/renantarouco/solaria/internal/state"
 	"github.com/renantarouco/solaria/internal/version"
@@ -58,11 +59,11 @@ const (
 
 // New returns the provider, using the docker CLI.
 func New(opts provider.Options) (provider.Provider, error) {
-	return NewWithDocker(opts, CLI{}), nil
+	return NewWithDocker(opts, container.CLI{}), nil
 }
 
 // NewWithDocker returns the provider with a given Docker, for tests.
-func NewWithDocker(opts provider.Options, d Docker) *Provider {
+func NewWithDocker(opts provider.Options, d container.Docker) *Provider {
 	log := opts.Log
 	if log == nil {
 		log = io.Discard
@@ -74,7 +75,7 @@ func NewWithDocker(opts provider.Options, d Docker) *Provider {
 type Provider struct {
 	env, workDir string
 	log          io.Writer
-	docker       Docker
+	docker       container.Docker
 }
 
 // Name returns gitagent.
@@ -161,7 +162,7 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		}
 	}
 	p.logf("Building %s for %s\n", b.Image, b.Platform)
-	err = p.docker.Build(ctx, BuildRequest{
+	err = p.docker.Build(ctx, container.BuildRequest{
 		Context:    dir,
 		Dockerfile: filepath.Join(dir, dockerfilePath),
 		Tag:        b.Image,

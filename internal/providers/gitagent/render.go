@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/renantarouco/solaria/internal/diag"
 	"github.com/renantarouco/solaria/internal/digest"
 	"github.com/renantarouco/solaria/internal/provider"
+	"github.com/renantarouco/solaria/internal/providers/container"
 	"github.com/renantarouco/solaria/internal/resolve"
 )
 
@@ -32,7 +32,7 @@ type build struct {
 	Labels     map[string]string
 	// Base is set when sandbox.image is a Dockerfile: it is built first and
 	// tagged BaseImage, and the generated Dockerfile starts from it.
-	Base      *BuildRequest
+	Base      *container.BuildRequest
 	BaseImage string
 	// Run is the docker run command, ready for a shell. The task goes
 	// after it, as -p "<task>".
@@ -108,7 +108,7 @@ func (r *renderer) render() error {
 		LogicalID:   a.ID(),
 		Environment: a.Environment,
 		Base:        base,
-		Packages:    packages(a.Env.Sandbox),
+		Packages:    container.Packages(a.Env.Sandbox),
 		Allow:       allow,
 		Deny:        deny,
 	})
@@ -365,34 +365,13 @@ func (r *renderer) tools() (allow, deny []string) {
 // base returns the FROM line's image, building a sandbox Dockerfile first
 // when the environment names one.
 func (r *renderer) base() (string, error) {
-	sb := r.a.Env.Sandbox
-	if sb == nil || sb.Image == "" {
-		return "", nil
+	image, build, err := container.SandboxBase(r.a.Env.Sandbox, r.a.EnvDir,
+		"solaria/"+r.a.Environment+"/"+r.a.Name+"-sandbox", r.b.Platform,
+		map[string]string{labelPrefix + "environment": r.a.Environment})
+	if build != nil {
+		r.b.Base, r.b.BaseImage = build, image
 	}
-	if !v1alpha1.IsDockerfilePath(sb.Image) {
-		return sb.Image, nil
-	}
-	file := filepath.Join(r.a.EnvDir, filepath.FromSlash(sb.Image))
-	content, err := resolve.ReadText(file)
-	if err != nil {
-		return "", fmt.Errorf("sandbox.image: %w", err)
-	}
-	r.b.BaseImage = "solaria/" + r.a.Environment + "/" + r.a.Name + "-sandbox:" + strings.TrimPrefix(digest.Bytes(content), "sha256:")[:12]
-	r.b.Base = &BuildRequest{
-		Context:    filepath.Dir(file),
-		Dockerfile: file,
-		Tag:        r.b.BaseImage,
-		Platform:   r.b.Platform,
-		Labels:     map[string]string{labelPrefix + "environment": r.a.Environment},
-	}
-	return r.b.BaseImage, nil
-}
-
-func packages(sb *v1alpha1.SandboxSpec) *v1alpha1.PackagesSpec {
-	if sb == nil {
-		return nil
-	}
-	return sb.Packages
+	return image, err
 }
 
 func (r *renderer) sandboxWarnings() {
@@ -403,15 +382,8 @@ func (r *renderer) sandboxWarnings() {
 	if sb != nil && sb.Resources != nil && sb.Resources.Disk != "" {
 		r.warnf("sandbox.resources.disk isn't enforced on docker")
 	}
-	if sb != nil && sb.Packages != nil {
-		p := sb.Packages
-		for _, list := range [][]string{p.APT, p.Cargo, p.Gem, p.Go, p.NPM, p.Pip} {
-			for _, pkg := range list {
-				if strings.HasPrefix(pkg, "-") {
-					r.errorf("sandbox package %q starts with '-'; package managers would read it as an option", pkg)
-				}
-			}
-		}
+	for _, pkg := range container.OptionLikePackages(sb) {
+		r.errorf("sandbox package %q starts with '-'; package managers would read it as an option", pkg)
 	}
 }
 
@@ -420,8 +392,8 @@ func (r *renderer) sandboxWarnings() {
 // environment, or from the environment's dotenv file.
 func (r *renderer) run() string {
 	a := r.a
-	q := shellQuote
-	parts := []string{"docker", "run", "--rm", "--platform", q(r.b.Platform), "--memory", memory(a.Env.Sandbox)}
+	q := container.ShellQuote
+	parts := []string{"docker", "run", "--rm", "--platform", q(r.b.Platform), "--memory", container.Memory(a.Env.Sandbox)}
 	parts = append(parts, "--volume", `"$PWD":/workspace`)
 
 	secrets := secretRefs(a)
@@ -523,36 +495,6 @@ func modelKeys(m resolve.Model) []string {
 	}
 	slices.Sort(out)
 	return slices.Compact(out)
-}
-
-// memory converts sandbox.resources.memory to docker's units, defaulting
-// to the cloud sandbox's 8 GiB (ADR 0007).
-func memory(sb *v1alpha1.SandboxSpec) string {
-	if sb == nil || sb.Resources == nil || sb.Resources.Memory == "" {
-		return "8g"
-	}
-	m := sb.Resources.Memory
-	for suffix, unit := range map[string]string{"Ki": "k", "Mi": "m", "Gi": "g"} {
-		if n, ok := strings.CutSuffix(m, suffix); ok {
-			return n + unit
-		}
-	}
-	if n, ok := strings.CutSuffix(m, "Ti"); ok {
-		v, _ := strconv.Atoi(n)
-		return strconv.Itoa(v*1024) + "g"
-	}
-	return m + "b"
-}
-
-// shellQuote quotes s for a POSIX shell when it needs it.
-func shellQuote(s string) string {
-	safe := func(c rune) bool {
-		return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.ContainsRune("-_./:=,@%+", c)
-	}
-	if s != "" && strings.IndexFunc(s, func(c rune) bool { return !safe(c) }) < 0 {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // componentChanges compares a prior binding's digests with a new build.

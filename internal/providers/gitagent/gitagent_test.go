@@ -14,6 +14,7 @@ import (
 
 	"github.com/renantarouco/solaria/internal/config"
 	"github.com/renantarouco/solaria/internal/provider"
+	"github.com/renantarouco/solaria/internal/providers/container"
 	"github.com/renantarouco/solaria/internal/resolve"
 	"github.com/renantarouco/solaria/internal/state"
 	"github.com/renantarouco/solaria/internal/validate"
@@ -114,22 +115,22 @@ func TestPackageThatLooksLikeAnOption(t *testing.T) {
 
 // fakeDocker keeps images in memory; building twice gives a new ID.
 type fakeDocker struct {
-	images map[string]*Image
-	builds []BuildRequest
+	images map[string]*container.Image
+	builds []container.BuildRequest
 	n      int
 }
 
-func (f *fakeDocker) Build(_ context.Context, req BuildRequest, _ io.Writer) error {
+func (f *fakeDocker) Build(_ context.Context, req container.BuildRequest, _ io.Writer) error {
 	if _, err := os.Stat(req.Dockerfile); err != nil {
 		return err
 	}
 	f.n++
 	f.builds = append(f.builds, req)
-	f.images[req.Tag] = &Image{ID: fmt.Sprintf("sha256:%02d%062d", f.n, 0), Labels: req.Labels}
+	f.images[req.Tag] = &container.Image{ID: fmt.Sprintf("sha256:%02d%062d", f.n, 0), Labels: req.Labels}
 	return nil
 }
 
-func (f *fakeDocker) Inspect(_ context.Context, ref string) (*Image, error) {
+func (f *fakeDocker) Inspect(_ context.Context, ref string) (*container.Image, error) {
 	return f.images[ref], nil
 }
 
@@ -168,7 +169,7 @@ func entryFor(a *resolve.Agent, applied *provider.Applied) *state.Entry {
 
 func TestLifecycle(t *testing.T) {
 	work := t.TempDir()
-	d := &fakeDocker{images: map[string]*Image{}}
+	d := &fakeDocker{images: map[string]*container.Image{}}
 	p := NewWithDocker(provider.Options{Environment: "local-gitagent", WorkDir: work}, d)
 	a := load(t, filepath.Join("testdata", "full"), "local-gitagent")
 	ctx := context.Background()
@@ -218,7 +219,7 @@ func TestLifecycle(t *testing.T) {
 	// A card change gets a new tag, and the old one is removed.
 	a.Definition.Limits.MaxTurns = 10
 	a.ResolvedDigest = "sha256:" + strings.Repeat("ab", 32)
-	d.images[out[outImage]] = &Image{ID: entry2.RemoteHash}
+	d.images[out[outImage]] = &container.Image{ID: entry2.RemoteHash}
 	pl, entry3 := cycle(t, p, a, entry2)
 	if pl.Action != provider.Update || changePaths(pl) != "limits.maxTurns" {
 		t.Errorf("card change plans %s with %s", pl.Action, changePaths(pl))
@@ -239,7 +240,7 @@ func TestLifecycle(t *testing.T) {
 }
 
 func TestSandboxDockerfileIsBuiltFirst(t *testing.T) {
-	d := &fakeDocker{images: map[string]*Image{}}
+	d := &fakeDocker{images: map[string]*container.Image{}}
 	p := NewWithDocker(provider.Options{Environment: "dev", WorkDir: t.TempDir()}, d)
 	a := load(t, filepath.Join("testdata", "open"), "dev")
 	_, entry := cycle(t, p, a, nil)

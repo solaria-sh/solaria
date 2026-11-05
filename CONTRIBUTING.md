@@ -27,7 +27,10 @@ Unit tests never touch the network or real hosts. Integration tests that do are 
 
 ```console
 $ SOLARIA_IT_DOCKER=1 go test ./internal/providers/gitagent -run Integration -v -timeout 50m
+$ SOLARIA_IT_MANAGED_AGENTS=1 ANTHROPIC_API_KEY=... go test ./internal/providers/managedagents -run Integration -v
 ```
+
+The Managed Agents test creates real objects named `solaria-it-*` in the key's organization and archives the agent at the end, which can't be undone.
 
 ## Making changes
 

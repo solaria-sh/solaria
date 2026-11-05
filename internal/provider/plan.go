@@ -40,6 +40,10 @@ type Plan struct {
 	Reason string
 	// Notes are things the person applying should know.
 	Notes []string
+	// Observed is what refresh found on the host, set by the engine; nil
+	// without refresh. A host with optimistic concurrency updates from it,
+	// so an apply overwrites the drift the plan showed and no other.
+	Observed *Observed
 }
 
 // Change is one changed field.
@@ -70,9 +74,22 @@ func DefaultPlan(desired *resolve.Agent, prior *state.Entry) *Plan {
 // Diff lists the fields that differ between two definitions, in field
 // order. Long or multi-line text is summarized rather than shown.
 func Diff(before, after *resolve.Definition) []Change {
+	return DiffConfig(before, after)
+}
+
+// DiffConfig lists the fields that differ between any two values that
+// encode as JSON objects, such as an environment's host config.
+func DiffConfig(before, after any) []Change {
 	var ov, nv any
 	mustRoundTrip(before, &ov)
 	mustRoundTrip(after, &nv)
+	// A missing config compares as an empty one, field by field.
+	if ov == nil {
+		ov = map[string]any{}
+	}
+	if nv == nil {
+		nv = map[string]any{}
+	}
 	var out []Change
 	diffValues("", ov, nv, &out)
 	return out
@@ -84,7 +101,7 @@ func mustRoundTrip(v, into any) {
 		err = json.Unmarshal(b, into)
 	}
 	if err != nil {
-		panic(fmt.Sprintf("definition doesn't round-trip through JSON: %v", err)) // a bug, not input
+		panic(fmt.Sprintf("value doesn't round-trip through JSON: %v", err)) // a bug, not input
 	}
 }
 
