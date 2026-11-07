@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/renantarouco/solaria/internal/cli"
+	"github.com/solaria-sh/solaria/internal/cli"
 )
 
 func main() {

@@ -10,7 +10,7 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go/v2"
 
-	"github.com/renantarouco/solaria/internal/engine"
+	"github.com/solaria-sh/solaria/internal/engine"
 )
 
 // TestManagedAgentsIntegration applies the fixture's cloud environment to

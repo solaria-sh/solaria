@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/renantarouco/solaria/internal/config"
-	"github.com/renantarouco/solaria/internal/diag"
-	"github.com/renantarouco/solaria/internal/provider"
-	"github.com/renantarouco/solaria/internal/resolve"
-	"github.com/renantarouco/solaria/internal/state"
-	"github.com/renantarouco/solaria/internal/validate"
+	"github.com/solaria-sh/solaria/internal/config"
+	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/state"
+	"github.com/solaria-sh/solaria/internal/validate"
 )
 
 // fake is an in-memory provider whose capabilities tests choose.

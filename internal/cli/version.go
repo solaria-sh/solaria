@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/renantarouco/solaria/internal/version"
+	"github.com/solaria-sh/solaria/internal/version"
 )
 
 func newVersionCommand() *cobra.Command {

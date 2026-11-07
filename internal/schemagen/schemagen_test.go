@@ -10,8 +10,8 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/schemas"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/schemas"
 )
 
 // TestCommittedSchemasAreCurrent fails when the Go types changed but the

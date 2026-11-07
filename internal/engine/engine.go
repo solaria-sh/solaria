@@ -15,12 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/internal/config"
-	"github.com/renantarouco/solaria/internal/diag"
-	"github.com/renantarouco/solaria/internal/provider"
-	"github.com/renantarouco/solaria/internal/resolve"
-	"github.com/renantarouco/solaria/internal/state"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/config"
+	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/state"
 )
 
 // Engine plans and applies environments of one project.

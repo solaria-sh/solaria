@@ -10,9 +10,9 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/v2"
 	"github.com/anthropics/anthropic-sdk-go/v2/packages/param"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/internal/diag"
-	"github.com/renantarouco/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
 // Host limits (agent fields, from the API reference).

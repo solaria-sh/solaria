@@ -12,12 +12,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/renantarouco/solaria/internal/config"
-	"github.com/renantarouco/solaria/internal/provider"
-	"github.com/renantarouco/solaria/internal/providers/container"
-	"github.com/renantarouco/solaria/internal/resolve"
-	"github.com/renantarouco/solaria/internal/state"
-	"github.com/renantarouco/solaria/internal/validate"
+	"github.com/solaria-sh/solaria/internal/config"
+	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers/container"
+	"github.com/solaria-sh/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/state"
+	"github.com/solaria-sh/solaria/internal/validate"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

@@ -9,13 +9,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/renantarouco/solaria/internal/config"
-	"github.com/renantarouco/solaria/internal/diag"
-	"github.com/renantarouco/solaria/internal/engine"
-	"github.com/renantarouco/solaria/internal/gitinfo"
-	"github.com/renantarouco/solaria/internal/providers"
-	"github.com/renantarouco/solaria/internal/state"
-	"github.com/renantarouco/solaria/internal/validate"
+	"github.com/solaria-sh/solaria/internal/config"
+	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/engine"
+	"github.com/solaria-sh/solaria/internal/gitinfo"
+	"github.com/solaria-sh/solaria/internal/providers"
+	"github.com/solaria-sh/solaria/internal/state"
+	"github.com/solaria-sh/solaria/internal/validate"
 )
 
 // defaultStateDir is where local state lives, relative to the working

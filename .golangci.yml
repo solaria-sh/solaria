@@ -20,4 +20,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/renantarouco/solaria
+        - github.com/solaria-sh/solaria

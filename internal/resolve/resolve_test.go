@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/renantarouco/solaria/internal/config"
-	"github.com/renantarouco/solaria/internal/resolve"
-	"github.com/renantarouco/solaria/internal/validate"
+	"github.com/solaria-sh/solaria/internal/config"
+	"github.com/solaria-sh/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/validate"
 )
 
 var update = flag.Bool("update", false, "rewrite golden files")

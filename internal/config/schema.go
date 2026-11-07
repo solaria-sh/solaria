@@ -15,9 +15,9 @@ import (
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/internal/diag"
-	"github.com/renantarouco/solaria/schemas"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/schemas"
 )
 
 type compiled struct {

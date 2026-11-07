@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/schemas"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/schemas"
 )
 
 func newSchemaCommand() *cobra.Command {

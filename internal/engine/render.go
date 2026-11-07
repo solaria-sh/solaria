@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/renantarouco/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/provider"
 )
 
 // symbols mark each action in a rendered plan, Terraform style.

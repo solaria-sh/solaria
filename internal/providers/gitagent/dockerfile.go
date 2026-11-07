@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/internal/providers/container"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/providers/container"
 )
 
 // Pinned inputs of the gitagent stage. Changing one changes every agent's

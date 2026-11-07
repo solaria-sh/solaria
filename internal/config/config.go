@@ -22,8 +22,8 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/diag"
 )
 
 // Resource is one loaded document.

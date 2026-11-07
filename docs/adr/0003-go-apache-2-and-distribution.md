@@ -31,7 +31,7 @@ Chosen option: "Go", because it's what this category is written in (Terraform, O
 
 **Distribution:**
 
-- GitHub repository `renantarouco/solaria`.
+- GitHub repository `solaria-sh/solaria`.
 - Releases built with GoReleaser: binaries for macOS, Linux and Windows, checksums and an SBOM.
 - Releases signed keylessly with cosign.
 - Installs through a Homebrew tap, `go install` and a container image on GHCR.
@@ -50,8 +50,8 @@ CI builds and tests with the Go version declared in `go.mod`.
 **As implemented in M7** ([`.goreleaser.yaml`](../../.goreleaser.yaml), [release workflow](../../.github/workflows/release.yml)):
 
 - **Builds** are static (`CGO_ENABLED=0`, `-trimpath`) for macOS, Linux and Windows on amd64 and arm64, stamped with the commit time so the same commit builds the same bytes.
-- **Homebrew** gets a cask in `renantarouco/homebrew-tap`, not a formula: GoReleaser deprecated formulas for pre-built binaries. The binary isn't notarized, so the cask removes macOS's quarantine flag.
-- **The image** `ghcr.io/renantarouco/solaria` is the binary on distroless `static`, for amd64 and arm64, with its own SBOM. It has no docker CLI, so providers that build images don't work in it.
+- **Homebrew** gets a cask in `solaria-sh/homebrew-tap`, not a formula: GoReleaser deprecated formulas for pre-built binaries. The binary isn't notarized, so the cask removes macOS's quarantine flag.
+- **The image** `ghcr.io/solaria-sh/solaria` is the binary on distroless `static`, for amd64 and arm64, with its own SBOM. It has no docker CLI, so providers that build images don't work in it.
 - **Signing:** cosign signs `checksums.txt`, which covers every archive, and the image, with the workflow's GitHub OIDC identity.
 - **A person publishes:** a `v*` tag builds a draft release in the `release` environment, which a maintainer reviews and publishes.
 - **The schema's stable URL** waits for the `solaria.sh` domain.
@@ -73,3 +73,4 @@ CI builds and tests with the Go version declared in `go.mod`.
 - [Anthropic Go SDK](https://github.com/anthropics/anthropic-sdk-go)
 - [hashicorp/go-plugin](https://github.com/hashicorp/go-plugin)
 - [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- Revised 2026-11-07: the repository, image and Homebrew tap moved from the `renantarouco` account to the `solaria-sh` organization, and the Go module path with them.

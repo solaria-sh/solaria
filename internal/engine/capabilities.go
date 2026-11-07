@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/renantarouco/solaria/internal/diag"
-	"github.com/renantarouco/solaria/internal/provider"
-	"github.com/renantarouco/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
 // checkCapabilities reports what an agent needs that the host can't do,

@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/internal/digest"
-	"github.com/renantarouco/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/digest"
+	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
 // Pinned inputs of the Solaria sandbox base. Changing one changes every

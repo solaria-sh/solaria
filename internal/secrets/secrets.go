@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 )
 
 // Source reads secrets by name.

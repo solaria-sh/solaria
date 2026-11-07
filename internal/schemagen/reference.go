@@ -7,7 +7,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 )
 
 // ReferenceFile is the card reference, relative to the module root.

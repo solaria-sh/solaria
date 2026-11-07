@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/renantarouco/solaria/internal/digest"
-	"github.com/renantarouco/solaria/internal/resolve"
-	"github.com/renantarouco/solaria/internal/state"
+	"github.com/solaria-sh/solaria/internal/digest"
+	"github.com/solaria-sh/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/state"
 )
 
 // Action is what a plan does to one agent.

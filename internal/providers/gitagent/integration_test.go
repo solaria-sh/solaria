@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/renantarouco/solaria/internal/provider"
-	"github.com/renantarouco/solaria/internal/providers/container"
+	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers/container"
 )
 
 // TestDockerIntegration builds a real image, runs a scripted task in it and

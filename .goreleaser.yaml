@@ -20,9 +20,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/renantarouco/solaria/internal/version.Version={{ .Version }}
-      - -X github.com/renantarouco/solaria/internal/version.Commit={{ .FullCommit }}
-      - -X github.com/renantarouco/solaria/internal/version.Date={{ .CommitDate }}
+      - -X github.com/solaria-sh/solaria/internal/version.Version={{ .Version }}
+      - -X github.com/solaria-sh/solaria/internal/version.Commit={{ .FullCommit }}
+      - -X github.com/solaria-sh/solaria/internal/version.Date={{ .CommitDate }}
     # Reproducible: the same commit builds the same bytes.
     mod_timestamp: "{{ .CommitTimestamp }}"
 
@@ -50,7 +50,7 @@ sboms:
 # workflow's GitHub OIDC identity, recorded in Sigstore's transparency log.
 # Verify with:
 #   cosign verify-blob --bundle checksums.txt.sigstore.json \
-#     --certificate-identity-regexp '^https://github.com/renantarouco/solaria/' \
+#     --certificate-identity-regexp '^https://github.com/solaria-sh/solaria/' \
 #     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
 #     checksums.txt
 signs:
@@ -65,7 +65,7 @@ dockers_v2:
     ids: [solaria]
     dockerfile: Dockerfile.release
     images:
-      - ghcr.io/renantarouco/solaria
+      - ghcr.io/solaria-sh/solaria
     tags:
       - "{{ .Version }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
@@ -75,7 +75,7 @@ dockers_v2:
     labels:
       org.opencontainers.image.title: "{{ .ProjectName }}"
       org.opencontainers.image.description: Plan and apply agent definitions across hosts
-      org.opencontainers.image.source: https://github.com/renantarouco/solaria
+      org.opencontainers.image.source: https://github.com/solaria-sh/solaria
       org.opencontainers.image.licenses: Apache-2.0
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
@@ -90,11 +90,11 @@ docker_signs:
 homebrew_casks:
   - name: solaria
     ids: [solaria]
-    homepage: https://github.com/renantarouco/solaria
+    homepage: https://github.com/solaria-sh/solaria
     description: Plan and apply agent definitions across hosts
     license: Apache-2.0
     repository:
-      owner: renantarouco
+      owner: solaria-sh
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     commit_author:
@@ -112,7 +112,7 @@ homebrew_casks:
 
 release:
   github:
-    owner: renantarouco
+    owner: solaria-sh
     name: solaria
   # A person reviews and publishes each release.
   draft: true

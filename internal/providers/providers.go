@@ -6,10 +6,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/renantarouco/solaria/internal/provider"
-	"github.com/renantarouco/solaria/internal/providers/gitagent"
-	"github.com/renantarouco/solaria/internal/providers/managedagents"
-	"github.com/renantarouco/solaria/internal/providers/stub"
+	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers/gitagent"
+	"github.com/solaria-sh/solaria/internal/providers/managedagents"
+	"github.com/solaria-sh/solaria/internal/providers/stub"
 )
 
 var factories = map[string]provider.Factory{

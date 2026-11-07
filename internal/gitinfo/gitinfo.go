@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/renantarouco/solaria/internal/state"
+	"github.com/solaria-sh/solaria/internal/state"
 )
 
 // Source returns the HEAD commit of the git worktree holding dir, and

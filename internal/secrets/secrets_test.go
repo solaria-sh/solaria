@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 )
 
 func TestParseDotenv(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/renantarouco/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/diag"
 )
 
 // toValue converts a YAML node into the JSON data model (map[string]any,

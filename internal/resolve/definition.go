@@ -1,7 +1,7 @@
 package resolve
 
 import (
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 )
 
 // Format names the shape of Definition. Any change to what goes into a

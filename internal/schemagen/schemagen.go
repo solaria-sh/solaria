@@ -12,12 +12,12 @@ import (
 
 	"github.com/invopop/jsonschema"
 
-	"github.com/renantarouco/solaria/internal/api/v1alpha1"
-	"github.com/renantarouco/solaria/schemas"
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/schemas"
 )
 
 const (
-	modulePath = "github.com/renantarouco/solaria"
+	modulePath = "github.com/solaria-sh/solaria"
 	apiDir     = "internal/api/v1alpha1"
 
 	// OutDir is where the schema files are written, relative to the module

@@ -61,7 +61,7 @@ The same card, applied to two hosts, changes only the environment.
 [`examples/hello`](examples/hello) runs the whole workflow with the `stub` provider. It writes its "host objects" to files, so it needs no credentials:
 
 ```console
-$ go install github.com/renantarouco/solaria/cmd/solaria@latest
+$ go install github.com/solaria-sh/solaria/cmd/solaria@latest
 $ cd examples/hello
 $ solaria plan -e local
 Environment local (stub/file)

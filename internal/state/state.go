@@ -10,7 +10,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/renantarouco/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
 // Format names the shape of a state file.

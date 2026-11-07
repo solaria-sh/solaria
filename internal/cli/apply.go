@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/renantarouco/solaria/internal/engine"
-	"github.com/renantarouco/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/engine"
+	"github.com/solaria-sh/solaria/internal/provider"
 )
 
 func newPlanCommand() *cobra.Command {

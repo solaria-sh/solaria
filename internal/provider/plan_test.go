@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/renantarouco/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
 func TestDiff(t *testing.T) {

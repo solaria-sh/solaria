@@ -7,7 +7,7 @@ Thanks for your interest. Solaria is in its design stage, so the most useful con
 You need Go 1.26 or newer (older `go` commands download the right toolchain automatically), `make`, and Docker for the container provider's integration tests.
 
 ```bash
-git clone https://github.com/renantarouco/solaria.git
+git clone https://github.com/solaria-sh/solaria.git
 cd solaria
 make test
 ```
@@ -53,7 +53,7 @@ Common types: `feat`, `fix`, `docs`, `test`, `refactor`, `build`, `ci`, `chore`.
 
 ## Releasing
 
-Maintainers release from `main` with a tag. GoReleaser ([`.goreleaser.yaml`](.goreleaser.yaml)) builds the binaries for macOS, Linux and Windows, their checksums and SBOMs, the `ghcr.io/renantarouco/solaria` image and the Homebrew cask. Cosign signs the checksums and the image keylessly.
+Maintainers release from `main` with a tag. GoReleaser ([`.goreleaser.yaml`](.goreleaser.yaml)) builds the binaries for macOS, Linux and Windows, their checksums and SBOMs, the `ghcr.io/solaria-sh/solaria` image and the Homebrew cask. Cosign signs the checksums and the image keylessly.
 
 To check a release locally, without signing or publishing anything:
 
@@ -68,7 +68,7 @@ To release:
 2. Tag the merge commit and push the tag: `git tag -s v0.1.0 -m v0.1.0 && git push origin v0.1.0`.
 3. The [release workflow](.github/workflows/release.yml) builds a **draft** release. Review its notes and assets, then publish it.
 
-The workflow runs in the `release` environment, which can require a reviewer, and needs a `HOMEBREW_TAP_GITHUB_TOKEN` secret: a fine-grained token with contents write access to `renantarouco/homebrew-tap`.
+The workflow runs in the `release` environment, which can require a reviewer, and needs a `HOMEBREW_TAP_GITHUB_TOKEN` secret: a fine-grained token with contents write access to `solaria-sh/homebrew-tap`.
 
 ## Developer Certificate of Origin
 

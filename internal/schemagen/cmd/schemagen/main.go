@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/renantarouco/solaria/internal/schemagen"
+	"github.com/solaria-sh/solaria/internal/schemagen"
 )
 
 func main() {

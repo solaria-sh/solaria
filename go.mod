@@ -1,4 +1,4 @@
-module github.com/renantarouco/solaria
+module github.com/solaria-sh/solaria
 
 go 1.26.0
 

@@ -3,7 +3,7 @@
 // The variables are set at build time through -ldflags, for example by
 // GoReleaser:
 //
-//	-X github.com/renantarouco/solaria/internal/version.Version=v0.1.0
+//	-X github.com/solaria-sh/solaria/internal/version.Version=v0.1.0
 package version
 
 import (

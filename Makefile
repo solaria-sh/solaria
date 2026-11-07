@@ -6,7 +6,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --verify --quiet HEAD)
 DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-PKG     := github.com/renantarouco/solaria
+PKG     := github.com/solaria-sh/solaria
 LDFLAGS := -s -w \
 	-X $(PKG)/internal/version.Version=$(VERSION) \
 	-X $(PKG)/internal/version.Commit=$(COMMIT) \
