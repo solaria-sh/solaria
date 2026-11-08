@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+All notable changes to this project are documented here. The project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
 ## [0.1.0] - 2026-11-08
 
@@ -29,5 +29,4 @@ All notable changes to this project are documented here. The format follows [Kee
 - Release tooling: GoReleaser builds binaries, checksums and SBOMs, a multi-platform image on GHCR and a Homebrew cask, with keyless cosign signatures; a tag starts the release workflow, which leaves a draft release to review.
 - The solaria.sh website, with the documentation and install scripts for macOS, Linux and Windows (`install.sh`, `install.ps1`), and the `solaria-sh/tap` Homebrew tap.
 
-[Unreleased]: https://github.com/solaria-sh/solaria/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/solaria-sh/solaria/releases/tag/v0.1.0
