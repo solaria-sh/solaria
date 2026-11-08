@@ -105,6 +105,56 @@ func TestLinkRewrite(t *testing.T) {
 	}
 }
 
+// TestHostingFiles checks the files Cloudflare Pages reads from the build:
+// a top-level 404.html, without which Pages answers every unknown path with
+// the home page, and the _headers rules that serve the install scripts as
+// text.
+func TestHostingFiles(t *testing.T) {
+	out := t.TempDir()
+	b := &builder{repo: "..", site: ".", out: out}
+	if err := b.build(); err != nil {
+		t.Fatal(err)
+	}
+
+	page, err := os.ReadFile(filepath.Join(out, "404.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(page), "<title>Page not found") {
+		t.Error("404.html doesn't have the not-found title")
+	}
+
+	headers, err := os.ReadFile(filepath.Join(out, "_headers"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules := map[string][]string{}
+	var path string
+	for _, l := range strings.Split(string(headers), "\n") {
+		switch {
+		case strings.TrimSpace(l) == "", strings.HasPrefix(strings.TrimSpace(l), "#"):
+		case !strings.HasPrefix(l, " ") && !strings.HasPrefix(l, "\t"):
+			path = strings.TrimSpace(l)
+		default:
+			rules[path] = append(rules[path], strings.TrimSpace(l))
+		}
+	}
+	for _, script := range []string{"/install.sh", "/install.ps1"} {
+		if _, err := os.Stat(filepath.Join(out, script)); err != nil {
+			t.Errorf("%s isn't in the build: %v", script, err)
+		}
+		found := false
+		for _, h := range rules[script] {
+			if strings.EqualFold(h, "Content-Type: text/plain; charset=utf-8") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("_headers doesn't serve %s as text/plain; it has %q", script, rules[script])
+		}
+	}
+}
+
 func rel(base, p string) string {
 	r, err := filepath.Rel(base, p)
 	if err != nil {

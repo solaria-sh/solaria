@@ -190,6 +190,14 @@
     }
   }
 
+  /* Not found: name the address that has nothing on it. */
+  const lostPath = document.getElementById("lostPath");
+  if (lostPath) {
+    let path = location.pathname;
+    if (path.length > 40) path = path.slice(0, 19) + "…" + path.slice(-19);
+    lostPath.textContent = path;
+  }
+
   /* Laws: set one at a time when they come into view. */
   const laws = document.getElementById("laws");
   if (laws && !reduce) {

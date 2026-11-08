@@ -147,6 +147,21 @@ func (b *builder) build() error {
 		return err
 	}
 
+	// Cloudflare Pages serves 404.html for any path it has no file for.
+	// Without one it treats the site as a single-page app and answers every
+	// unknown path with the home page.
+	notFound, err := tmpl("404.html")
+	if err != nil {
+		return err
+	}
+	if err := render(notFound, filepath.Join(b.out, "404.html"), view{
+		Title:       "Page not found · Solaria",
+		Description: "There's no page at this address on solaria.sh.",
+		Repo:        RepoURL,
+	}); err != nil {
+		return err
+	}
+
 	doc, err := tmpl("doc.html")
 	if err != nil {
 		return err

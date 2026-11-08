@@ -1,0 +1,27 @@
+{{define "content"}}
+<main id="main">
+  <section class="lost">
+    <div class="wrap lost-in">
+      <!-- 404, with the Solaria mark as the 0. Its planet drifts off the
+           orbit and leaves an empty slot behind. -->
+      <p class="lost-code" role="img" aria-label="404">
+        <span aria-hidden="true">4</span>
+        <svg class="lost-mark" viewBox="0 0 100 100" aria-hidden="true">
+          <defs><linearGradient id="lostSun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3db8c"/><stop offset=".46" stop-color="#c99a2e"/><stop offset=".54" stop-color="#8f6a16"/><stop offset="1" stop-color="#e9c766"/></linearGradient></defs>
+          <circle class="lost-ring" cx="50" cy="50" r="42"/>
+          <circle cx="50" cy="50" r="25" fill="url(#lostSun)"/>
+          <circle class="lost-slot" cx="92" cy="50" r="9"/>
+          <circle class="lost-planet" cx="92" cy="50" r="8"/>
+        </svg>
+        <span aria-hidden="true">4</span>
+      </p>
+      <h1 class="display">This page left orbit.</h1>
+      <p class="lost-where">Nothing is deployed at <code id="lostPath">this address</code>.</p>
+      <div class="actions">
+        <a class="btn btn-gold" href="/docs/">Browse the docs</a>
+        <a class="btn btn-line" href="/">Go to the home page</a>
+      </div>
+    </div>
+  </section>
+</main>
+{{end}}

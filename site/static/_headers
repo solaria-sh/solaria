@@ -1,6 +1,25 @@
-# Cloudflare Pages response headers. The install scripts are served as text so
-# that `irm ... | iex` gets a string, not bytes, and browsers show them.
+# Response headers for Cloudflare Pages. The build copies this file into
+# public/ as it is; other hosts ignore it.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Served as text so `irm https://solaria.sh/install.ps1 | iex` gets a string
+# to run, and so a browser shows the scripts instead of downloading them.
+# A short cache means a fixed script reaches people within minutes.
 /install.sh
   Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300
+
 /install.ps1
   Content-Type: text/plain; charset=utf-8
+  Cache-Control: public, max-age=300
+
+# Keep the pages.dev copies and branch previews out of search results, so
+# only solaria.sh is indexed.
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex
