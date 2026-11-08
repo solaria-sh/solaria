@@ -41,6 +41,7 @@ func load(t *testing.T, dir, env string) *resolve.Agent {
 
 // golden renders a build as one text file: every context file, then the
 // run command and the diagnostics, with machine-specific paths replaced.
+// root is the fixture's absolute path in the OS's own form.
 func golden(b *build, root string) string {
 	var s strings.Builder
 	for _, name := range slices.Sorted(maps.Keys(b.Files)) {
@@ -52,7 +53,10 @@ func golden(b *build, root string) string {
 	}
 	s.WriteString("=== diagnostics\n")
 	s.WriteString(b.Diags.String())
-	return strings.ReplaceAll(s.String(), root, "$ROOT")
+	// The run command holds the dotenv path in native, shell-quoted form;
+	// on Windows that's 'C:\...\.env' rather than a bare /.../.env.
+	out := strings.ReplaceAll(s.String(), container.ShellQuote(filepath.Join(root, ".env")), "$ROOT/.env")
+	return strings.ReplaceAll(out, filepath.ToSlash(root), "$ROOT")
 }
 
 func TestRenderGolden(t *testing.T) {
@@ -69,7 +73,7 @@ func TestRenderGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := golden(b, filepath.ToSlash(dir))
+			got := golden(b, dir)
 			path := filepath.Join("testdata", tc.fixture+".golden")
 			if *update {
 				if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
