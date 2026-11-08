@@ -10,6 +10,9 @@
 .env.*
 !.env.example
 
+# Wrangler's local cache (Cloudflare account and project)
+.wrangler/
+
 # Test and coverage output
 *.test
 *.out
