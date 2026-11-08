@@ -117,6 +117,13 @@ release:
   # A person reviews and publishes each release.
   draft: true
   prerelease: auto
+  # release-please (release-please.yml) opens a draft release named after
+  # the tag, with the CHANGELOG.md notes, when it pushes the tag. Attach the
+  # assets to that draft and keep its notes. A tag pushed by hand has no
+  # draft, so GoReleaser creates one with the changelog below.
+  name_template: "{{ .Tag }}"
+  use_existing_draft: true
+  mode: keep-existing
 
 changelog:
   use: github

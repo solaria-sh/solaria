@@ -53,7 +53,7 @@ Common types: `feat`, `fix`, `docs`, `test`, `refactor`, `build`, `ci`, `chore`.
 
 ## Releasing
 
-Maintainers release from `main` with a tag. GoReleaser ([`.goreleaser.yaml`](.goreleaser.yaml)) builds the binaries for macOS, Linux and Windows, their checksums and SBOMs, the `ghcr.io/solaria-sh/solaria` image and the Homebrew cask. Cosign signs the checksums and the image keylessly.
+Maintainers release by merging a release pull request. Merging to `main` on its own releases nothing. GoReleaser ([`.goreleaser.yaml`](.goreleaser.yaml)) builds the binaries for macOS, Linux and Windows, their checksums and SBOMs, the `ghcr.io/solaria-sh/solaria` image and the Homebrew cask. Cosign signs the checksums and the image keylessly.
 
 To check a release locally, without signing or publishing anything:
 
@@ -64,11 +64,27 @@ $ make release-snapshot   # builds into dist/; needs Docker and syft
 
 To release:
 
-1. Move the `[Unreleased]` entries in `CHANGELOG.md` under the new version, and merge that.
-2. Tag the merge commit and push the tag: `git tag -s v0.1.0 -m v0.1.0 && git push origin v0.1.0`.
-3. The [release workflow](.github/workflows/release.yml) builds a **draft** release. Review its notes and assets, then publish it.
+1. On every push to `main`, the [release-please workflow](.github/workflows/release-please.yml) keeps a pull request titled `chore: release X.Y.Z` open. It bumps the version from the commit types since the last release and adds their entries to `CHANGELOG.md`. Before 1.0, `feat` and breaking changes bump the minor version and `fix` bumps the patch.
+2. When you want to release, review that pull request and merge it. release-please then pushes the `vX.Y.Z` tag and opens a **draft** GitHub release with the changelog entries as its notes.
+3. The tag starts the [release workflow](.github/workflows/release.yml), which tests the tagged commit and attaches the archives, checksums, SBOMs and signatures to the draft, pushes the image and updates the tap. Review the draft's notes and assets, then publish it.
 
-The workflow runs in the `release` environment, which only `v*` tags can use and which can require a reviewer. It needs a `HOMEBREW_TAP_GITHUB_TOKEN` secret: a fine-grained token with contents write access to `solaria-sh/homebrew-tap`.
+The changelog comes from commit messages, so fix an entry at its source rather than in `CHANGELOG.md`:
+
+- To reword or drop an entry, edit the description of the merged pull request it came from and add the replacement messages between `BEGIN_COMMIT_OVERRIDE` and `END_COMMIT_OVERRIDE` lines. The release pull request picks it up on the next push to `main`, or when you re-run the workflow.
+- To choose the version, push a commit with a `Release-As: X.Y.Z` footer: `git commit --allow-empty -s -m "chore: release X.Y.Z" -m "Release-As: X.Y.Z"`.
+
+A tag pushed by hand (`git tag -s vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z`) still runs the release workflow, which then writes the release notes itself. Use it only if release-please is broken, and update `CHANGELOG.md` and `.release-please-manifest.json` to match.
+
+The release workflow runs in the `release` environment, which only `v*` tags can use and which can require a reviewer. It needs a `HOMEBREW_TAP_GITHUB_TOKEN` secret: a fine-grained token with contents write access to `solaria-sh/homebrew-tap`.
+
+release-please acts as a GitHub App, because a tag pushed with the workflow's own `GITHUB_TOKEN` doesn't start other workflows, and a pull request opened with it doesn't run CI. One-time setup:
+
+1. Create a GitHub App owned by `solaria-sh` (organization settings, Developer settings, GitHub Apps), named for example `solaria-release`. Turn off its webhook. Give it these repository permissions and nothing else: **Contents: Read and write** (the release commit, the tag and the draft release), **Pull requests: Read and write** (the release pull request) and **Issues: Read and write** (its `autorelease` labels). Metadata: Read-only is added automatically. Let it be installed only on this account.
+2. Generate a private key for the App, and install the App on `solaria-sh/solaria` only.
+3. Save the App's client ID as the `RELEASE_APP_CLIENT_ID` repository variable, and the private key as the `RELEASE_APP_PRIVATE_KEY` repository secret.
+4. If a ruleset protects `main` or `v*` tags, add the App to its bypass list, or allow it to create tags.
+
+The repository setting "Allow GitHub Actions to create and approve pull requests" isn't needed: it only applies to `GITHUB_TOKEN`.
 
 ## The website
 

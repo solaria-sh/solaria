@@ -1,0 +1,41 @@
+name: Release Please
+
+# On every push to main, release-please keeps a release pull request open
+# that bumps the version and updates CHANGELOG.md from the Conventional
+# Commits since the last release. Merging that pull request makes
+# release-please push the vX.Y.Z tag and open a draft GitHub release with
+# the changelog notes. The tag starts the release workflow (release.yml),
+# which attaches the binaries, SBOMs, image and cask to that draft. A
+# maintainer reviews the draft and publishes it.
+#
+# Configuration: release-please-config.json and .release-please-manifest.json.
+on:
+  push:
+    branches: [main]
+
+# The job acts with a GitHub App token, not GITHUB_TOKEN: a tag pushed with
+# GITHUB_TOKEN would not start release.yml, and a pull request opened with
+# it would not run CI.
+permissions: {}
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write # release commits, the tag, the draft release
+          permission-pull-requests: write # the release pull request
+          permission-issues: write # its autorelease labels
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
