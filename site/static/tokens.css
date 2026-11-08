@@ -1,0 +1,120 @@
+/*
+  Solaria design tokens.
+
+  Gold and silver, without pretending to be metal. Silver is the whole
+  neutral system: cool greys in light, graphite in dark. Gold is the one
+  signal, and it means "this acts or changes": the apply button, an
+  update in a plan, the agent at the center. Nothing decorative is gold.
+
+  Plan colors come from the product itself: + create, ~ update, - delete.
+  Update shares the gold text tone on purpose.
+
+  Themes: light and dark are equal. The page follows the system setting
+  unless <html data-theme="light|dark"> pins one.
+*/
+
+:root {
+  /* Silver: light */
+  --ground: #f1f2f4;
+  --surface: #ffffff;
+  --sunk: #e6e8eb;
+  --line: #d3d6dc;
+  --line-strong: #b4b9c1;
+  --ink: #15171c;
+  --ink-2: #3a3f48;
+  --muted: #555b66;
+
+  /* Gold: light */
+  --gold: #c99a2e;
+  --gold-ink: #7e5b0c;
+  --gold-wash: #f3e7c6;
+  --on-gold: #15171c;
+
+  /* Plan */
+  --create: #256b43;
+  --update: var(--gold-ink);
+  --delete: #b5352c;
+
+  /* Metal, for the mark and nothing else */
+  --sheen-gold: linear-gradient(135deg, #f3db8c 0%, #c99a2e 46%, #8f6a16 54%, #e9c766 100%);
+  --sheen-silver: linear-gradient(135deg, #f7f8fa 0%, #aeb4bc 46%, #7d848e 54%, #dadde2 100%);
+
+  /*
+    Type: Archivo (a grotesque with a width axis) and Martian Mono.
+    Display runs wide, like stamped machine plates; small labels can run
+    narrow. Mono is only for things a terminal or a card would show.
+  */
+  --font-sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --display-weight: 640;
+  --display-stretch: 116%;
+  --display-track: -0.02em;
+  --mono-stretch: 87.5%;
+  --text-xs: 12.5px;
+  --text-sm: 14px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-h2: clamp(30px, 4.2vw, 50px);
+  --text-h1: clamp(40px, 6.4vw, 76px);
+
+  /* Motion: mechanical and sparse. Ease out, never overshoot. */
+  --ease-latch: cubic-bezier(0.2, 0, 0, 1);
+  --ease-travel: cubic-bezier(0.6, 0, 0.1, 1);
+  --t-tick: 90ms;
+  --t-latch: 180ms;
+  --t-travel: 420ms;
+
+  /* Space and shape */
+  --radius: 3px;
+  --radius-plate: 6px;
+  --gutter: clamp(16px, 4vw, 48px);
+  --measure: 64ch;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #1a1e1d;
+    --surface: #232826;
+    --sunk: #151817;
+    --line: #37403c;
+    --line-strong: #4c5651;
+    --ink: #e5e8e4;
+    --ink-2: #c3c9c5;
+    --muted: #9ba39f;
+    --gold: #d9ac45;
+    --gold-ink: #e6be5e;
+    --gold-wash: #3a321d;
+    --on-gold: #1a1e1d;
+    --create: #74c493;
+    --delete: #ef8173;
+    --sheen-silver: linear-gradient(135deg, #c9cfcb 0%, #7f8884 46%, #5b625f 54%, #a9b0ac 100%);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #1a1e1d;
+  --surface: #232826;
+  --sunk: #151817;
+  --line: #37403c;
+  --line-strong: #4c5651;
+  --ink: #e5e8e4;
+  --ink-2: #c3c9c5;
+  --muted: #9ba39f;
+  --gold: #d9ac45;
+  --gold-ink: #e6be5e;
+  --gold-wash: #3a321d;
+  --on-gold: #1a1e1d;
+  --create: #74c493;
+  --delete: #ef8173;
+  --sheen-silver: linear-gradient(135deg, #c9cfcb 0%, #7f8884 46%, #5b625f 54%, #a9b0ac 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-tick: 0ms;
+    --t-latch: 0ms;
+    --t-travel: 0ms;
+  }
+}

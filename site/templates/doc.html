@@ -1,0 +1,37 @@
+{{define "content"}}
+<div class="wrap docs">
+  <nav class="side" aria-label="Documentation">
+    <details class="side-menu" id="sideMenu" open>
+      <summary>Docs menu</summary>
+      <div class="side-in">
+        {{range .Nav}}
+        <div class="side-group">
+          {{if eq .Title "Design decisions"}}
+          <details{{if .Open}} open{{end}}>
+            <summary>{{.Title}}</summary>
+            <ul>{{range .Items}}<li><a href="{{.URL}}"{{if .Active}} aria-current="page"{{end}}>{{.Label}}</a></li>{{end}}</ul>
+          </details>
+          {{else}}
+          <p class="side-title">{{.Title}}</p>
+          <ul>{{range .Items}}<li><a href="{{.URL}}"{{if .Active}} aria-current="page"{{end}}>{{.Label}}</a></li>{{end}}</ul>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+    </details>
+  </nav>
+
+  <main id="main" class="doc">
+    <h1 class="display doc-title">{{.Heading}}</h1>
+    <div class="prose">{{.Body}}</div>
+    <p class="doc-foot"><a href="{{.EditURL}}">Edit this page on GitHub</a></p>
+  </main>
+
+  {{if .TOC}}
+  <aside class="toc" aria-label="On this page">
+    <p class="side-title">On this page</p>
+    <ul>{{range .TOC}}<li><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ul>
+  </aside>
+  {{end}}
+</div>
+{{end}}

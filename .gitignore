@@ -19,3 +19,6 @@ coverage.*
 .idea/
 .vscode/
 .DS_Store
+
+# Third-party agent skills, installed locally (see skills-lock.json)
+/.claude/skills/

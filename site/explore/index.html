@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en" data-type="cockpit">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solaria design exploration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=B612:wght@400;700&family=B612+Mono:wght@400;700&family=Courier+Prime:wght@400;700&family=Libre+Franklin:wght@300..900&family=Martian+Mono:wdth,wght@75..112.5,100..800&family=Overpass:wght@300..900&family=Overpass+Mono:wght@300..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../static/tokens.css">
+<style>
+html[data-type="cockpit"]    { --font-sans: "B612", sans-serif; --font-mono: "B612 Mono", monospace; --d-weight: 700; --d-stretch: 100%; --d-track: -0.015em; --m-stretch: 100%; }
+html[data-type="grotesque"]  { --font-sans: "Archivo", sans-serif; --font-mono: "Martian Mono", monospace; --d-weight: 640; --d-stretch: 116%; --d-track: -0.02em; --m-stretch: 87.5%; }
+html[data-type="period"]     { --font-sans: "Libre Franklin", sans-serif; --font-mono: "Courier Prime", monospace; --d-weight: 800; --d-stretch: 100%; --d-track: -0.03em; --m-stretch: 100%; }
+html[data-type="wayfinding"] { --font-sans: "Overpass", sans-serif; --font-mono: "Overpass Mono", monospace; --d-weight: 800; --d-stretch: 100%; --d-track: -0.02em; --m-stretch: 100%; }
+
+* { box-sizing: border-box; }
+html { background: var(--ground); }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 400 17px/1.55 var(--font-sans); -webkit-font-smoothing: antialiased; }
+code, pre, .mono { font-family: var(--font-mono); font-stretch: var(--m-stretch); }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 var(--gutter); }
+.display { font-weight: var(--d-weight); font-stretch: var(--d-stretch); letter-spacing: var(--d-track); line-height: 1.02; margin: 0; }
+
+/* Bar */
+.bar { position: sticky; top: 0; z-index: 5; background: var(--ground); border-bottom: 1px solid var(--line); }
+.bar .wrap { display: flex; align-items: center; gap: 20px; min-height: 60px; flex-wrap: wrap; padding-block: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: var(--d-weight); font-stretch: var(--d-stretch); font-size: 19px; letter-spacing: var(--d-track); margin-right: auto; text-decoration: none; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
+.seg button { background: none; border: 0; padding: 6px 11px; font-size: 14px; cursor: pointer; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+.seg-label { font-size: 13px; color: var(--muted); margin-right: 6px; }
+.ctl { display: flex; align-items: center; }
+
+/* Sections */
+section.part { padding: 72px 0 24px; }
+.part > .wrap > h2 { font-size: 15px; font-weight: 700; margin: 0 0 6px; color: var(--ink); }
+.part > .wrap > p.lede { margin: 0 0 32px; color: var(--muted); max-width: var(--measure); }
+
+/* Palette */
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+.mode { border: 1px solid var(--line); border-radius: var(--radius-plate); padding: 20px; }
+.mode h3 { margin: 0 0 14px; font-size: 15px; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.chip { font-size: 12px; line-height: 1.35; }
+.chip i { display: block; height: 44px; border-radius: var(--radius); border: 1px solid rgba(127,127,127,.3); margin-bottom: 6px; }
+.chip b { display: block; font-weight: 700; }
+.metal { display: flex; gap: 24px; margin-top: 28px; align-items: center; flex-wrap: wrap; }
+.metal figure { margin: 0; display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); }
+.metal .disc { width: 56px; height: 56px; border-radius: 50%; }
+
+/* Type */
+.specimen { border-top: 1px solid var(--line); padding-top: 28px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 40px; }
+.specimen .big { font-size: clamp(40px, 6vw, 76px); }
+.specimen p { max-width: var(--measure); color: var(--ink-2); }
+.specimen pre { font-size: 13.5px; line-height: 1.6; background: var(--sunk); padding: 16px 18px; border-radius: var(--radius); margin: 0; overflow-x: auto; }
+.pairings { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.pairings button { display: block; width: 100%; text-align: left; background: none; border: 0; border-left: 2px solid transparent; padding: 10px 14px; cursor: pointer; }
+.pairings button[aria-pressed="true"] { border-left-color: var(--gold); background: var(--surface); }
+.pairings b { display: block; font-size: 16px; }
+.pairings span { display: block; font-size: 13.5px; color: var(--muted); }
+
+/* Hero frames */
+.hero { border: 1px solid var(--line); border-radius: var(--radius-plate); background: var(--ground); margin-bottom: 28px; position: relative; overflow: hidden; }
+.hero-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--muted); gap: 12px; }
+.hero-head b { color: var(--ink); }
+.replay { background: none; border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 4px 10px; font-size: 13px; cursor: pointer; }
+.hero-body { padding: clamp(28px, 5vw, 64px) clamp(20px, 4vw, 56px); }
+
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: var(--radius); font-size: 15px; font-weight: 700; text-decoration: none; border: 1px solid transparent; }
+.btn-gold { background: var(--gold); color: var(--on-gold); }
+.btn-line { border-color: var(--line-strong); color: var(--ink); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+.sub { font-size: 19px; color: var(--ink-2); max-width: 44ch; margin: 20px 0 0; }
+
+/* Hero A: plan that applies itself */
+.a-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(28px, 4vw, 56px); align-items: start; }
+.a-grid h1 { font-size: clamp(40px, 5.4vw, 68px); }
+.console { background: var(--sunk); border-radius: var(--radius-plate); padding: 18px 20px; font-size: 12.5px; line-height: 1.62; min-height: 300px; white-space: pre; overflow-x: auto; }
+.console .ln { display: block; min-height: 1.62em; }
+.console .cmd::before { content: "$ "; color: var(--muted); }
+.console .c { color: var(--create); }
+.console .u { color: var(--update); }
+.console .m { color: var(--muted); }
+.console .dg { color: var(--gold-ink); }
+.caret { display: inline-block; width: .55em; height: 1.1em; vertical-align: -0.18em; background: var(--ink); }
+.hosts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.host { border: 1px solid var(--line); border-radius: var(--radius-plate); padding: 12px 14px; font-size: 13px; background: var(--surface); transition: border-color var(--t-latch) var(--ease-latch); }
+.host b { display: block; font-size: 14px; }
+.host .where { color: var(--muted); display: block; }
+.host .d { display: block; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.host.on { border-color: var(--gold); }
+.host.on .d { color: var(--gold-ink); }
+
+.latch { animation: latch var(--t-latch) var(--ease-latch) both; }
+@keyframes latch { from { opacity: 0; transform: translateX(-3px); } to { opacity: 1; transform: none; } }
+
+/* Hero B: orbit */
+.b-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 4vw, 56px); align-items: center; }
+.b-grid h1 { font-size: clamp(40px, 5.4vw, 68px); }
+.orbit { width: 100%; max-width: 520px; aspect-ratio: 1; justify-self: center; }
+.orbit svg { width: 100%; height: 100%; overflow: visible; }
+.ring { fill: none; stroke: var(--line-strong); stroke-width: 1; }
+.ring-tick { stroke: var(--line-strong); stroke-width: 1; }
+.plate-g { cursor: pointer; }
+.plate-r { fill: var(--surface); stroke: var(--line-strong); transition: stroke var(--t-latch) var(--ease-latch); }
+.plate-g.on .plate-r { stroke: var(--gold); stroke-width: 1.5; }
+.plate-t { font-family: var(--font-sans); font-size: 17px; font-weight: 700; fill: var(--ink); }
+.plate-s { font-family: var(--font-mono); font-size: 13px; fill: var(--muted); }
+.plate-g.on .plate-s.dg { fill: var(--gold-ink); }
+.sun-t { font-family: var(--font-sans); font-size: 17px; font-weight: 700; fill: #1a1407; }
+.sun-s { font-family: var(--font-mono); font-size: 13px; fill: #3b2c07; }
+.readout { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 14px; display: grid; grid-template-columns: max-content 1fr; gap: 4px 18px; max-width: 460px; }
+.readout dt { color: var(--muted); }
+.readout dd { margin: 0; }
+
+/* Hero C: laws */
+.c-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; margin-bottom: 44px; }
+.c-top h1 { font-size: clamp(36px, 4.6vw, 58px); max-width: 16ch; }
+.laws { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.law { display: grid; grid-template-columns: 9ch minmax(0, 1.3fr) minmax(0, 1fr); gap: 24px; padding: 26px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.law .ord { color: var(--muted); font-size: 14px; }
+.law h3 { margin: 0; font-size: clamp(24px, 2.8vw, 34px); font-weight: var(--d-weight); font-stretch: var(--d-stretch); letter-spacing: var(--d-track); line-height: 1.1; }
+.law .proof { font-size: 15px; color: var(--ink-2); display: grid; grid-template-columns: 18px 1fr; gap: 10px; }
+.law .proof code { font-size: 13px; color: var(--ink); }
+.law svg { margin-top: 3px; }
+.law .tick { stroke: var(--gold); stroke-width: 2.2; fill: none; stroke-dasharray: 20; stroke-dashoffset: 20; }
+.law.set .tick { stroke-dashoffset: 0; transition: stroke-dashoffset 260ms var(--ease-latch); }
+.law .box { fill: none; stroke: var(--line-strong); }
+.law h3, .law .proof { transition: opacity var(--t-latch) var(--ease-latch), transform var(--t-latch) var(--ease-latch); }
+.laws.armed .law:not(.shown) h3, .laws.armed .law:not(.shown) .proof { opacity: 0; transform: translateX(-4px); }
+
+@media (max-width: 860px) {
+  .a-grid, .b-grid, .specimen { grid-template-columns: minmax(0, 1fr); }
+  .hosts { grid-template-columns: minmax(0, 1fr); }
+  .law { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .c-top { grid-template-columns: minmax(0, 1fr); }
+  .console { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+        <defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3db8c"/><stop offset=".46" stop-color="#c99a2e"/><stop offset=".54" stop-color="#8f6a16"/><stop offset="1" stop-color="#e9c766"/></linearGradient></defs>
+        <circle cx="13" cy="13" r="7" fill="url(#mg)"/>
+        <circle cx="13" cy="13" r="11.5" fill="none" stroke="var(--muted)" stroke-width="1"/>
+        <circle cx="24.5" cy="13" r="1.8" fill="var(--ink)"/>
+      </svg>
+      Solaria
+    </a>
+    <div class="ctl"><span class="seg-label">Type</span>
+      <div class="seg" id="typeSeg">
+        <button data-v="cockpit" aria-pressed="true">Cockpit</button>
+        <button data-v="grotesque" aria-pressed="false">Grotesque</button>
+        <button data-v="period" aria-pressed="false">Period</button>
+        <button data-v="wayfinding" aria-pressed="false">Wayfinding</button>
+      </div>
+    </div>
+    <div class="ctl"><span class="seg-label">Theme</span>
+      <div class="seg" id="themeSeg">
+        <button data-v="system" aria-pressed="true">System</button>
+        <button data-v="light" aria-pressed="false">Light</button>
+        <button data-v="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="part" id="palette">
+  <div class="wrap">
+    <h2>Palette: gold and silver</h2>
+    <p class="lede">Silver is every neutral: D's cool greys in light mode, A's graphite in dark. Gold is the only signal, and it always means "this acts or changes". Metal appears in exactly one place, the mark.</p>
+    <div class="modes" id="modes"></div>
+    <div class="metal">
+      <figure><span class="disc" style="background: var(--sheen-gold)"></span>Gold sheen, the sun in the mark</figure>
+      <figure><span class="disc" style="background: var(--sheen-silver)"></span>Silver sheen, the orbit, if we ever need it filled</figure>
+    </div>
+  </div>
+</section>
+
+<section class="part" id="type">
+  <div class="wrap">
+    <h2>Type</h2>
+    <p class="lede">Four pairings, none from the usual generated-site set. Switching one here, or in the bar, also resets the three hero sketches below, so you can judge them in context.</p>
+    <div class="specimen">
+      <div>
+        <p class="display big">Agents do the work. People steer.</p>
+        <p>Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports, and records what it deployed where.</p>
+<pre>Environment local (stub/file)
+
+  <span style="color:var(--update)">~ Agent/hello</span>
+      <span style="color:var(--update)">~ limits.maxTurns: 5 -> 2</span>
+      resolvedDigest: sha256:08ffaed7b158 -> sha256:627f9817d8d8
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.</pre>
+      </div>
+      <ul class="pairings" id="pairings">
+        <li><button data-v="cockpit" aria-pressed="true"><b>Cockpit: B612 and B612 Mono</b><span>Airbus commissioned it for flight-deck displays: type made for people supervising machines. The most on-concept choice, and the least seen.</span></button></li>
+        <li><button data-v="grotesque" aria-pressed="false"><b>Grotesque: Archivo and Martian Mono</b><span>A 19th-century American grotesque with a width axis. Wide for headlines, narrow for labels, like stamped machine plates.</span></button></li>
+        <li><button data-v="period" aria-pressed="false"><b>Period: Libre Franklin and Courier Prime</b><span>Franklin Gothic set the covers and manuals of the 1950s, when the robot novels came out. Typewriter mono for plan output.</span></button></li>
+        <li><button data-v="wayfinding" aria-pressed="false"><b>Wayfinding: Overpass and Overpass Mono</b><span>Drawn from Highway Gothic, the US road-sign face. Signage for systems you navigate rather than read.</span></button></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="part" id="heroes">
+  <div class="wrap">
+    <h2>Signature moment: three sketches</h2>
+    <p class="lede">Each is a full first screen. Motion is mechanical: things latch into place, nothing floats or bounces, and reduced-motion settings get the final state.</p>
+
+    <!-- A -->
+    <article class="hero" id="heroA">
+      <div class="hero-head"><span><b>A.</b> A plan that applies itself</span><button class="replay" data-replay="A">Replay</button></div>
+      <div class="hero-body">
+        <div class="a-grid">
+          <div>
+            <h1 class="display">Declare an agent once. Apply it wherever it can run.</h1>
+            <p class="sub">Solaria plans and applies agent definitions across hosts, and keeps one identity for each agent wherever it lands.</p>
+            <div class="actions"><a class="btn btn-gold" href="#">Install Solaria</a><a class="btn btn-line" href="#">Read the concepts</a></div>
+          </div>
+          <div>
+            <div class="console mono" id="consoleA" aria-label="A Solaria plan and apply run"></div>
+            <div class="hosts" id="hostsA">
+              <div class="host"><b>local-gitagent</b><span class="where">gitagent, in Docker</span><span class="d mono">waiting</span></div>
+              <div class="host"><b>ma-cloud</b><span class="where">Managed Agents, cloud</span><span class="d mono">waiting</span></div>
+              <div class="host"><b>ma-self-hosted</b><span class="where">Managed Agents, your machine</span><span class="d mono">waiting</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- B -->
+    <article class="hero" id="heroB">
+      <div class="hero-head"><span><b>B.</b> Hosts in orbit around one agent</span><button class="replay" data-replay="B">Replay</button></div>
+      <div class="hero-body">
+        <div class="b-grid">
+          <div>
+            <h1 class="display">One agent at the center. Every host in orbit.</h1>
+            <p class="sub">The card stays put. Environments decide where it runs. Pick a host to see what changes and what doesn't.</p>
+            <dl class="readout" id="readoutB">
+              <dt>Environment</dt><dd id="rEnv">ma-cloud</dd>
+              <dt>Provider</dt><dd id="rProv">managed-agents / cloud</dd>
+              <dt>Agent loop</dt><dd id="rLoop">Claude Managed Agents</dd>
+              <dt>Digest</dt><dd class="mono" id="rDig" style="color:var(--gold-ink)">sha256:08ffaed7b158</dd>
+            </dl>
+            <div class="actions"><a class="btn btn-gold" href="#">Install Solaria</a><a class="btn btn-line" href="#">Read the concepts</a></div>
+          </div>
+          <div class="orbit">
+            <svg viewBox="0 0 520 520" role="img" aria-labelledby="orbT">
+              <title id="orbT">The hello agent at the center, with three hosts on orbits around it</title>
+              <defs><linearGradient id="sun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3db8c"/><stop offset=".46" stop-color="#c99a2e"/><stop offset=".54" stop-color="#8f6a16"/><stop offset="1" stop-color="#e9c766"/></linearGradient></defs>
+              <g id="ticks"></g>
+              <circle class="ring" cx="260" cy="260" r="128"/>
+              <circle class="ring" cx="260" cy="260" r="188"/>
+              <circle class="ring" cx="260" cy="260" r="246"/>
+              <circle cx="260" cy="260" r="70" fill="url(#sun)"/>
+              <text class="sun-t" x="260" y="256" text-anchor="middle">Agent/hello</text>
+              <text class="sun-s" x="260" y="274" text-anchor="middle">08ffaed7b158</text>
+              <g id="arms"></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- C -->
+    <article class="hero" id="heroC">
+      <div class="hero-head"><span><b>C.</b> The three laws of Solaria</span><button class="replay" data-replay="C">Replay</button></div>
+      <div class="hero-body">
+        <div class="c-top">
+          <h1 class="display">Agents do the work. These rules keep it honest.</h1>
+          <div class="actions" style="margin:0"><a class="btn btn-gold" href="#">Install Solaria</a><a class="btn btn-line" href="#">Read the concepts</a></div>
+        </div>
+        <ol class="laws" id="laws">
+          <li class="law"><span class="ord">First law</span><h3>A plan never surprises you.</h3>
+            <span class="proof"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect class="box" x="0.5" y="0.5" width="17" height="17" rx="2"/><path class="tick" d="M4 9.5l3.2 3L14 5.5"/></svg><span><code>solaria plan</code> diffs every field against recorded state before a host is touched.</span></span></li>
+          <li class="law"><span class="ord">Second law</span><h3>An agent is the same agent wherever it runs.</h3>
+            <span class="proof"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect class="box" x="0.5" y="0.5" width="17" height="17" rx="2"/><path class="tick" d="M4 9.5l3.2 3L14 5.5"/></svg><span>A content digest follows it to each host, so <code>sha256:08ffaed7b158</code> in a container is the agent in the cloud.</span></span></li>
+          <li class="law"><span class="ord">Third law</span><h3>What a host can't run never reaches it.</h3>
+            <span class="proof"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect class="box" x="0.5" y="0.5" width="17" height="17" rx="2"/><path class="tick" d="M4 9.5l3.2 3L14 5.5"/></svg><span>Capability checks fail the plan early, and say which field the host can't take.</span></span></li>
+        </ol>
+      </div>
+    </article>
+  </div>
+</section>
+
+</main>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const sleep = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+  const root = document.documentElement;
+
+  // Palette chips, both modes, from the token values.
+  const modes = {
+    Light: { ground:"#f1f2f4", surface:"#ffffff", sunk:"#e6e8eb", line:"#d3d6dc", "line-strong":"#b4b9c1", muted:"#555b66", "ink-2":"#3a3f48", ink:"#15171c", gold:"#c99a2e", "gold-ink":"#7e5b0c", "gold-wash":"#f3e7c6", create:"#256b43", delete:"#b5352c" },
+    Dark:  { ground:"#1a1e1d", surface:"#232826", sunk:"#151817", line:"#37403c", "line-strong":"#4c5651", muted:"#9ba39f", "ink-2":"#c3c9c5", ink:"#e5e8e4", gold:"#d9ac45", "gold-ink":"#e6be5e", "gold-wash":"#3a321d", create:"#74c493", delete:"#ef8173" }
+  };
+  document.getElementById("modes").innerHTML = Object.entries(modes).map(([name, t]) =>
+    `<div class="mode" style="background:${t.ground};color:${t.ink};border-color:${t.line}"><h3>${name}</h3><div class="chips">` +
+    Object.entries(t).map(([k, v]) => `<div class="chip"><i style="background:${v}"></i><b>--${k}</b><span style="color:${t.muted}">${v}</span></div>`).join("") +
+    `</div></div>`).join("");
+
+  // Segmented controls.
+  function seg(el, apply) {
+    el.addEventListener("click", e => {
+      const b = e.target.closest("button[data-v]"); if (!b) return;
+      apply(b.dataset.v);
+    });
+  }
+  function setType(v) {
+    root.dataset.type = v;
+    document.querySelectorAll("#typeSeg button, #pairings button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === v));
+    runAll();
+  }
+  function setTheme(v) {
+    if (v === "system") delete root.dataset.theme; else root.dataset.theme = v;
+    document.querySelectorAll("#themeSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === v));
+  }
+  seg(document.getElementById("typeSeg"), setType);
+  seg(document.getElementById("pairings"), setType);
+  seg(document.getElementById("themeSeg"), setTheme);
+
+  // Hero A: the console types a real plan, then apply latches each host.
+  const A = { run: 0 };
+  const script = [
+    { cmd: "solaria plan -e ma-cloud" },
+    { t: "Environment ma-cloud (managed-agents/cloud)" },
+    { t: "" },
+    { t: "  + Environment/ma-cloud", k: "c" },
+    { t: "" },
+    { t: "  + Agent/hello", k: "c" },
+    { h: '      resolvedDigest: <span class="dg">sha256:08ffaed7b158</span>' },
+    { t: "" },
+    { t: "Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.", k: "m" },
+    { cmd: "solaria apply -e ma-cloud --auto-approve", pause: 500 },
+    { t: "Apply complete: 2 created, 0 updated, 0 replaced, 0 deleted. State serial 1.", hostAfter: 1 },
+  ];
+  async function runA() {
+    const id = ++A.run, con = document.getElementById("consoleA");
+    const hosts = [...document.querySelectorAll("#hostsA .host")];
+    con.innerHTML = ""; hosts.forEach(h => { h.classList.remove("on"); h.querySelector(".d").textContent = "waiting"; });
+    const live = () => id === A.run;
+    for (const s of script) {
+      if (!live()) return;
+      const ln = document.createElement("span"); ln.className = "ln";
+      con.appendChild(ln);
+      if (s.cmd) {
+        await sleep(s.pause || 350);
+        ln.classList.add("cmd");
+        const caret = document.createElement("span"); caret.className = "caret";
+        for (const ch of s.cmd) { if (!live()) return; ln.textContent += ch; ln.appendChild(caret); await sleep(28); }
+        await sleep(260); caret.remove();
+      } else {
+        await sleep(s.t === "" ? 40 : 110);
+        if (s.k) ln.classList.add(s.k);
+        if (s.h) ln.innerHTML = s.h; else ln.textContent = s.t;
+        ln.classList.add("latch");
+      }
+      if (s.hostAfter) {
+        // ma-cloud is what was applied; the other two are the same card in other environments.
+        const order = [1, 0, 2];
+        for (const i of order) {
+          await sleep(i === 1 ? 260 : 520); if (!live()) return;
+          hosts[i].classList.add("on");
+          hosts[i].querySelector(".d").innerHTML = (i === 1 ? "applied" : "same card") + "<br>08ffaed7b158";
+        }
+      }
+    }
+  }
+
+  // Hero B: three arms step around in discrete ticks, like an escapement.
+  const envs = [
+    { name: "local-gitagent", prov: "gitagent / docker", loop: "gitagent, in a container image", r: 128, a: 200, sub: "docker" },
+    { name: "ma-self-hosted", prov: "managed-agents / self-hosted", loop: "Managed Agents; tools on your machine", r: 188, a: 320, sub: "self-hosted" },
+    { name: "ma-cloud", prov: "managed-agents / cloud", loop: "Claude Managed Agents", r: 246, a: 60, sub: "cloud" },
+  ];
+  const ticks = document.getElementById("ticks");
+  for (let i = 0; i < 72; i++) {
+    const ang = i * 5 * Math.PI / 180, r1 = 252, r2 = i % 6 ? 256 : 262;
+    ticks.insertAdjacentHTML("beforeend", `<line class="ring-tick" x1="${260 + r1 * Math.cos(ang)}" y1="${260 + r1 * Math.sin(ang)}" x2="${260 + r2 * Math.cos(ang)}" y2="${260 + r2 * Math.sin(ang)}"/>`);
+  }
+  const arms = document.getElementById("arms");
+  envs.forEach((e, i) => {
+    arms.insertAdjacentHTML("beforeend",
+      `<g class="plate-g" data-i="${i}" tabindex="0" role="button" aria-label="${e.name}">
+        <rect class="plate-r" x="-62" y="-28" width="124" height="56" rx="5"/>
+        <text class="plate-t" x="0" y="-5" text-anchor="middle">${e.name}</text>
+        <text class="plate-s dg" x="0" y="15" text-anchor="middle">${e.sub} · 08ffaed7b158</text></g>`);
+  });
+  const plates = [...arms.querySelectorAll(".plate-g")];
+  const B = { sel: 2, timer: null, raf: 0, angles: envs.map(e => e.a), shown: envs.map(e => e.a) };
+  function sizePlates() {
+    plates.forEach(p => {
+      const w = Math.max(...[...p.querySelectorAll("text")].map(t => t.getBBox().width)) + 26;
+      const r = p.querySelector("rect"); r.setAttribute("x", -w / 2); r.setAttribute("width", w);
+    });
+  }
+  function drawB(angles) {
+    plates.forEach((p, i) => {
+      const a = angles[i] * Math.PI / 180, r = envs[i].r;
+      p.setAttribute("transform", `translate(${(260 + r * Math.cos(a)).toFixed(2)},${(260 + r * Math.sin(a)).toFixed(2)})`);
+    });
+  }
+  // One tick: travel from the shown angles to the target, ease out hard, no overshoot.
+  function tickTo(target) {
+    cancelAnimationFrame(B.raf);
+    const from = B.shown.slice(), t0 = performance.now(), dur = reduce ? 0 : 420;
+    const ease = t => 1 - Math.pow(1 - t, 4);
+    const step = now => {
+      const t = dur ? Math.min(1, (now - t0) / dur) : 1;
+      B.shown = from.map((a, i) => a + (target[i] - a) * ease(t));
+      drawB(B.shown);
+      if (t < 1) B.raf = requestAnimationFrame(step);
+    };
+    B.raf = requestAnimationFrame(step);
+  }
+  function placeB() {
+    tickTo(B.angles);
+    plates.forEach((p, i) => p.classList.toggle("on", i === B.sel));
+    const e = envs[B.sel];
+    document.getElementById("rEnv").textContent = e.name;
+    document.getElementById("rProv").textContent = e.prov;
+    document.getElementById("rLoop").textContent = e.loop;
+  }
+  arms.addEventListener("click", ev => { const p = ev.target.closest(".plate-g"); if (p) { B.sel = +p.dataset.i; placeB(); } });
+  arms.addEventListener("keydown", ev => { if ((ev.key === "Enter" || ev.key === " ") && ev.target.closest(".plate-g")) { ev.preventDefault(); B.sel = +ev.target.closest(".plate-g").dataset.i; placeB(); } });
+  function runB() {
+    clearInterval(B.timer);
+    sizePlates();
+    B.angles = envs.map(e => e.a); B.shown = B.angles.slice(); B.sel = 2; drawB(B.shown); placeB();
+    if (reduce) return;
+    let step = 0;
+    B.timer = setInterval(() => {
+      step++;
+      // inner orbits move faster; each advance is one discrete tick
+      B.angles = B.angles.map((a, i) => a + [15, 10, 5][i]);
+      if (step % 4 === 0) B.sel = (B.sel + 1) % 3;
+      placeB();
+    }, 1400);
+  }
+
+  // Hero C: laws set one by one; each proof gets its check.
+  const C = { run: 0 };
+  async function runC() {
+    const id = ++C.run, list = document.getElementById("laws");
+    const laws = [...list.querySelectorAll(".law")];
+    list.classList.add("armed"); laws.forEach(l => l.classList.remove("shown", "set"));
+    await sleep(300);
+    for (const l of laws) {
+      if (id !== C.run) return;
+      l.classList.add("shown"); await sleep(420);
+      l.classList.add("set"); await sleep(380);
+    }
+  }
+
+  function runAll() { runA(); runB(); runC(); }
+  document.querySelectorAll("[data-replay]").forEach(b => b.addEventListener("click", () => ({ A: runA, B: runB, C: runC })[b.dataset.replay]()));
+  document.fonts.ready.then(runAll);
+})();
+</script>
+</body>
+</html>

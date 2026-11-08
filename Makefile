@@ -16,7 +16,7 @@ GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$
 GOVULNCHECK   := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 GORELEASER    ?= go run github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
-.PHONY: all build test lint fmt vuln tidy-check schema check-schema check release-check release-snapshot clean
+.PHONY: all build test lint fmt vuln tidy-check schema check-schema check release-check release-snapshot site site-serve site-test clean
 
 all: check build
 
@@ -52,5 +52,14 @@ release-check: ## Validate .goreleaser.yaml
 release-snapshot: ## Build a local release into dist/ without signing or publishing
 	$(GORELEASER) release --snapshot --clean --skip=sign
 
+site: ## Build the website into site/public/ (landing page and docs)
+	go -C site run .
+
+site-serve: ## Build the website and serve it on http://localhost:4173
+	go -C site run . -serve 127.0.0.1:4173
+
+site-test: ## Check that every link in the built website resolves
+	go -C site test .
+
 clean:
-	rm -rf bin dist
+	rm -rf bin dist site/public

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "avoid-ai-design": {
+      "source": "funboy322/avoid-ai-design",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "fcafb6d690c20523cf23f35a7f4dc30abfb49edd2af3736adca33a8f6d134590"
+    },
+    "impeccable": {
+      "source": "pbakaus/impeccable",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/impeccable/SKILL.md",
+      "computedHash": "c671292d4973a711bc857fc619f015f533ca9b49afc78c25c23d5b0811194bbf"
+    },
+    "ui-craft": {
+      "source": "educlopez/ui-craft",
+      "sourceType": "github",
+      "skillPath": "skills/ui-craft/SKILL.md",
+      "computedHash": "e09de6e10f95e0fbdf406314ebe42dd89d6901d9b2630f083f56d0a8d09a6f8e"
+    },
+    "web-motion-design": {
+      "source": "dylantarre/animation-principles",
+      "sourceType": "github",
+      "skillPath": "skills/01-by-domain/web-motion-design/SKILL.md",
+      "computedHash": "ec2e6a89573cb273bf12667ccbc2bde8cfd500271a1e7d888b05aba0ae7cc159"
+    }
+  }
+}

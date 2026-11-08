@@ -1,0 +1,175 @@
+{{define "content"}}
+<main id="main">
+
+  <!-- First screen: a real plan, then apply -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <h1 class="display">Declare an agent once. Apply it wherever it can run.</h1>
+        <p class="lead">Solaria plans and applies AI agent definitions across hosts, and records what it deployed where. The host runs the agent loop. Solaria defines, deploys and tracks.</p>
+        <div class="actions">
+          <a class="btn btn-gold" href="#install">Install Solaria</a>
+          <a class="btn btn-line" href="/docs/concepts/">Read the concepts</a>
+        </div>
+        <p class="status">Pre-alpha. Works today with gitagent in a local container, and with Claude Managed Agents in the cloud or self-hosted.</p>
+      </div>
+      <div class="hero-run">
+        <pre class="console" id="console" aria-label="solaria plan and apply for the reviewer agent"><code></code></pre>
+        <ol class="hosts" id="hosts" aria-label="Where the reviewer agent is placed">
+          <li class="host" data-env="ma-cloud"><b>ma-cloud</b><span>Managed Agents, cloud</span><code class="dig">waiting</code></li>
+          <li class="host" data-env="ma-self-hosted"><b>ma-self-hosted</b><span>Managed Agents, your machine</span><code class="dig">waiting</code></li>
+          <li class="host" data-env="local-gitagent"><b>local-gitagent</b><span>gitagent, in Docker</span><code class="dig">waiting</code></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- One card, hosts in orbit -->
+  <section class="block orbit-block" aria-labelledby="orbit-h">
+    <div class="wrap orbit-grid">
+      <div class="orbit-copy">
+        <h2 id="orbit-h" class="display">The card stays put. Environments decide where it runs.</h2>
+        <p><code>reviewer</code> is one card: instructions, model, tools, skills and limits. It names no host. Three environments place it in a local container, on Managed Agents with tools on your machine, and fully in Anthropic's cloud.</p>
+        <p>Open a host to see what it changes. <code>local-gitagent</code> swaps the model for Haiku, so only its digest moves.</p>
+<pre class="card-yaml"><code><span class="k">kind:</span> Agent
+<span class="k">metadata:</span> {name: reviewer}
+<span class="k">spec:</span>
+  <span class="k">description:</span> Reviews a change and flags risky edits
+  <span class="k">model:</span> {preferred: anthropic:claude-sonnet-5-5}
+  <span class="k">tools:</span>
+    <span class="k">builtin:</span> [shell, read]
+    <span class="k">mcp:</span> [{ref: deepwiki}]
+  <span class="k">skills:</span> [skills/review-rubric]</code></pre>
+      </div>
+      <div class="orbit-wrap">
+        <div class="orbit" id="orbit">
+          <svg class="orbit-svg" viewBox="0 0 520 520" aria-hidden="true">
+            <defs><linearGradient id="sun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3db8c"/><stop offset=".46" stop-color="#c99a2e"/><stop offset=".54" stop-color="#8f6a16"/><stop offset="1" stop-color="#e9c766"/></linearGradient></defs>
+            <g id="ticks"></g>
+            <circle class="ring" cx="260" cy="260" r="128"/>
+            <circle class="ring" cx="260" cy="260" r="188"/>
+            <circle class="ring" cx="260" cy="260" r="246"/>
+            <circle cx="260" cy="260" r="74" fill="url(#sun)"/>
+            <text class="sun-t" x="260" y="256" text-anchor="middle">reviewer</text>
+            <text class="sun-s" x="260" y="278" text-anchor="middle">sonnet-5-5</text>
+          </svg>
+          <div id="nodes"></div>
+        </div>
+        <div class="orbit-detail" id="orbitDetail" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The three laws -->
+  <section class="block" aria-labelledby="laws-h">
+    <div class="wrap">
+      <h2 id="laws-h" class="display laws-h">Agents do the work. These rules keep it honest.</h2>
+      <ol class="laws" id="laws">
+        <li class="law">
+          <span class="ord">First law</span>
+          <h3>A plan never surprises you.</h3>
+          <p class="proof"><svg class="chk" viewBox="0 0 18 18" aria-hidden="true"><rect x=".5" y=".5" width="17" height="17" rx="2"/><path d="M4 9.5l3.2 3L14 5.5"/></svg><span><code>solaria plan</code> diffs every field against recorded state before any host is called.</span></p>
+        </li>
+        <li class="law">
+          <span class="ord">Second law</span>
+          <h3>An agent keeps one identity on every host.</h3>
+          <p class="proof"><svg class="chk" viewBox="0 0 18 18" aria-hidden="true"><rect x=".5" y=".5" width="17" height="17" rx="2"/><path d="M4 9.5l3.2 3L14 5.5"/></svg><span>State records which agent, with which content digest, runs where. The digest moves only when the card, or an environment's override, changes.</span></p>
+        </li>
+        <li class="law">
+          <span class="ord">Third law</span>
+          <h3>What a host can't run never reaches it.</h3>
+          <p class="proof"><svg class="chk" viewBox="0 0 18 18" aria-hidden="true"><rect x=".5" y=".5" width="17" height="17" rx="2"/><path d="M4 9.5l3.2 3L14 5.5"/></svg><span>Capability checks fail the plan early and name the field. Smaller gaps come back as warnings, like limits a host doesn't enforce.</span></p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Hosts today -->
+  <section class="block" aria-labelledby="hosts-h">
+    <div class="wrap two">
+      <div>
+        <h2 id="hosts-h" class="display">Hosts today</h2>
+        <p>A provider is the code that talks to one kind of host. Each one declares what it can run, so a card a host can't take fails at plan time, not halfway through an apply.</p>
+      </div>
+      <div class="table-wrap">
+        <table class="providers">
+          <thead><tr><th scope="col">Provider</th><th scope="col">Placements</th><th scope="col">Agent loop</th><th scope="col">Tools run in</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><code>gitagent</code></th><td data-l="Placements">docker</td><td data-l="Agent loop">gitagent, in a container image</td><td data-l="Tools run in">The same container</td></tr>
+            <tr><th scope="row"><code>managed-agents</code></th><td data-l="Placements">cloud, self-hosted</td><td data-l="Agent loop">Claude Managed Agents</td><td data-l="Tools run in">Anthropic's sandbox, or a worker container on your machine</td></tr>
+            <tr><th scope="row"><code>stub</code></th><td data-l="Placements">file</td><td data-l="Agent loop">Nowhere: it writes files</td><td data-l="Tools run in">Nowhere. For tests and examples</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section class="block" id="install" aria-labelledby="install-h">
+    <div class="wrap two">
+      <div>
+        <h2 id="install-h" class="display">Install Solaria</h2>
+        <p>One binary with nothing else to install. Pick your system.</p>
+        <p class="aside">The scripts download the latest release from GitHub, check its SHA-256 checksum, and install the binary for your user, without <code>sudo</code>. Releases are also signed with cosign. To install by hand, download an archive from <a href="{{.Repo}}/releases">the releases page</a>.</p>
+      </div>
+      <div class="install" id="osTabs">
+        <div class="tabs" role="tablist" aria-label="Operating system">
+          <button class="tab" role="tab" type="button" id="tab-macos" aria-controls="os-macos" aria-selected="true" data-os="macos">macOS</button>
+          <button class="tab" role="tab" type="button" id="tab-linux" aria-controls="os-linux" aria-selected="false" tabindex="-1" data-os="linux">Linux</button>
+          <button class="tab" role="tab" type="button" id="tab-windows" aria-controls="os-windows" aria-selected="false" tabindex="-1" data-os="windows">Windows</button>
+        </div>
+
+        <div class="panel" role="tabpanel" id="os-macos" aria-labelledby="tab-macos">
+          <p class="step">With Homebrew</p>
+          <div class="cmd-row"><pre><code>brew install solaria-sh/tap/solaria</code></pre><button class="copy" type="button" data-copy="brew install solaria-sh/tap/solaria">Copy</button></div>
+          <p class="step">Or with the install script</p>
+          <div class="cmd-row"><pre><code>curl -fsSL https://solaria.sh/install.sh | sh</code></pre><button class="copy" type="button" data-copy="curl -fsSL https://solaria.sh/install.sh | sh">Copy</button></div>
+          <p class="hint">The script installs to <code>~/.local/bin</code>. Set <code>SOLARIA_INSTALL_DIR</code> to choose another folder.</p>
+        </div>
+
+        <div class="panel" role="tabpanel" id="os-linux" aria-labelledby="tab-linux">
+          <p class="step">With the install script</p>
+          <div class="cmd-row"><pre><code>curl -fsSL https://solaria.sh/install.sh | sh</code></pre><button class="copy" type="button" data-copy="curl -fsSL https://solaria.sh/install.sh | sh">Copy</button></div>
+          <p class="hint">Works on amd64 and arm64. It installs to <code>~/.local/bin</code>; set <code>SOLARIA_INSTALL_DIR</code> to choose another folder.</p>
+          <p class="step">Or run the container image</p>
+          <div class="cmd-row"><pre><code>docker run --rm ghcr.io/solaria-sh/solaria version</code></pre><button class="copy" type="button" data-copy="docker run --rm ghcr.io/solaria-sh/solaria version">Copy</button></div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="os-windows" aria-labelledby="tab-windows">
+          <p class="step">In PowerShell</p>
+          <div class="cmd-row"><pre><code>irm https://solaria.sh/install.ps1 | iex</code></pre><button class="copy" type="button" data-copy="irm https://solaria.sh/install.ps1 | iex">Copy</button></div>
+          <p class="hint">Installs to <code>%LOCALAPPDATA%\Programs\Solaria</code> and adds it to your user PATH. Open a new terminal afterwards.</p>
+        </div>
+
+        <p class="step">Then check it</p>
+        <div class="cmd-row"><pre><code>solaria version</code></pre><button class="copy" type="button" data-copy="solaria version">Copy</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- First run -->
+  <section class="block" aria-labelledby="try-h">
+    <div class="wrap two">
+      <div>
+        <h2 id="try-h" class="display">Try it without credentials</h2>
+        <p>The <code>hello</code> example runs the whole workflow with the stub provider, which writes its host objects to files. It needs no account, no API key and no Docker.</p>
+        <p><a href="/docs/concepts/">Read the concepts</a> next, or go through <a href="{{.Repo}}/tree/main/examples/reviewer">the reviewer example</a>, which takes one agent to three hosts.</p>
+      </div>
+      <div class="install">
+<pre class="console static"><code><span class="cmd">git clone {{.Repo}}</span>
+<span class="cmd">cd solaria/examples/hello</span>
+<span class="cmd">solaria plan -e local</span>
+Environment local (stub/file)
+
+  <span class="c">+ Agent/hello</span>
+      resolvedDigest: <span class="dg">sha256:08ffaed7b158</span>
+
+<span class="m">Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.</span>
+<span class="cmd">solaria apply -e local</span>
+<span class="cmd">solaria status</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+</main>
+{{end}}
