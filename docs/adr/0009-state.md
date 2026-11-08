@@ -55,7 +55,7 @@ Chosen option: "Local, gitignored state per environment, behind a backend interf
 
 **Drift:** each entry also stores a `remoteHash`, a hash of the host's normalized response as of the last apply (an idea taken from `ant apply`'s `claude-lock.json`). A refresh that finds a different hash reports drift, such as a change made in a console. Normalization fills in server-side defaults first, so they don't show up as false drift.
 
-**Environment-level host objects** (since M6, ADR 0012): `host` holds one more entry, for an object the environment's agents share, such as a Managed Agents environment. It has the same fields as an agent entry, apart from the digests and definition, which become the provider's own config map and its digest.
+**Environment-level host objects** (since M6, ADR 0012): `host` holds one more entry, for an object the environment's agents share, such as a Managed Agents environment. It has the same fields as an agent entry, apart from the digests and definition, which become the provider's own config map and its digest, and the history, which it doesn't keep.
 
 **Drift as implemented:** providers choose what `remoteHash` is. `gitagent` uses the image ID. `managed-agents` uses the agent's version, which the host increases on every change, and the environment's `updated_at`; neither needs normalization.
 

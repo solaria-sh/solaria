@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-05
+status: accepted
+date: 2026-11-08
 decision-makers: Renan Tarouco da Fonseca
 ---
 
@@ -29,7 +29,7 @@ Chosen option: "An optional `EnvironmentHost` interface", because it models the 
 
 - **Interface:** a provider whose host keeps such an object also implements `provider.EnvironmentHost`: `ValidateEnvironment`, `PlanEnvironment`, `ApplyEnvironment`, `ReadEnvironment` and `DestroyEnvironment`. Providers that don't implement it are unaffected.
 - **Plan:** the step's ID is `Environment/<name>`. It shows above the agents, or below them for a delete, and counts like any other step. The provider records a config map, which later plans diff field by field, and a digest.
-- **State:** `host` holds one entry beside `agents`, with the same provider, placement, binding, `remoteHash`, source and history fields.
+- **State:** `host` holds one entry beside `agents`, with the same provider, placement, binding, `remoteHash` and source fields. It keeps no history: the object is rebuilt from the configuration, and only agents roll back.
 - **Apply order:**
   1. agent deletes;
   2. the host object's create, update or replace;
@@ -37,7 +37,7 @@ Chosen option: "An optional `EnvironmentHost` interface", because it models the 
   4. the host object's delete.
 - **Validation:** `ValidateEnvironment` reports environment-wide problems once, on the environment's file, rather than once per agent.
 - **Partial apply:** `ApplyEnvironment` may return a result together with an error when the object exists but isn't usable yet. The engine records the object and stops before the agents. A self-hosted environment does this on its first apply, while the worker waits for the Console key.
-- **Lifecycle:** the host object exists while the environment has agents on that provider. Moving to another provider or placement replaces it, and it's removed when nothing is left.
+- **Lifecycle:** the host object exists while the environment has agents on that provider. Moving to another placement, or to another provider that keeps such an object, replaces it. Moving to a provider without one, or leaving no agents, deletes it.
 
 ### Consequences
 
@@ -68,3 +68,4 @@ Engine tests with a fake hosting provider cover the lifecycle, a partial apply a
 - [ADR 0006](0006-providers-and-placements.md): providers and placements.
 - [ADR 0009](0009-state.md): state.
 - [Managed Agents: environments](https://platform.claude.com/docs/en/managed-agents/environments)
+- Accepted 2026-11-08, as implemented in M6. The state entry was described as keeping history, which it doesn't, and a move to a provider without such an object deletes it rather than replacing it; both are corrected above.
