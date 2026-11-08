@@ -19,7 +19,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 
@@ -80,7 +79,6 @@ type navItem struct {
 type navGroup struct {
 	Title string
 	Items []navItem
-	Open  bool
 }
 
 type heading struct{ ID, Text string }
@@ -109,26 +107,8 @@ func (b *builder) collect() error {
 		{"docs/providers/stub.md", "/docs/providers/stub/", "stub", "Providers"},
 		{"docs/providers/gitagent.md", "/docs/providers/gitagent/", "gitagent", "Providers"},
 		{"docs/providers/managed-agents.md", "/docs/providers/managed-agents/", "managed-agents", "Providers"},
-		{"docs/adr/README.md", "/docs/decisions/", "All decisions", "Design decisions"},
 	}
-	adrs, err := filepath.Glob(filepath.Join(b.repo, "docs/adr/[0-9][0-9][0-9][0-9]-*.md"))
-	if err != nil {
-		return err
-	}
-	sort.Strings(adrs)
-	for _, f := range adrs {
-		name := strings.TrimSuffix(filepath.Base(f), ".md")
-		label := name[:4]
-		if src, err := os.ReadFile(f); err == nil {
-			for _, l := range strings.Split(string(src), "\n") {
-				if t, ok := strings.CutPrefix(l, "# "); ok {
-					label += " " + mdSyntax.ReplaceAllString(t, "$1")
-					break
-				}
-			}
-		}
-		b.pages = append(b.pages, page{"docs/adr/" + name + ".md", "/docs/decisions/" + name + "/", label, "Design decisions"})
-	}
+	// The ADRs and spikes stay on GitHub: links to them resolve there.
 	b.byURL = map[string]page{}
 	b.bySrc = map[string]page{}
 	for _, p := range b.pages {
@@ -207,14 +187,6 @@ func (b *builder) nav(cur page) []navGroup {
 		}
 		g := &groups[len(groups)-1]
 		g.Items = append(g.Items, navItem{Label: p.label, URL: p.url, Active: p.url == cur.url})
-		if p.url == cur.url {
-			g.Open = true
-		}
-	}
-	for i := range groups {
-		if groups[i].Title != "Design decisions" {
-			groups[i].Open = true
-		}
 	}
 	return groups
 }

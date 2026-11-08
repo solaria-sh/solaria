@@ -90,10 +90,10 @@ func TestLinkRewrite(t *testing.T) {
 	}
 	cases := map[[2]string]string{
 		{"docs/README.md", "concepts.md"}:                        "/docs/concepts/",
-		{"docs/README.md", "adr/"}:                               "/docs/decisions/",
+		{"docs/README.md", "adr/"}:                               RepoURL + "/tree/main/docs/adr",
 		{"docs/README.md", "../examples/hello"}:                  RepoURL + "/tree/main/examples/hello",
 		{"docs/providers/stub.md", "../concepts.md#the-sandbox"}: "/docs/concepts/#the-sandbox",
-		{"docs/adr/0008-agent-identity.md", "0009-state.md"}:     "/docs/decisions/0009-state/",
+		{"docs/concepts.md", "adr/"}:                             RepoURL + "/tree/main/docs/adr",
 		{"docs/adr/README.md", "template.md"}:                    RepoURL + "/blob/main/docs/adr/template.md",
 		{"docs/concepts.md", "https://agentskills.io"}:           "https://agentskills.io",
 		{"docs/concepts.md", "#identity"}:                        "#identity",
