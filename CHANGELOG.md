@@ -25,7 +25,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Environment-level host objects (ADR 0012): plans, state and `status` show an object the environment's agents share, such as the Managed Agents environment, as `Environment/<name>`.
 - `ma-cloud` and `ma-self-hosted` environments in `examples/hello`.
 - `examples/reviewer`: one agent deployed unchanged to gitagent, Managed Agents cloud and Managed Agents self-hosted.
-- Documentation: concepts, a card reference generated from the schema with `make schema`, and a page per provider.
+- Documentation: concepts, getting started, a reference page per resource generated from the schema with `make schema`, and a page per provider.
 - Release tooling: GoReleaser builds binaries, checksums and SBOMs, a multi-platform image on GHCR and a Homebrew cask, with keyless cosign signatures; a tag starts the release workflow, which leaves a draft release to review.
 - The solaria.sh website, with the documentation and install scripts for macOS, Linux and Windows (`install.sh`, `install.ps1`), and the `solaria-sh/tap` Homebrew tap.
 

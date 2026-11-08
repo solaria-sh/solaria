@@ -103,7 +103,10 @@ func (b *builder) collect() error {
 	b.pages = []page{
 		{"docs/README.md", "/docs/", "Overview", "Docs"},
 		{"docs/concepts.md", "/docs/concepts/", "Concepts", "Docs"},
-		{"docs/reference.md", "/docs/reference/", "Card reference", "Docs"},
+		{"docs/getting-started.md", "/docs/getting-started/", "Getting started", "Docs"},
+		{"docs/resources/agent.md", "/docs/resources/agent/", "Agent", "Resources"},
+		{"docs/resources/environment.md", "/docs/resources/environment/", "Environment", "Resources"},
+		{"docs/resources/mcp-server.md", "/docs/resources/mcp-server/", "McpServer", "Resources"},
 		{"docs/providers/stub.md", "/docs/providers/stub/", "stub", "Providers"},
 		{"docs/providers/gitagent.md", "/docs/providers/gitagent/", "gitagent", "Providers"},
 		{"docs/providers/managed-agents.md", "/docs/providers/managed-agents/", "managed-agents", "Providers"},

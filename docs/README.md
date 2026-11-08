@@ -1,7 +1,11 @@
 # Solaria documentation
 
 - [Concepts](concepts.md): resources, providers and placements, the sandbox, identity, state and the workflow.
-- [Card reference](reference.md): every field of every kind, generated from the schema.
+- [Getting started](getting-started.md): install Solaria and take one agent through validate, plan, apply and destroy, with no credentials.
+- Resources, every field of each kind, generated from the schema:
+  - [`Agent`](resources/agent.md): what the agent is, independently of any host;
+  - [`Environment`](resources/environment.md): where agents run, and everything about that place;
+  - [`McpServer`](resources/mcp-server.md): an MCP server that agents refer to by name.
 - Providers:
   - [`stub`](providers/stub.md): files only, for trying Solaria and for tests;
   - [`gitagent`](providers/gitagent.md): a container image that runs gitagent;

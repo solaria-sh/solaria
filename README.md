@@ -4,7 +4,7 @@
 
 Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 
-> **Status: pre-alpha.** The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with three providers: `stub` for tests, `gitagent` in a local container, and Claude Managed Agents in the cloud or with a self-hosted sandbox. The format may still change before 1.0. Start with the [concepts](docs/concepts.md), and see the [roadmap](#roadmap).
+> **Status: pre-alpha.** The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with three providers: `stub` for tests, `gitagent` in a local container, and Claude Managed Agents in the cloud or with a self-hosted sandbox. The format may still change before 1.0. Start with the [concepts](docs/concepts.md) and [getting started](docs/getting-started.md), and see the [roadmap](#roadmap).
 
 ## Why
 
@@ -14,19 +14,19 @@ Solaria applies that pattern to agents:
 
 | Infrastructure as code | Solaria |
 |---|---|
-| Configuration language | Agent cards: Kubernetes-style YAML built on AGENTS.md, [Agent Skills](https://agentskills.io) and [MCP](https://modelcontextprotocol.io) |
+| Configuration language | Agent definitions: Kubernetes-style YAML built on AGENTS.md, [Agent Skills](https://agentskills.io) and [MCP](https://modelcontextprotocol.io) |
 | Providers | Host providers: `gitagent` in a local container, Claude Managed Agents, and more later |
 | State | Which logical agent, with which content digest, is deployed where, under which host ID and version |
-| `plan` / `apply` | Diff a card against what's deployed, then sync it |
+| `plan` / `apply` | Diff a definition against what's deployed, then sync it |
 | Workspaces | Environments (`local`, `staging`, `prod`), each able to override provider and model |
 
 Solaria never runs the agent loop itself. Existing runtimes and platforms do that well. Solaria defines, deploys and tracks.
 
 Some hosts have their own declarative tooling, such as `ant apply` for Claude Managed Agents. Those tools cover one host each. Solaria's job is one neutral definition that keeps the same identity across all of them.
 
-## What a card looks like
+## What a definition looks like
 
-This is the `v1alpha1` format. Every field is in the [card reference](docs/reference.md).
+This is the `v1alpha1` format. Every field is in the resource reference: [Agent](docs/resources/agent.md), [Environment](docs/resources/environment.md) and [McpServer](docs/resources/mcp-server.md).
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -54,7 +54,7 @@ $ solaria plan -e local-gitagent
 $ solaria apply -e ma-cloud
 ```
 
-The same card, applied to two hosts, changes only the environment.
+The same definition, applied to two hosts, changes only the environment.
 
 ## Install
 
@@ -137,7 +137,7 @@ apiVersion: solaria.sh/v1alpha1
 
 ## Documentation
 
-The [documentation](docs/README.md) covers the concepts, every card field, each provider, and the decisions behind them.
+The [documentation](docs/README.md) covers the concepts, every resource field, each provider, and the decisions behind them.
 
 ## Roadmap
 
