@@ -4,12 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-08
+
 ### Added
 
 - Repository foundation: license, contributing guide, code of conduct, security policy.
-- Architecture decision records 0001–0010.
-- `solaria version` command.
-- M1 spike notes for gitagent v3 and Claude Managed Agents; ADR 0011 (the `managed-agents` provider calls the API directly).
+- Architecture decision records 0001–0012.
+- `solaria version`, which also works out the version, commit and date of builds made with `go install`.
+- M1 spike notes for gitagent v3 and Claude Managed Agents.
 - `solaria.sh/v1alpha1` resource types: Agent, Environment, McpServer.
 - JSON Schema for every kind in `schemas/v1alpha1/`, generated from the Go types, and `solaria schema` to print it.
 - `solaria validate`: schema checks, references, instruction and skill files, and portability warnings, each with file, line and column. `-o json` for tools.
@@ -25,3 +27,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `examples/reviewer`: one agent deployed unchanged to gitagent, Managed Agents cloud and Managed Agents self-hosted.
 - Documentation: concepts, a card reference generated from the schema with `make schema`, and a page per provider.
 - Release tooling: GoReleaser builds binaries, checksums and SBOMs, a multi-platform image on GHCR and a Homebrew cask, with keyless cosign signatures; a tag starts the release workflow, which leaves a draft release to review.
+- The solaria.sh website, with the documentation and install scripts for macOS, Linux and Windows (`install.sh`, `install.ps1`), and the `solaria-sh/tap` Homebrew tap.
+
+[Unreleased]: https://github.com/solaria-sh/solaria/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/solaria-sh/solaria/releases/tag/v0.1.0

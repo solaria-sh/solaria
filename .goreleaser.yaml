@@ -20,7 +20,7 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/solaria-sh/solaria/internal/version.Version={{ .Version }}
+      - -X github.com/solaria-sh/solaria/internal/version.Version=v{{ .Version }}
       - -X github.com/solaria-sh/solaria/internal/version.Commit={{ .FullCommit }}
       - -X github.com/solaria-sh/solaria/internal/version.Date={{ .CommitDate }}
     # Reproducible: the same commit builds the same bytes.

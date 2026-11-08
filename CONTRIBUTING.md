@@ -68,7 +68,7 @@ To release:
 2. Tag the merge commit and push the tag: `git tag -s v0.1.0 -m v0.1.0 && git push origin v0.1.0`.
 3. The [release workflow](.github/workflows/release.yml) builds a **draft** release. Review its notes and assets, then publish it.
 
-The workflow runs in the `release` environment, which can require a reviewer, and needs a `HOMEBREW_TAP_GITHUB_TOKEN` secret: a fine-grained token with contents write access to `solaria-sh/homebrew-tap`.
+The workflow runs in the `release` environment, which only `v*` tags can use and which can require a reviewer. It needs a `HOMEBREW_TAP_GITHUB_TOKEN` secret: a fine-grained token with contents write access to `solaria-sh/homebrew-tap`.
 
 ## The website
 
