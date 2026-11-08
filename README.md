@@ -56,6 +56,26 @@ $ solaria apply -e ma-cloud
 
 The same card, applied to two hosts, changes only the environment.
 
+## Install
+
+Install instructions live at [solaria.sh](https://solaria.sh). In short:
+
+```bash
+# macOS and Linux, with Homebrew
+brew install solaria-sh/tap/solaria
+
+# macOS and Linux, without Homebrew
+curl -fsSL https://solaria.sh/install.sh | sh
+
+# Windows, in PowerShell
+irm https://solaria.sh/install.ps1 | iex
+
+# From source, with Go
+go install github.com/solaria-sh/solaria/cmd/solaria@latest
+```
+
+Release archives and `checksums.txt` are on the [releases page](https://github.com/solaria-sh/solaria/releases).
+
 ## Try it
 
 [`examples/hello`](examples/hello) runs the whole workflow with the `stub` provider. It writes its "host objects" to files, so it needs no credentials:

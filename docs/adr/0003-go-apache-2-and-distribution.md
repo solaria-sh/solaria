@@ -35,6 +35,7 @@ Chosen option: "Go", because it's what this category is written in (Terraform, O
 - Releases built with GoReleaser: binaries for macOS, Linux and Windows, checksums and an SBOM.
 - Releases signed keylessly with cosign.
 - Installs through a Homebrew tap, `go install` and a container image on GHCR.
+- Install scripts at https://solaria.sh (`install.sh`, `install.ps1`) that download a release archive and check it against `checksums.txt`.
 - The JSON Schema for resources is published at a stable URL, and later submitted to SchemaStore for editor support.
 
 ### Consequences
@@ -73,4 +74,4 @@ CI builds and tests with the Go version declared in `go.mod`.
 - [Anthropic Go SDK](https://github.com/anthropics/anthropic-sdk-go)
 - [hashicorp/go-plugin](https://github.com/hashicorp/go-plugin)
 - [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
-- Revised 2026-11-07: the repository, image and Homebrew tap moved from the `renantarouco` account to the `solaria-sh` organization, and the Go module path with them.
+- Revised 2026-11-07: the repository, image and Homebrew tap moved from the `renantarouco` account to the `solaria-sh` organization, and the Go module path with them. The install scripts on solaria.sh were added at the same time.

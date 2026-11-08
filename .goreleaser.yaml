@@ -90,7 +90,7 @@ docker_signs:
 homebrew_casks:
   - name: solaria
     ids: [solaria]
-    homepage: https://github.com/solaria-sh/solaria
+    homepage: https://solaria.sh
     description: Plan and apply agent definitions across hosts
     license: Apache-2.0
     repository:
