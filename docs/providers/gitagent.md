@@ -17,22 +17,22 @@ spec:
 
 ## What apply does
 
-1. Renders the card into gitagent's config layer, `/root/.gitagent` in the image: `gitagent.yaml` (model, fallbacks, limits, MCP servers), `prompts/rules.md` (the instructions, which follow gitagent's own system prompt) and `skills/`.
+1. Renders the agent into gitagent's config layer, `/root/.gitagent` in the image: `gitagent.yaml` (model, fallbacks, limits, MCP servers), `prompts/rules.md` (the instructions, which follow gitagent's own system prompt) and `skills/`.
 2. Generates a Dockerfile: gitagent compiled from a pinned commit, the [Solaria sandbox base](../concepts.md#the-sandbox) or `sandbox.image`, then the environment's packages.
 3. Builds `solaria/<environment>/<agent>:<resolvedDigest[:12]>`, labeled with the logical ID and both digests, and removes the previous tag.
 4. Records a `docker run` command in the state. `apply` prints it; the task goes after it with `-p`.
 
 The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspection. The first build compiles gitagent and the sandbox base, which takes several minutes; later builds reuse Docker's cache.
 
-## How the card maps
+## How the definition maps
 
-| Card | gitagent |
+| Solaria | gitagent |
 |---|---|
 | `model.preferred`, `model.fallback` | `model.preferred`, `model.fallback` |
 | `model.effort` | ignored, with a warning: gitagent sets reasoning through its model profile |
 | `tools.builtin` | `shell`, `read`, `write` and `edit` map to gitagent's tools. `glob` and `grep` have none, so the agent searches through `shell`. `web_fetch` and `web_search` aren't available. Plan warns about each. |
 | `tools.mcp` | `mcp_servers`. A remote is used when the server has one, so the agent reaches the same server it would on a cloud host; otherwise `npx` or `uvx` runs the package. |
-| `allowTools` | `--allowed-tools` when every MCP ref lists `allowTools`, or `--disallowed-tools` for the built-ins the card leaves out when none do. A mix can't be expressed, so plan fails. |
+| `allowTools` | `--allowed-tools` when every MCP ref lists `allowTools`, or `--disallowed-tools` for the built-ins the agent leaves out when none do. A mix can't be expressed, so plan fails. |
 | `permissions.ask` | the tool is denied: nobody can approve during an unattended run |
 | `limits` | `max_turns` and `timeout` |
 | `secretRef` | `${NAME}` in `gitagent.yaml`; the run command passes the variable from the secret source |

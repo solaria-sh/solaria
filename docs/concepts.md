@@ -1,6 +1,24 @@
 # Concepts
 
-Solaria plans and applies agent definitions to hosts, the way Terraform plans and applies infrastructure. This page explains the pieces. The decisions behind them are in the [ADRs](adr/), and every field is in the [card reference](reference.md).
+Solaria plans and applies agent definitions to hosts, the way Terraform plans and applies infrastructure. This page explains the pieces. The decisions behind them are in the [ADRs](adr/), and every field of each resource is on its own page: [Agent](resources/agent.md), [Environment](resources/environment.md) and [McpServer](resources/mcp-server.md).
+
+## Agents are to environments what services are to clusters
+
+If you've deployed microservices to Kubernetes, you already know the shape of Solaria. A team runs many services, each declared in its own manifest. `kubectl apply` sends the manifests to a cluster, and the cluster runs them side by side. Solaria does the same for agents: each agent is declared in its own Agent resource, `solaria apply` sends them to an environment, and the host behind that environment runs them side by side.
+
+<figure class="analogy"><svg viewBox="0 0 320 316" role="img" aria-labelledby="an-k8s"><title id="an-k8s">Microservices on Kubernetes: 4 manifests, sent with kubectl apply, run side by side in cluster prod.</title><text class="an-title" x="160" y="18" text-anchor="middle">Microservices on Kubernetes</text><path class="an-file" d="M122 34h18l8 8v28h-26z"/><path class="an-fold" d="M140 34v8h8"/><path class="an-file" d="M147 34h18l8 8v28h-26z"/><path class="an-fold" d="M165 34v8h8"/><path class="an-file" d="M172 34h18l8 8v28h-26z"/><path class="an-fold" d="M190 34v8h8"/><text class="an-label" x="160" y="90" text-anchor="middle">4 manifests</text><path class="an-arrow" d="M160 100v26"/><path class="an-head" d="M154.5 121l5.5 7 5.5-7"/><text class="an-cmd" x="172" y="118">kubectl apply</text><rect class="an-place" x="16" y="136" width="288" height="146" rx="6"/><text class="an-label" x="30" y="157">cluster prod</text><rect class="an-svc" x="36" y="170" width="116" height="42" rx="3"/><text class="an-name" x="94" y="195" text-anchor="middle">checkout</text><rect class="an-svc" x="168" y="170" width="116" height="42" rx="3"/><text class="an-name" x="226" y="195" text-anchor="middle">payments</text><rect class="an-svc" x="36" y="224" width="116" height="42" rx="3"/><text class="an-name" x="94" y="249" text-anchor="middle">search</text><rect class="an-svc" x="168" y="224" width="116" height="42" rx="3"/><text class="an-name" x="226" y="249" text-anchor="middle">inventory</text><text class="an-label" x="160" y="306" text-anchor="middle">the cluster runs the containers</text></svg><svg viewBox="0 0 320 316" role="img" aria-labelledby="an-sol"><title id="an-sol">Agents with Solaria: 4 Agent resources, sent with solaria apply, run side by side in environment ma-cloud.</title><text class="an-title" x="160" y="18" text-anchor="middle">Agents with Solaria</text><path class="an-file" d="M122 34h18l8 8v28h-26z"/><path class="an-fold" d="M140 34v8h8"/><path class="an-file" d="M147 34h18l8 8v28h-26z"/><path class="an-fold" d="M165 34v8h8"/><path class="an-file" d="M172 34h18l8 8v28h-26z"/><path class="an-fold" d="M190 34v8h8"/><text class="an-label" x="160" y="90" text-anchor="middle">4 Agent resources</text><path class="an-arrow" d="M160 100v26"/><path class="an-head" d="M154.5 121l5.5 7 5.5-7"/><text class="an-cmd" x="172" y="118">solaria apply</text><rect class="an-place" x="16" y="136" width="288" height="146" rx="6"/><text class="an-label" x="30" y="157">environment ma-cloud</text><rect class="an-agent" x="36" y="170" width="116" height="42" rx="3"/><text class="an-name" x="94" y="195" text-anchor="middle">reviewer</text><rect class="an-agent" x="168" y="170" width="116" height="42" rx="3"/><text class="an-name" x="226" y="195" text-anchor="middle">triage</text><rect class="an-agent" x="36" y="224" width="116" height="42" rx="3"/><text class="an-name" x="94" y="249" text-anchor="middle">docs-writer</text><rect class="an-agent" x="168" y="224" width="116" height="42" rx="3"/><text class="an-name" x="226" y="249" text-anchor="middle">release-notes</text><text class="an-label" x="160" y="306" text-anchor="middle">the host runs the agent loops</text></svg><figcaption>The same shape: many workloads, each declared in its own YAML, applied into one enclosed place that runs them.</figcaption></figure>
+
+| Kubernetes | Solaria |
+|---|---|
+| A manifest for each service | An [Agent](resources/agent.md) for each agent |
+| A cluster, or a namespace in one | An [Environment](resources/environment.md) |
+| A Service other workloads reach by name | An [McpServer](resources/mcp-server.md) that agents refer to with `ref:` |
+| The same manifests on a cluster on your laptop or on a managed one in the cloud | The same Agent on `gitagent` in Docker or on Managed Agents in the cloud |
+| An overlay per cluster, such as Kustomize | `spec.overrides` on the Environment |
+| An image digest | `resolvedDigest` |
+| `kubectl diff`, then `kubectl apply` | `solaria plan`, then `solaria apply` |
+
+The analogy stops at two points. Kubernetes runs a controller that reconciles all the time; Solaria reconciles only when you run `plan` and `apply`, and keeps what it deployed in a state file, the way Terraform does. And Solaria is closer to `kubectl` than to the cluster: it never runs an agent itself. The host does.
 
 ## Resources
 
@@ -27,7 +45,7 @@ spec:
       model: {preferred: anthropic:claude-haiku-5-5}
 ```
 
-An environment receives every agent, or those matching `spec.agents.selector`. Moving an agent to another host means applying it to another environment. The card doesn't change.
+An environment receives every agent, or those matching `spec.agents.selector`. Moving an agent to another host means applying it to another environment. The Agent doesn't change.
 
 ## Providers and placements
 
@@ -39,9 +57,9 @@ A **provider** is the code that talks to one kind of host. A **placement** is wh
 | [`gitagent`](providers/gitagent.md) | `docker` | gitagent, in a container image | the same container |
 | [`managed-agents`](providers/managed-agents.md) | `cloud`, `self-hosted` | Claude Managed Agents | Anthropic's sandbox, or a worker container on your machine |
 
-Each provider declares its **capabilities**: which models it runs, which MCP transports it can use, whether it takes a custom sandbox image, whether it supports fallback models and approvals, and whether destroy deletes or archives. `plan` checks the card against them before any host call, so a card a host can't run fails early, with the reason. Smaller gaps are warnings, for example a limit the host doesn't enforce.
+Each provider declares its **capabilities**: which models it runs, which MCP transports it can use, whether it takes a custom sandbox image, whether it supports fallback models and approvals, and whether destroy deletes or archives. `plan` checks each agent against them before any host call, so an agent a host can't run fails early, with the reason. Smaller gaps are warnings, for example a limit the host doesn't enforce.
 
-Fields that only one host understands go under `providers.<name>`: on an Environment for host settings, such as `providers.gitagent.platform`, and on an Agent for host-specific agent fields. Validate warns that they make a card less portable.
+Fields that only one host understands go under `providers.<name>`: on an Environment for host settings, such as `providers.gitagent.platform`, and on an Agent for host-specific agent fields. Validate warns that they make a definition less portable.
 
 ## The sandbox
 
@@ -58,13 +76,13 @@ Container placements build images on the **Solaria sandbox base**, which follows
 
 Every agent has three identities:
 
-- **Logical ID**, such as `Agent/reviewer`: the name in the card.
+- **Logical ID**, such as `Agent/reviewer`: the kind and name in the YAML.
 - **`specDigest`**: a SHA-256 of the agent as written, including the contents of its instruction and skill files. It's the same in every environment.
 - **`resolvedDigest`**: the same, after the environment's overrides. It identifies what actually runs.
 
 Neither digest includes the provider or the placement, so the same definition has the same digest on every host. The digests use RFC 8785 canonical JSON, so reordering keys or files doesn't change them, and changing one byte of a skill does.
 
-The **host binding** maps the logical ID to the host's own identity: an image tag, or a Managed Agents agent ID and version. Providers also write the logical ID and digests onto the host object, in labels or metadata, so a trace or a console view can be traced back to the card.
+The **host binding** maps the logical ID to the host's own identity: an image tag, or a Managed Agents agent ID and version. Providers also write the logical ID and digests onto the host object, in labels or metadata, so a trace or a console view can be traced back to the definition.
 
 ## State
 
@@ -97,7 +115,7 @@ Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
 
 Symbols: `+` create, `~` update, `-/+` replace (the agent moved to another provider or placement), `-` delete, and `-/archive` for hosts that can only archive.
 
-**Drift.** Refresh asks the host for each object. An object changed outside Solaria, for example in a console, plans an update that puts the card's version back. One deleted outside Solaria plans a create. `plan --refresh=false` skips the host calls.
+**Drift.** Refresh asks the host for each object. An object changed outside Solaria, for example in a console, plans an update that puts the definition's version back. One deleted outside Solaria plans a create. `plan --refresh=false` skips the host calls.
 
 **Rollback** is a checkout and an apply: `git checkout <earlier commit>` and `solaria apply`. Hosts that version agents, such as Managed Agents, create a new version with the old content, and the history in state shows that both versions share a `resolvedDigest`.
 

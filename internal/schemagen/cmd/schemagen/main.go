@@ -36,14 +36,27 @@ func main() {
 		}
 		fmt.Println("wrote", filepath.ToSlash(path))
 	}
-	ref, err := schemagen.Reference()
+	pages, err := schemagen.Reference()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "schemagen:", err)
 		os.Exit(1)
 	}
-	if err := os.WriteFile(filepath.FromSlash(schemagen.ReferenceFile), ref, 0o644); err != nil {
+	refDir := filepath.FromSlash(schemagen.ReferenceDir)
+	if err := os.MkdirAll(refDir, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, "schemagen:", err)
 		os.Exit(1)
 	}
-	fmt.Println("wrote", schemagen.ReferenceFile)
+	names = names[:0]
+	for name := range pages {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	for _, name := range names {
+		path := filepath.Join(refDir, name)
+		if err := os.WriteFile(path, pages[name], 0o644); err != nil {
+			fmt.Fprintln(os.Stderr, "schemagen:", err)
+			os.Exit(1)
+		}
+		fmt.Println("wrote", filepath.ToSlash(path))
+	}
 }

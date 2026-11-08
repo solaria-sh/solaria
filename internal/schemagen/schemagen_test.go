@@ -40,17 +40,33 @@ func TestCommittedSchemasAreCurrent(t *testing.T) {
 	}
 }
 
-// TestCommittedReferenceIsCurrent fails when the card reference wasn't
-// regenerated with the schema.
+// TestCommittedReferenceIsCurrent fails when the resource reference wasn't
+// regenerated with the schema, or holds a page that's no longer generated.
 func TestCommittedReferenceIsCurrent(t *testing.T) {
 	t.Chdir("../..")
-	want, err := Reference()
+	pages, err := Reference()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.FromSlash(ReferenceFile))
-	if err != nil || string(got) != string(want) {
-		t.Errorf("%s is out of date; run make schema", ReferenceFile)
+	var generated []string
+	for name, want := range pages {
+		generated = append(generated, name)
+		got, err := os.ReadFile(filepath.Join(filepath.FromSlash(ReferenceDir), name))
+		if err != nil || string(got) != string(want) {
+			t.Errorf("%s/%s is out of date; run make schema", ReferenceDir, name)
+		}
+	}
+	entries, err := os.ReadDir(filepath.FromSlash(ReferenceDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var committed []string
+	for _, e := range entries {
+		committed = append(committed, e.Name())
+	}
+	slices.Sort(generated)
+	if !slices.Equal(generated, committed) {
+		t.Errorf("%s holds %v, generated %v; run make schema and delete stale files", ReferenceDir, committed, generated)
 	}
 }
 

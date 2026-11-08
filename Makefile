@@ -38,11 +38,11 @@ vuln: ## Check dependencies for known vulnerabilities
 tidy-check: ## Fail if go.mod or go.sum need tidying
 	go mod tidy -diff
 
-schema: ## Regenerate schemas/ and docs/reference.md from internal/api
+schema: ## Regenerate schemas/ and docs/resources/ from internal/api
 	go run ./internal/schemagen/cmd/schemagen
 
 check-schema: schema ## Fail if schemas/ is out of date
-	git diff --exit-code -- schemas/ docs/reference.md
+	git diff --exit-code -- schemas/ docs/resources/
 
 check: tidy-check lint test vuln ## Everything CI runs (tests include the schema drift check)
 
