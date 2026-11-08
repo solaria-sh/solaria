@@ -70,6 +70,16 @@ To release:
 
 The workflow runs in the `release` environment, which can require a reviewer, and needs a `HOMEBREW_TAP_GITHUB_TOKEN` secret: a fine-grained token with contents write access to `solaria-sh/homebrew-tap`.
 
+## The website
+
+[solaria.sh](https://solaria.sh) is built from `site/` and `docs/` and hosted on Cloudflare Pages. The [site workflow](.github/workflows/site.yml) checks every link, deploys `main` to production, and gives each pull request from this repository a preview. Pull requests from forks are built and checked but not deployed.
+
+One-time setup:
+
+1. Create the Pages project with production branch `main`: `npx wrangler pages project create solaria --production-branch=main`. Then add the `solaria.sh` custom domain to it in the Cloudflare dashboard.
+2. Create a Cloudflare API token with the **Cloudflare Pages: Edit** permission, and save it as the `CLOUDFLARE_API_TOKEN` repository secret.
+3. Save the Cloudflare account ID as the `CLOUDFLARE_ACCOUNT_ID` repository variable. Set `CLOUDFLARE_PAGES_PROJECT` too if the project isn't named `solaria`.
+
 ## Developer Certificate of Origin
 
 Every commit must be signed off, certifying that you wrote the change or have the right to submit it under the project's license (see the [DCO](https://developercertificate.org/)):

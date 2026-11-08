@@ -10,6 +10,13 @@ updates:
     commit-message:
       prefix: build
 
+  - package-ecosystem: gomod
+    directory: /site
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
