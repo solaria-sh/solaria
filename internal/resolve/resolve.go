@@ -78,6 +78,20 @@ func Environment(set *config.Set, name string) ([]Agent, error) {
 	return out, nil
 }
 
+// SpecDigest returns the specDigest of the named agent: the agent as
+// written, before any environment's overrides.
+func SpecDigest(set *config.Set, name string) (string, error) {
+	r := set.Lookup(v1alpha1.KindAgent, name)
+	if r == nil {
+		return "", fmt.Errorf("no Agent named %q", name)
+	}
+	spec, _, err := definition(set, r)
+	if err != nil {
+		return "", fmt.Errorf("resolve %s: %w", r.ID(), err)
+	}
+	return digest.Of(spec)
+}
+
 // Selected reports whether an environment receives an agent.
 func Selected(env *v1alpha1.EnvironmentSpec, a *v1alpha1.Agent) bool {
 	if env.Agents == nil {

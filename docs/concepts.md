@@ -80,7 +80,17 @@ Every agent has three identities:
 - **`specDigest`**: a SHA-256 of the agent as written, including the contents of its instruction and skill files. It's the same in every environment.
 - **`resolvedDigest`**: the same, after the environment's overrides. It identifies what actually runs.
 
-Neither digest includes the provider or the placement, so the same definition has the same digest on every host. The digests use RFC 8785 canonical JSON, so reordering keys or files doesn't change them, and changing one byte of a skill does.
+Neither digest includes the provider or the placement, so the same definition has the same digest on every host. Nor do they include the agent's name, so two agents written the same way share a digest. The digests use RFC 8785 canonical JSON, so reordering keys or files doesn't change them, and changing one byte of a skill does.
+
+`solaria digest` prints them from the configuration alone, without state or host calls, so CI and other tools can compute them:
+
+```console
+$ solaria digest -e local -a hello
+AGENT        SPEC DIGEST                                                              RESOLVED DIGEST
+Agent/hello  sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f  sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f
+```
+
+`-a` picks agents and can be repeated. Without `-e`, digest prints only each `specDigest`. `-o json` gives the same in a fixed shape, with the definition format the digests were computed in.
 
 The **host binding** maps the logical ID to the host's own identity: an image tag, or a Managed Agents agent ID and version. Providers also write the logical ID and digests onto the host object, in labels or metadata, so a trace or a console view can be traced back to the definition.
 
@@ -93,10 +103,11 @@ State never holds secret values, only the names of secrets. It's gitignored, and
 ## The workflow
 
 ```console
-$ solaria validate               # schema, references, files
-$ solaria plan -e <environment>  # what apply would do
-$ solaria apply -e <environment> # do it, after confirming
-$ solaria status                 # what's deployed where
+$ solaria validate                # schema, references, files
+$ solaria digest -e <environment> # each agent's digests, offline
+$ solaria plan -e <environment>   # what apply would do
+$ solaria apply -e <environment>  # do it, after confirming
+$ solaria status                  # what's deployed where
 $ solaria destroy -e <environment>
 ```
 

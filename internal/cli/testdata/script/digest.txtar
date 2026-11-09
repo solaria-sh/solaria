@@ -1,0 +1,105 @@
+# solaria digest reads only the configuration: no state, no host.
+
+# Without -e: every agent's specDigest.
+exec solaria digest
+cmp stdout all.txt
+! stderr .
+! exists .solaria
+
+# With -e: only the agents the environment selects, with resolvedDigest.
+# The override changes triage's resolvedDigest, not its specDigest.
+exec solaria digest -e prod
+cmp stdout prod.txt
+exec solaria digest -e dev -o json
+cmp stdout dev.json
+
+# -a picks agents, and can be repeated.
+exec solaria digest -a triage -a helper
+cmp stdout all.txt
+exec solaria digest -e dev -a helper
+cmp stdout dev-helper.txt
+
+# Unknown agents, agents the environment leaves out, unknown environments.
+! exec solaria digest -a nope
+stderr '^Error: no Agent named "nope"$'
+! exec solaria digest -e prod -a helper
+stderr '^Error: agent "helper" isn''t selected by Environment "prod"; its agents.selector leaves it out$'
+! exec solaria digest -e nope
+stderr '^Error: no Environment named "nope"$'
+! exec solaria digest -o yaml
+stderr '^Error: --output must be text or json, not "yaml"$'
+
+# A change to an instruction file changes both digests.
+exec solaria digest -a triage
+cp stdout before.txt
+replace triage.md 'Sort' 'Label'
+exec solaria digest -a triage
+! cmp stdout before.txt
+
+-- all.txt --
+AGENT         SPEC DIGEST
+Agent/helper  sha256:126eeb1cc25e2a8c813a92c461b4ddab9cfcaa69f0d5ba617ccbe6a0d6e1f01a
+Agent/triage  sha256:aee6fa6c5659a0bdd1b2ebf1c518693571ffd3e96e6d6d5a9c5f48ff9b260fc9
+-- prod.txt --
+AGENT         SPEC DIGEST                                                              RESOLVED DIGEST
+Agent/triage  sha256:aee6fa6c5659a0bdd1b2ebf1c518693571ffd3e96e6d6d5a9c5f48ff9b260fc9  sha256:9d21324163f46eb3014ae7096bdb53e837b77ab1974fa9ce53ac836d258c652c
+-- dev.json --
+{
+  "definitionFormat": "solaria.sh/definition/v1",
+  "environment": "dev",
+  "agents": [
+    {
+      "logicalId": "Agent/helper",
+      "specDigest": "sha256:126eeb1cc25e2a8c813a92c461b4ddab9cfcaa69f0d5ba617ccbe6a0d6e1f01a",
+      "resolvedDigest": "sha256:126eeb1cc25e2a8c813a92c461b4ddab9cfcaa69f0d5ba617ccbe6a0d6e1f01a"
+    },
+    {
+      "logicalId": "Agent/triage",
+      "specDigest": "sha256:aee6fa6c5659a0bdd1b2ebf1c518693571ffd3e96e6d6d5a9c5f48ff9b260fc9",
+      "resolvedDigest": "sha256:aee6fa6c5659a0bdd1b2ebf1c518693571ffd3e96e6d6d5a9c5f48ff9b260fc9"
+    }
+  ]
+}
+-- dev-helper.txt --
+AGENT         SPEC DIGEST                                                              RESOLVED DIGEST
+Agent/helper  sha256:126eeb1cc25e2a8c813a92c461b4ddab9cfcaa69f0d5ba617ccbe6a0d6e1f01a  sha256:126eeb1cc25e2a8c813a92c461b4ddab9cfcaa69f0d5ba617ccbe6a0d6e1f01a
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: triage
+  labels: {stage: prod}
+spec:
+  instructions: [triage.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: helper
+spec:
+  instructions: [triage.md]
+  model: {preferred: anthropic:claude-sonnet-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+spec:
+  provider: stub
+  placement: file
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+spec:
+  provider: stub
+  placement: file
+  agents:
+    selector:
+      matchLabels: {stage: prod}
+  overrides:
+    triage: {limits: {maxTurns: 2}}
+-- triage.md --
+Sort incoming issues.
