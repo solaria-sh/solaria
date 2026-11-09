@@ -1,0 +1,179 @@
+# solaria.lock pins the digests an environment may run (ADR 0013).
+
+# Without a lock file, nothing is checked.
+exec solaria plan -e prod
+stdout '^Plan: 1 to create'
+! exists solaria.lock
+
+# lock pins every agent the environment selects. The file's bytes are fixed.
+exec solaria lock -e prod
+cmp stdout lock-prod.txt
+cmp solaria.lock want-lock.json
+! stderr .
+exec solaria validate
+stdout '^valid: '
+
+# A matching configuration plans and applies.
+exec solaria plan -e prod
+stdout '^Plan: 1 to create'
+exec solaria apply -e prod --auto-approve
+exec solaria status -e prod
+stdout '^Environment prod \(state serial 1, locked in solaria.lock\)$'
+stdout '^  OBJECT .* CONFIGURATION +LOCKED$'
+stdout '^  Agent/triage .* up to date +sha256:[0-9a-f]{12}$'
+
+# Locking again changes nothing, and doesn't rewrite the file.
+exec solaria lock -e prod
+stdout '^solaria.lock already pins Environment "prod" to its current digests; nothing changed.$'
+cmp solaria.lock want-lock.json
+
+# A change to the agent fails plan and apply in the locked environment,
+# before any host call. The unlocked one takes it.
+replace triage.md 'Sort' 'Label'
+! exec solaria plan -e prod
+stderr '^solaria.lock: error: Environment "prod" is locked to Agent/triage at resolvedDigest sha256:[0-9a-f]{64}, but the configuration resolves to sha256:[0-9a-f]{64}; run solaria lock -e prod -a triage to promote it$'
+stderr '^Error: plan failed with 1 error$'
+! exec solaria apply -e prod --auto-approve
+stderr 'run solaria lock -e prod -a triage to promote it'
+exec solaria plan -e dev
+stdout '^Plan: 2 to create'
+
+# status shows the lock's digest next to the deployed one.
+exec solaria status -e prod
+stdout '^  Agent/triage .* changed +sha256:[0-9a-f]{12}$'
+
+# Promoting the change.
+exec solaria lock -e prod -a triage
+stdout '^Locked Environment "prod" in solaria.lock:$'
+stdout '^  ~  Agent/triage  sha256:[0-9a-f]{12} -> sha256:[0-9a-f]{12}$'
+exec solaria plan -e prod
+stdout '^Plan: 0 to create, 1 to update'
+
+# An agent the environment starts selecting must be promoted too.
+replace solaria.yaml '  name: helper\n' '  name: helper\n  labels: {stage: prod}\n'
+! exec solaria plan -e prod
+stderr '^solaria.lock: error: Environment "prod" selects Agent/helper, which the lock doesn''t list yet \(resolvedDigest sha256:[0-9a-f]{64}\); run solaria lock -e prod -a helper to promote it$'
+exec solaria lock -e prod -a helper
+stdout '^  \+  Agent/helper  sha256:[0-9a-f]{12}$'
+exec solaria plan -e prod
+
+# So must its removal.
+replace solaria.yaml '  labels: {stage: prod}\nspec:\n  instructions: [helper.md]' 'spec:\n  instructions: [helper.md]'
+! exec solaria plan -e prod
+stderr '^solaria.lock: error: Environment "prod" is locked with Agent/helper, which it no longer selects; run solaria lock -e prod -a helper to promote its removal$'
+exec solaria status -e prod
+stdout '^  Agent/helper +- +- +- +- +- +no longer selected +sha256:[0-9a-f]{12}$'
+exec solaria lock -e prod -a helper
+stdout '^  -  Agent/helper  sha256:[0-9a-f]{12}$'
+exec solaria plan -e prod
+
+# -a names an agent the environment selects or the lock lists.
+! exec solaria lock -e prod -a nope
+stderr '^Error: Environment "prod" doesn''t select an Agent named "nope", and the lock doesn''t list one$'
+! exec solaria lock -e nope
+stderr '^Error: no Environment named "nope"$'
+
+# Digests from another definition format can't be compared: plan fails once
+# for the whole file. lock writes the new format and names the environments
+# that need locking again.
+exec solaria lock -e dev
+replace solaria.lock '"definitionFormat": "solaria.sh/definition/v1"' '"definitionFormat": "solaria.sh/definition/v0"'
+! exec solaria plan -e prod
+stderr '^solaria.lock: error: written for definition format solaria.sh/definition/v0, but this Solaria computes digests in solaria.sh/definition/v1, so every digest has changed; run solaria lock -e <environment> for each environment in it$'
+stderr '^Error: plan failed with 1 error$'
+exec solaria lock -e prod
+stdout '^Locked Environment "prod" in solaria.lock; its pins didn''t change.$'
+stderr '^warning: solaria.lock was written for definition format solaria.sh/definition/v0; lock these environments again too: dev$'
+exec solaria plan -e prod
+
+# validate reads the lock: an environment that left the configuration, and
+# a malformed file.
+cp solaria.lock good.lock
+replace solaria.lock '"dev": {' '"gone": {'
+! exec solaria validate
+stdout '^solaria.lock: error: locks Environment "gone", which isn''t in the configuration; run solaria lock -e gone --remove to unpin it$'
+exec solaria lock -e gone --remove
+stdout '^Removed Environment "gone" from solaria.lock. Plan and apply no longer check it.$'
+exec solaria validate
+exec solaria lock -e gone --remove
+stdout '^Environment "gone" isn''t in solaria.lock; nothing to do.$'
+! exec solaria lock -e prod --remove -a triage
+stderr '^Error: --remove unpins the whole environment; it doesn''t take -a$'
+
+cp good.lock solaria.lock
+replace solaria.lock '"resolvedDigest": "sha256:' '"resolvedDigest": "sha256:zz'
+! exec solaria validate
+stdout '^error: solaria.lock: environments.dev.agents.Agent/helper: specDigest and resolvedDigest must be sha256:<64 hex digits>$'
+! exec solaria plan -e dev
+stderr '^Error: solaria.lock: environments.dev'
+cp good.lock solaria.lock
+
+# --lock-file points elsewhere, and the commands it suggests name it.
+exec solaria lock -e prod --lock-file pins/stage.lock
+exists pins/stage.lock
+replace triage.md 'Label' 'Route'
+! exec solaria plan -e prod --lock-file pins/stage.lock
+stderr '^pins/stage.lock: error: .* run solaria lock -e prod -a triage --lock-file pins/stage.lock to promote it$'
+
+# destroy works from state and ignores the lock.
+exec solaria destroy -e prod --auto-approve
+stdout '^Destroy complete: 0 created, 0 updated, 0 replaced, 1 deleted'
+
+-- lock-prod.txt --
+Locked Environment "prod" in solaria.lock:
+  +  Agent/triage  sha256:aee6fa6c5659
+-- want-lock.json --
+{
+  "format": "solaria.sh/lock/v1",
+  "definitionFormat": "solaria.sh/definition/v1",
+  "environments": {
+    "prod": {
+      "agents": {
+        "Agent/triage": {
+          "specDigest": "sha256:aee6fa6c5659a0bdd1b2ebf1c518693571ffd3e96e6d6d5a9c5f48ff9b260fc9",
+          "resolvedDigest": "sha256:aee6fa6c5659a0bdd1b2ebf1c518693571ffd3e96e6d6d5a9c5f48ff9b260fc9"
+        }
+      }
+    }
+  }
+}
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: triage
+  labels: {stage: prod}
+spec:
+  instructions: [triage.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: helper
+spec:
+  instructions: [helper.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+spec:
+  provider: stub
+  placement: file
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+spec:
+  provider: stub
+  placement: file
+  agents:
+    selector:
+      matchLabels: {stage: prod}
+-- triage.md --
+Sort incoming issues.
+-- helper.md --
+Answer questions.
