@@ -1,0 +1,77 @@
+# solaria lock records the commit the digests came from, unless the worktree
+# has uncommitted changes. The lock file itself doesn't count as one.
+[!exec:git] skip 'needs git'
+env GIT_CONFIG_NOSYSTEM=1
+env GIT_CONFIG_GLOBAL=$WORK/gitconfig
+exec git init -q
+exec git add .gitignore solaria.yaml triage.md helper.md
+exec git commit -q -m init
+
+exec solaria lock -e prod
+grep '"commit": "[0-9a-f]{40}"' solaria.lock
+! stderr .
+
+# The lock file is now untracked, which doesn't make the worktree dirty.
+exec solaria lock -e dev
+stdout '^  \+  Agent/helper'
+! stderr .
+cp solaria.lock before.lock
+exec solaria lock -e dev --remove
+exec solaria lock -e dev
+cmp solaria.lock before.lock
+
+# An uncommitted change to the agent: the new pin records no commit.
+replace triage.md 'Sort' 'Label'
+exec solaria lock -e prod
+stderr '^note: the worktree has uncommitted changes, so the new pins record no commit$'
+
+-- .gitignore --
+.tmp/
+gitconfig
+before.lock
+-- gitconfig --
+[user]
+	name = Solaria Test
+	email = test@example.com
+[init]
+	defaultBranch = main
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: triage
+  labels: {stage: prod}
+spec:
+  instructions: [triage.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: helper
+spec:
+  instructions: [helper.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+spec:
+  provider: stub
+  placement: file
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+spec:
+  provider: stub
+  placement: file
+  agents:
+    selector:
+      matchLabels: {stage: prod}
+-- triage.md --
+Sort incoming issues.
+-- helper.md --
+Answer questions.

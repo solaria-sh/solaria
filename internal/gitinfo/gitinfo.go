@@ -14,14 +14,24 @@ import (
 // whether the worktree has uncommitted changes. Outside a git worktree, or
 // without git installed, it returns an empty Source: provenance is useful,
 // not required.
-func Source(dir string) state.Source {
+//
+// Paths in exclude, relative to dir, don't count as changes: solaria lock
+// passes the lock file, which is usually modified while it runs.
+func Source(dir string, exclude ...string) state.Source {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	commit, err := git(ctx, dir, "rev-parse", "--verify", "--quiet", "HEAD")
 	if err != nil {
 		return state.Source{}
 	}
-	status, err := git(ctx, dir, "status", "--porcelain", "--untracked-files=normal")
+	args := []string{"status", "--porcelain", "--untracked-files=normal"}
+	if len(exclude) > 0 {
+		args = append(args, "--", ":(top)")
+	}
+	for _, p := range exclude {
+		args = append(args, ":(exclude)"+p)
+	}
+	status, err := git(ctx, dir, args...)
 	return state.Source{Commit: commit, Dirty: err == nil && status != ""}
 }
 

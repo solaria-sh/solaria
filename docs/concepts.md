@@ -98,13 +98,14 @@ The **host binding** maps the logical ID to the host's own identity: an image ta
 
 `.solaria/state/<environment>.json` records, for each agent: its provider and placement, both digests, the host binding, a `remoteHash` of the host object, the git commit it was applied from, when and by whom, and a history of earlier bindings. Environments whose host keeps a shared object of its own, such as a Managed Agents environment, also have a `host` entry (ADR 0012).
 
-State never holds secret values, only the names of secrets. It's gitignored, and a lock file stops two applies from running at once. Each environment has its own state, so give every developer their own environments, with a name prefix on host objects.
+State never holds secret values, only the names of secrets. It's gitignored, and a state lock (`.solaria/state/<environment>.lock`) stops two applies from running at once. Each environment has its own state, so give every developer their own environments, with a name prefix on host objects.
 
 ## The workflow
 
 ```console
 $ solaria validate                # schema, references, files
 $ solaria digest -e <environment> # each agent's digests, offline
+$ solaria lock -e <environment>   # pin them, for review in git
 $ solaria plan -e <environment>   # what apply would do
 $ solaria apply -e <environment>  # do it, after confirming
 $ solaria status                  # what's deployed where
@@ -129,6 +130,33 @@ Symbols: `+` create, `~` update, `-/+` replace (the agent moved to another provi
 **Drift.** Refresh asks the host for each object. An object changed outside Solaria, for example in a console, plans an update that puts the definition's version back. One deleted outside Solaria plans a create. `plan --refresh=false` skips the host calls.
 
 **Rollback** is a checkout and an apply: `git checkout <earlier commit>` and `solaria apply`. Hosts that version agents, such as Managed Agents, create a new version with the old content, and the history in state shows that both versions share a `resolvedDigest`.
+
+## Pinning environments
+
+State records what is deployed. `solaria.lock` records the other half: what an environment is allowed to run. It's a JSON file next to `.solaria/`, committed to git, that pins each agent of an environment to its digests (ADR 0013):
+
+```console
+$ solaria lock -e prod
+Locked Environment "prod" in solaria.lock:
+  +  Agent/triage  sha256:aee6fa6c5659
+```
+
+Once an environment is in the lock, `plan` and `apply` refuse to deploy anything else to it, before any host call. They fail when an agent's `resolvedDigest` differs from its pin, when the environment selects an agent the lock doesn't list, and when the lock lists an agent the environment no longer selects. Each error ends with the command that accepts the change:
+
+```text
+solaria.lock: error: Environment "prod" is locked to Agent/triage at resolvedDigest sha256:aee6…, but the configuration resolves to sha256:9d21…; run solaria lock -e prod -a triage to promote it
+```
+
+So promoting a change is: run `solaria lock -e prod -a triage`, commit, have the diff reviewed, and apply after the merge. When and whether to promote stays with your team.
+
+- Without `-a`, `lock` pins every agent the environment selects and drops the rest. With `-a`, it updates only those agents.
+- A pin whose digests haven't changed is left as it is, so the diff shows only real changes.
+- Each pin records the commit it was computed from, unless the worktree had uncommitted changes.
+- `lock` reads only the configuration: no state, no host. `--lock-file` points at another file.
+- Environments not in the lock aren't checked, so personal and dev environments work as before. `solaria lock -e <environment> --remove` unpins one.
+- `validate` checks the file, and `status` adds a `LOCKED` column for locked environments. `destroy` ignores the lock.
+
+A locked environment whose source has moved on keeps running the version it has until that version is promoted. To redeploy it from scratch, check out the commit its pins record.
 
 ## What Solaria doesn't do
 

@@ -13,6 +13,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/diag"
 	"github.com/solaria-sh/solaria/internal/engine"
 	"github.com/solaria-sh/solaria/internal/gitinfo"
+	"github.com/solaria-sh/solaria/internal/lockfile"
 	"github.com/solaria-sh/solaria/internal/providers"
 	"github.com/solaria-sh/solaria/internal/state"
 	"github.com/solaria-sh/solaria/internal/validate"
@@ -26,6 +27,8 @@ const defaultStateDir = ".solaria/state"
 type projectFlags struct {
 	env      string
 	stateDir string
+	// lockFile is empty for commands that ignore the lock, such as destroy.
+	lockFile string
 }
 
 func (f *projectFlags) register(cmd *cobra.Command, envRequired bool) {
@@ -66,16 +69,25 @@ func printDiagnostics(w io.Writer, diags diag.List) error {
 	return nil
 }
 
-func newEngine(cmd *cobra.Command, set *config.Set, f *projectFlags) *engine.Engine {
-	return &engine.Engine{
-		Log:         cmd.ErrOrStderr(),
-		Set:         set,
-		Backend:     &state.Local{Dir: f.stateDir},
-		NewProvider: providers.New,
-		WorkDir:     ".",
-		Source:      gitinfo.Source("."),
-		Who:         whoami(),
+func newEngine(cmd *cobra.Command, set *config.Set, f *projectFlags) (*engine.Engine, error) {
+	var lock *lockfile.File
+	if f.lockFile != "" {
+		var err error
+		if lock, err = lockfile.Read(f.lockFile); err != nil {
+			return nil, err
+		}
 	}
+	return &engine.Engine{
+		Log:          cmd.ErrOrStderr(),
+		Set:          set,
+		Backend:      &state.Local{Dir: f.stateDir},
+		NewProvider:  providers.New,
+		WorkDir:      ".",
+		Source:       gitinfo.Source("."),
+		Who:          whoami(),
+		LockFile:     lock,
+		LockFilePath: f.lockFile,
+	}, nil
 }
 
 func whoami() string {

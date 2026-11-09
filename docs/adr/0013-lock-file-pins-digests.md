@@ -29,7 +29,7 @@ State is gitignored and records what is deployed (ADR 0009). Teams that promote 
 
 Chosen option: "A committed lock file, written by a `solaria lock` command", because promotion becomes one generated diff to review, and no digest is ever written by hand.
 
-- **File:** `solaria.lock` in the working directory, next to `.solaria/`, committed to git. `--lock-file` points elsewhere, like `--state-dir`. It's JSON with sorted keys, two-space indentation and a final newline, so the same content always produces the same bytes and diffs stay small:
+- **File:** `solaria.lock` in the working directory, next to `.solaria/`, committed to git. `--lock-file` points elsewhere, like `--state-dir`. It's JSON with a fixed key order (environments and agents sorted), two-space indentation and a final newline, so the same content always produces the same bytes and diffs stay small:
 
   ```json
   {
@@ -51,7 +51,7 @@ Chosen option: "A committed lock file, written by a `solaria lock` command", bec
 
   `commit` is the source commit the digests were computed from, left out when the worktree was dirty. `definitionFormat` is `resolve.Format` at the time of writing. There are no timestamps or user names, so two people locking the same content write the same file.
 
-- **Writing:** only `solaria lock -e <env> [-a <agent>]...` writes the file. It resolves the environment, computes the digests exactly as `plan` does, and records them. It reads no state and calls no host. Agents are named with `-a`, repeatable, because positional arguments are paths on every command. With `-a` it updates only those entries; without, it records every agent the environment selects and drops entries for agents it no longer selects. `solaria lock -e <env> --remove` removes the environment, which unpins it. `apply` never writes the lock.
+- **Writing:** only `solaria lock -e <env> [-a <agent>]...` writes the file. It resolves the environment, computes the digests exactly as `plan` does, and records them. It reads no state and calls no host. Agents are named with `-a`, repeatable, because positional arguments are paths on every command. With `-a` it updates only those entries, and `-a` with an agent the environment no longer selects removes its entry; without `-a`, it records every agent the environment selects and drops entries for agents it no longer selects. An entry whose digests haven't changed is kept as it is, `commit` included, so moving HEAD alone changes nothing. The lock file itself doesn't make the worktree dirty. `solaria lock -e <env> --remove` removes the environment, which unpins it. `apply` never writes the lock.
 - **Checking:** for an environment in the lock, `plan` and `apply` fail before refreshing when:
   - an agent's `resolvedDigest` differs from the lock;
   - the environment selects an agent the lock doesn't list (it hasn't been promoted yet);
@@ -60,9 +60,9 @@ Chosen option: "A committed lock file, written by a `solaria lock` command", bec
   Each diagnostic names the lock file, the environment and the agent, shows the locked and current digests, and ends with the `solaria lock` command that would accept the change. Environment-level changes that aren't part of any digest, such as the sandbox or telemetry, aren't checked.
 - **Unpinned environments:** an environment absent from the lock is not checked at all.
 - **`validate`** checks the file's format and that every environment in it exists. A lock naming an agent that no longer exists is reported by `plan` as above.
-- **`status`** shows the locked digest next to the deployed and configured ones.
+- **`status`** adds a `LOCKED` column, with each pin's digest, for a locked environment.
 - **`destroy`** doesn't read the lock. It works from state, as before (ADR 0009).
-- **Format changes:** when `definitionFormat` differs from the running Solaria's `resolve.Format`, every digest has changed. `plan` fails once for the whole file and says to run `solaria lock` again for each environment, rather than reporting every agent.
+- **Format changes:** when `definitionFormat` differs from the running Solaria's `resolve.Format`, every digest has changed. `plan` fails once for the whole file and says to run `solaria lock` again for each environment, rather than reporting every agent. `solaria lock` writes the new format and warns about the other environments in the file that still need locking again.
 - **Promotion** is: run `solaria lock -e propose -a triage`, commit, open a pull request, and apply from CI after the merge. Whether to promote, and when, stays with the team (ADR 0010).
 - **Two versions at once:** a locked environment whose source has moved on can't be applied, so it stays as deployed until it's promoted. The old version keeps running on its host, because the host binding in state still points to it.
 

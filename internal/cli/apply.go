@@ -32,7 +32,11 @@ apply would create, update, replace or delete. It changes nothing.`,
 			if err != nil {
 				return err
 			}
-			plan, err := makePlan(cmd, newEngine(cmd, set, &f), f.env, engine.PlanOptions{Refresh: refresh, Destroy: destroy})
+			e, err := newEngine(cmd, set, &f)
+			if err != nil {
+				return err
+			}
+			plan, err := makePlan(cmd, e, f.env, engine.PlanOptions{Refresh: refresh, Destroy: destroy})
 			if err != nil {
 				return err
 			}
@@ -46,6 +50,7 @@ apply would create, update, replace or delete. It changes nothing.`,
 		},
 	}
 	f.register(cmd, true)
+	registerLockFile(cmd, &f.lockFile)
 	cmd.Flags().BoolVar(&refresh, "refresh", true, "ask the host for the current state of every agent first")
 	cmd.Flags().BoolVar(&detailed, "detailed-exitcode", false, "exit 0 for no changes, 2 for changes, 1 for errors")
 	cmd.Flags().BoolVar(&destroy, "destroy", false, "plan the removal of everything in the environment")
@@ -68,10 +73,15 @@ It holds the environment's lock throughout and records the result in state.`,
 			if err != nil {
 				return err
 			}
-			return run(cmd, newEngine(cmd, set, &f), f.env, "apply", engine.PlanOptions{Refresh: refresh}, autoApprove)
+			e, err := newEngine(cmd, set, &f)
+			if err != nil {
+				return err
+			}
+			return run(cmd, e, f.env, "apply", engine.PlanOptions{Refresh: refresh}, autoApprove)
 		},
 	}
 	f.register(cmd, true)
+	registerLockFile(cmd, &f.lockFile)
 	cmd.Flags().BoolVar(&refresh, "refresh", true, "ask the host for the current state of every agent first")
 	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "apply without asking for confirmation")
 	return cmd
@@ -93,7 +103,11 @@ environment was removed from the configuration.`,
 			if err != nil {
 				return err
 			}
-			return run(cmd, newEngine(cmd, set, &f), f.env, "destroy", engine.PlanOptions{Refresh: true, Destroy: true}, autoApprove)
+			e, err := newEngine(cmd, set, &f)
+			if err != nil {
+				return err
+			}
+			return run(cmd, e, f.env, "destroy", engine.PlanOptions{Refresh: true, Destroy: true}, autoApprove)
 		},
 	}
 	f.register(cmd, true)

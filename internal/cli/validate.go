@@ -11,17 +11,19 @@ import (
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/lockfile"
 	"github.com/solaria-sh/solaria/internal/validate"
 )
 
 func newValidateCommand() *cobra.Command {
-	var output string
+	var output, lockPath string
 	cmd := &cobra.Command{
 		Use:   "validate [path...]",
 		Short: "Check resources for errors",
 		Long: `Validate loads every Solaria resource under the given files and directories
 (the current directory by default) and checks it against the schema, its
-references and the files it names. It doesn't contact any host.`,
+references and the files it names. It also checks the lock file, when there
+is one. It doesn't contact any host.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if output != "text" && output != "json" {
 				return fmt.Errorf("--output must be text or json, not %q", output)
@@ -32,6 +34,12 @@ references and the files it names. It doesn't contact any host.`,
 			set, diags := config.Load(args)
 			if set != nil {
 				diags = append(diags, validate.Validate(set)...)
+				lock, err := lockfile.Read(lockPath)
+				if err != nil {
+					diags = append(diags, diag.Errorf("", diag.Pos{}, "%v", err))
+				} else {
+					diags = append(diags, lock.Validate(lockPath, set)...)
+				}
 				if len(set.Resources) == 0 && !diags.HasErrors() {
 					diags = append(diags, diag.Errorf("", diag.Pos{},
 						"no %s resources found in %s", v1alpha1.Group, strings.Join(args, ", ")))
@@ -53,6 +61,7 @@ references and the files it names. It doesn't contact any host.`,
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
+	registerLockFile(cmd, &lockPath)
 	return cmd
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
+	"github.com/solaria-sh/solaria/internal/lockfile"
 	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/state"
@@ -33,6 +34,10 @@ doesn't contact any host; run plan to check for drift.`,
 				return fmt.Errorf("--output must be text or json, not %q", output)
 			}
 			set, err := loadProject(cmd, args)
+			if err != nil {
+				return err
+			}
+			lock, err := lockfile.Read(f.lockFile)
 			if err != nil {
 				return err
 			}
@@ -69,7 +74,7 @@ doesn't contact any host; run plan to check for drift.`,
 						return err
 					}
 				}
-				if err := writeStatus(cmd.OutOrStdout(), set, states[env]); err != nil {
+				if err := writeStatus(cmd.OutOrStdout(), set, states[env], lock, f.lockFile); err != nil {
 					return err
 				}
 			}
@@ -77,11 +82,12 @@ doesn't contact any host; run plan to check for drift.`,
 		},
 	}
 	f.register(cmd, false)
+	registerLockFile(cmd, &f.lockFile)
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
 	return cmd
 }
 
-func writeStatus(w io.Writer, set *config.Set, st *state.State) error {
+func writeStatus(w io.Writer, set *config.Set, st *state.State, lock *lockfile.File, lockPath string) error {
 	desired := map[string]*resolve.Agent{}
 	inConfig := set.Lookup(v1alpha1.KindEnvironment, st.Environment) != nil
 	if inConfig {
@@ -94,17 +100,46 @@ func writeStatus(w io.Writer, set *config.Set, st *state.State) error {
 		}
 	}
 
+	locked := lock.Locked(st.Environment)
+	var pins map[string]lockfile.Entry
+	if locked {
+		pins = lock.Environments[st.Environment].Agents
+		for id := range pins {
+			if st.Agents[id] == nil && desired[id] == nil {
+				desired[id] = nil // listed below as locked but not applied
+			}
+		}
+	}
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "Environment %s (state serial %d)\n", st.Environment, st.Serial)
+	fmt.Fprintf(&b, "Environment %s (state serial %d", st.Environment, st.Serial)
+	if locked {
+		fmt.Fprintf(&b, ", locked in %s", lockPath)
+	}
+	b.WriteString(")\n")
 	if !inConfig {
 		b.WriteString("  not in the configuration; solaria destroy -e " + st.Environment + " removes what is left\n")
 	}
 	// Writes to a strings.Builder can't fail.
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-	_, _ = fmt.Fprintln(tw, "  OBJECT\tPROVIDER\tHOST ID\tVERSION\tDIGEST\tAPPLIED\tCONFIGURATION")
+	// lockCol is the LOCKED column, present only for a locked environment.
+	lockCol := func(id string) string {
+		if !locked {
+			return ""
+		}
+		if p, ok := pins[id]; ok {
+			return "\t" + provider.ShortDigest(p.ResolvedDigest)
+		}
+		return "\t-"
+	}
+	header := "  OBJECT\tPROVIDER\tHOST ID\tVERSION\tDIGEST\tAPPLIED\tCONFIGURATION"
+	if locked {
+		header += "\tLOCKED"
+	}
+	_, _ = fmt.Fprintln(tw, header)
 	if h := st.Host; h != nil {
-		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s\n", h.ID, h.Provider, h.Placement, h.Binding.HostID,
-			orDash(h.Binding.Version), provider.ShortDigest(h.Digest), h.AppliedAt.Format("2006-01-02 15:04"), "shared by the agents")
+		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s%s\n", h.ID, h.Provider, h.Placement, h.Binding.HostID,
+			orDash(h.Binding.Version), provider.ShortDigest(h.Digest), h.AppliedAt.Format("2006-01-02 15:04"), "shared by the agents", lockCol(""))
 	}
 	ids := st.IDs()
 	for id := range desired {
@@ -117,11 +152,15 @@ func writeStatus(w io.Writer, set *config.Set, st *state.State) error {
 		e := st.Agents[id]
 		d := desired[id]
 		if e == nil {
-			_, _ = fmt.Fprintf(tw, "  %s\t-\t-\t-\t-\t-\tnot applied\n", id)
+			what := "not applied"
+			if d == nil {
+				what = "no longer selected"
+			}
+			_, _ = fmt.Fprintf(tw, "  %s\t-\t-\t-\t-\t-\t%s%s\n", id, what, lockCol(id))
 			continue
 		}
-		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s\n", id, e.Provider, e.Placement, e.Binding.HostID,
-			orDash(e.Binding.Version), provider.ShortDigest(e.ResolvedDigest), e.AppliedAt.Format("2006-01-02 15:04"), compareConfig(e, d))
+		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s%s\n", id, e.Provider, e.Placement, e.Binding.HostID,
+			orDash(e.Binding.Version), provider.ShortDigest(e.ResolvedDigest), e.AppliedAt.Format("2006-01-02 15:04"), compareConfig(e, d), lockCol(id))
 	}
 	if err := tw.Flush(); err != nil {
 		return err

@@ -18,6 +18,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/lockfile"
 	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/state"
@@ -38,6 +39,10 @@ type Engine struct {
 	Who    string
 	// Now defaults to time.Now.
 	Now func() time.Time
+	// LockFile pins the digests environments may run (ADR 0013); nil means
+	// none are pinned. LockFilePath names it in diagnostics.
+	LockFile     *lockfile.File
+	LockFilePath string
 }
 
 // PlanOptions change what a plan does.
@@ -173,7 +178,12 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 		if err != nil {
 			return nil, err
 		}
-		var diags diag.List
+		// A locked environment takes only the digests in the lock. This
+		// needs only the configuration, so it runs before any host call.
+		diags := e.LockFile.Check(e.LockFilePath, env, desired)
+		if diags.HasErrors() {
+			return nil, &FailedError{Diagnostics: diags}
+		}
 		if host, ok := prov.(provider.EnvironmentHost); ok && len(desired) > 0 {
 			want = &provider.Environment{Name: env, Dir: filepath.Dir(envRes.File)}
 			spec := envRes.Environment().Spec
