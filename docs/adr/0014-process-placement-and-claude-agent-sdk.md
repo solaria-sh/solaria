@@ -82,7 +82,7 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
 - MCP servers go into the strict MCP config: stdio packages run through `npx` or `uvx`, remotes over streamable HTTP or SSE.
 - Model providers other than `anthropic` fail at plan time.
 
-**Run command:** apply records it as the `run` output and prints it, as `gitagent` does. On `process` it's `node <bundle>/launch.mjs` or `python <bundle>/launch.py`, with the secret names it expects. On `docker` it's a `docker run` of an image built on the shared sandbox base (ADR 0007), with the same launcher and bundle inside and the workspace mounted at `/workspace`. `solaria status <agent> -e <env>` shows the same command, and `-o json` gives it as a documented `invocation` block, so callers never depend on the state format.
+**Run command:** apply records it as the `run` output and prints it, as `gitagent` does. On `process` it's `node <bundle>/launch.mjs` or `python <bundle>/launch.py`, with the secret names it expects. On `docker` it's a `docker run` of an image built on the shared sandbox base (ADR 0007), with the same launcher and bundle inside and the workspace mounted at `/workspace`. `solaria status -e <env> -a <agent>` shows the same command, and `-o json` gives it as a documented `invocation` block, so callers never depend on the state format.
 
 **ADR 0002 still holds:** Solaria writes the bundle and the launcher, and records how to start them. The caller starts them, and the loop runs inside the SDK.
 
