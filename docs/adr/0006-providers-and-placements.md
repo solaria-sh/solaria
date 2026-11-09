@@ -143,3 +143,4 @@ Every provider has capability tests, and golden tests of what it sends to its ho
 - Revised 2026-11-04 after the M1 spikes: gitagent rendering, Go SDK worker. The `managed-agents` implementation approach is in ADR 0011.
 - Revised in M4: the interface as implemented, and the `stub` test provider.
 - Revised in M5: `gitagent` as implemented.
+- Extended by [ADR 0014](0014-process-placement-and-claude-agent-sdk.md) (proposed): the `process` placement and the `claude-agent-sdk` provider.

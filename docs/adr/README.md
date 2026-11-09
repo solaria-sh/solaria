@@ -16,5 +16,7 @@ Each significant design decision is recorded here using [MADR](https://adr.githu
 | [0010](0010-promotion-policy-out-of-scope.md) | Promotion and autonomy policy are out of scope | accepted |
 | [0011](0011-managed-agents-provider-calls-the-api.md) | The `managed-agents` provider calls the API directly | accepted |
 | [0012](0012-environment-level-host-objects.md) | Environment-level host objects | accepted |
+| [0013](0013-lock-file-pins-digests.md) | A committed lock file pins each environment's digests | proposed |
+| [0014](0014-process-placement-and-claude-agent-sdk.md) | Local agent loops: a hermetic `process` placement and the `claude-agent-sdk` provider | proposed |
 
 ADRs 0005–0009 were revised on 2026-11-04 with findings from the [M1 spikes](../spikes/). ADR 0008 records the digest input format since M3.
