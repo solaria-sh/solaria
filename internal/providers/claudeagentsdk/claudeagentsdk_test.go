@@ -19,6 +19,7 @@ import (
 
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers/container"
 	"github.com/solaria-sh/solaria/internal/providers/process"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/state"
@@ -65,20 +66,33 @@ func golden(b *bundle, root string) string {
 		}
 		fmt.Fprintf(&s, "=== %s\n%s", name, b.Files[name])
 	}
+	if d := b.Docker; d != nil {
+		fmt.Fprintf(&s, "=== image\n%s for %s\n=== run\n%s\n=== labels\n", d.Image, d.Platform, d.Run)
+		for _, k := range slices.Sorted(maps.Keys(d.Labels)) {
+			fmt.Fprintf(&s, "%s=%s\n", k, d.Labels[k])
+		}
+		if d.Base != nil {
+			fmt.Fprintf(&s, "=== sandbox image\n%s from %s\n", d.BaseImage, filepath.ToSlash(d.Base.Dockerfile))
+		}
+	}
 	fmt.Fprintf(&s, "=== secrets\n%s\n=== diagnostics\n%s", strings.Join(b.Secrets, ","), b.Diags)
 	// isolation.json holds the dotenv path in native form, JSON-escaped:
-	// on Windows that's C:\\...\\.env rather than /.../.env.
+	// on Windows that's C:\\...\\.env rather than /.../.env. The docker run
+	// command holds it shell-quoted.
 	dotenv, _ := json.Marshal(filepath.Join(root, ".env"))
 	out := strings.ReplaceAll(s.String(), string(dotenv), `"$ROOT/.env"`)
+	out = strings.ReplaceAll(out, container.ShellQuote(filepath.Join(root, ".env")), "$ROOT/.env")
 	return strings.ReplaceAll(out, filepath.ToSlash(root), "$ROOT")
 }
 
 func TestRenderGolden(t *testing.T) {
-	for _, tc := range []struct{ fixture, env string }{
-		{"full", "dev"},
-		{"python", "ci"},
+	for _, tc := range []struct{ name, fixture, env string }{
+		{"full", "full", "dev"},
+		{"python", "python", "ci"},
+		{"docker", "full", "dev-docker"},
+		{"python-docker", "python", "ci-docker"},
 	} {
-		t.Run(tc.fixture, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			dir, err := filepath.Abs(filepath.Join("testdata", tc.fixture))
 			if err != nil {
 				t.Fatal(err)
@@ -88,7 +102,7 @@ func TestRenderGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 			got := golden(b, dir)
-			path := filepath.Join("testdata", tc.fixture+".golden")
+			path := filepath.Join("testdata", tc.name+".golden")
 			if *update {
 				if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
 					t.Fatal(err)
@@ -183,7 +197,7 @@ func TestValidate(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := NewWithHost(provider.Options{Environment: "ci", WorkDir: t.TempDir()}, tc.host, func() []string { return tc.managed })
+			p := NewWithHost(provider.Options{Environment: "ci", WorkDir: t.TempDir()}, tc.host, nil, func() []string { return tc.managed })
 			var got []string
 			for _, d := range p.Validate(context.Background(), a) {
 				got = append(got, d.String())
@@ -234,7 +248,7 @@ func cycle(t *testing.T, p *Provider, a *resolve.Agent, prior *state.Entry) (*pr
 		t.Fatal(err)
 	}
 	return pl, &state.Entry{
-		ID: a.ID(), Provider: Name, Placement: process.Placement,
+		ID: a.ID(), Provider: Name, Placement: a.Placement,
 		SpecDigest: a.SpecDigest, ResolvedDigest: a.ResolvedDigest,
 		Binding: applied.Binding, RemoteHash: applied.RemoteHash, Definition: a.Definition,
 	}
@@ -251,7 +265,7 @@ func changePaths(pl *provider.Plan) string {
 func TestLifecycle(t *testing.T) {
 	work := t.TempDir()
 	h := &fakeHost{version: "v22.3.0"}
-	p := NewWithHost(provider.Options{Environment: "dev", WorkDir: work}, h, func() []string { return nil })
+	p := NewWithHost(provider.Options{Environment: "dev", WorkDir: work}, h, nil, func() []string { return nil })
 	a := load(t, filepath.Join("testdata", "full"), "dev")
 	ctx := context.Background()
 
@@ -331,7 +345,7 @@ func TestLifecycle(t *testing.T) {
 func TestPythonRun(t *testing.T) {
 	work := t.TempDir()
 	h := &fakeHost{version: "Python 3.12.1"}
-	p := NewWithHost(provider.Options{Environment: "ci", WorkDir: work}, h, func() []string { return nil })
+	p := NewWithHost(provider.Options{Environment: "ci", WorkDir: work}, h, nil, func() []string { return nil })
 	_, entry := cycle(t, p, load(t, filepath.Join("testdata", "python"), "ci"), nil)
 	bundle := filepath.Join(work, filepath.FromSlash(entry.Binding.Outputs[outBundle]))
 	want := filepath.Join(bundle, "venv", "bin", "python") + " " + filepath.Join(bundle, "launch.py")
@@ -640,7 +654,7 @@ func TestRelativeWorkDir(t *testing.T) {
 	work := t.TempDir()
 	t.Chdir(work)
 	h := &fakeHost{version: "v22.3.0"}
-	p := NewWithHost(provider.Options{Environment: "dev", WorkDir: "."}, h, func() []string { return nil })
+	p := NewWithHost(provider.Options{Environment: "dev", WorkDir: "."}, h, nil, func() []string { return nil })
 	_, entry := cycle(t, p, a, nil)
 	if req := h.installs[0]; !filepath.IsAbs(req.Dir) || !filepath.IsAbs(req.CacheDir) {
 		t.Errorf("install = %+v", req)
@@ -651,5 +665,129 @@ func TestRelativeWorkDir(t *testing.T) {
 	}
 	if out := entry.Binding.Outputs[outBundle]; !strings.HasPrefix(out, ".solaria/") {
 		t.Errorf("bundle output = %q", out)
+	}
+}
+
+// fakeDocker keeps images in memory; building twice gives a new ID.
+type fakeDocker struct {
+	images map[string]*container.Image
+	builds []container.BuildRequest
+	n      int
+}
+
+func (f *fakeDocker) Build(_ context.Context, req container.BuildRequest, _ io.Writer) error {
+	if _, err := os.Stat(req.Dockerfile); err != nil {
+		return err
+	}
+	f.n++
+	f.builds = append(f.builds, req)
+	f.images[req.Tag] = &container.Image{ID: fmt.Sprintf("sha256:%02d%062d", f.n, 0), Labels: req.Labels}
+	return nil
+}
+
+func (f *fakeDocker) Inspect(_ context.Context, ref string) (*container.Image, error) {
+	return f.images[ref], nil
+}
+
+func (f *fakeDocker) Remove(_ context.Context, ref string) error {
+	delete(f.images, ref)
+	return nil
+}
+
+func TestDockerLifecycle(t *testing.T) {
+	work := t.TempDir()
+	d := &fakeDocker{images: map[string]*container.Image{}}
+	// A container brings its own runtime, so the host has none.
+	h := &fakeHost{missing: true}
+	p := NewWithHost(provider.Options{Environment: "ci-docker", WorkDir: work}, h, d, func() []string { return []string{"/etc/claude-code/managed-settings.json"} })
+	a := load(t, filepath.Join("testdata", "python"), "ci-docker")
+	ctx := context.Background()
+
+	for _, diag := range p.Validate(ctx, a) {
+		if strings.Contains(diag.Message, "launcher can't run") || strings.Contains(diag.Message, "managed settings") {
+			t.Errorf("docker validates the machine: %s", diag)
+		}
+	}
+	if !p.Capabilities(PlacementDocker).SandboxImage || p.Capabilities(process.Placement).SandboxImage {
+		t.Error("only docker should take sandbox.image")
+	}
+
+	pl, entry := cycle(t, p, a, nil)
+	if pl.Action != provider.Create || len(pl.Notes) != 1 || !strings.HasPrefix(pl.Notes[0], "builds solaria/ci-docker/helper:") {
+		t.Fatalf("first plan = %s, notes %v", pl.Action, pl.Notes)
+	}
+	if len(h.installs) != 0 {
+		t.Errorf("docker installed the SDK on the host: %+v", h.installs)
+	}
+	if len(d.builds) != 2 || !strings.HasPrefix(d.builds[0].Tag, "solaria/ci-docker/helper-sandbox:") {
+		t.Fatalf("builds = %+v; want the sandbox image first", d.builds)
+	}
+	out := entry.Binding.Outputs
+	image := out[outImage]
+	if entry.Binding.HostID != "solaria/ci-docker/helper" || !strings.HasPrefix(image, "solaria/ci-docker/helper:") || entry.RemoteHash != d.images[image].ID {
+		t.Errorf("binding = %+v, remote hash %s", entry.Binding, entry.RemoteHash)
+	}
+	if !strings.HasPrefix(out[outRun], "docker run --rm -i ") || !strings.HasSuffix(out[outRun], " "+image) || out[outPlatform] != DefaultPlatform {
+		t.Errorf("outputs = %v", out)
+	}
+	if got := d.builds[1].Labels["sh.solaria.sdk-version"]; got != DefaultPythonVersion {
+		t.Errorf("sdk-version label = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(work, filepath.FromSlash(out[outBundle]), dockerfilePath)); err != nil {
+		t.Errorf("build context not kept: %v", err)
+	}
+	if obs, err := p.Read(ctx, entry); err != nil || !obs.Exists || obs.RemoteHash != entry.RemoteHash {
+		t.Errorf("Read = %+v, %v", obs, err)
+	}
+
+	if pl, _ := cycle(t, p, a, entry); pl.Action != provider.NoOp {
+		t.Errorf("unchanged agent plans %s", pl.Action)
+	}
+
+	// Another platform is another image; the previous one is removed.
+	a.Env.Providers[Name]["platform"] = "linux/arm64"
+	pl, entry2 := cycle(t, p, a, entry)
+	if pl.Action != provider.Update || changePaths(pl) != "bundle" {
+		t.Fatalf("platform change plans %s with %s", pl.Action, changePaths(pl))
+	}
+	if _, ok := d.images[image]; ok {
+		t.Error("the previous image wasn't removed")
+	}
+	if _, err := os.Stat(filepath.Join(work, filepath.FromSlash(out[outBundle]))); !os.IsNotExist(err) {
+		t.Errorf("the previous build context wasn't removed: %v", err)
+	}
+
+	// Drift: the image is gone.
+	delete(d.images, entry2.Binding.Outputs[outImage])
+	if obs, err := p.Read(ctx, entry2); err != nil || obs.Exists {
+		t.Errorf("Read after removal = %+v, %v", obs, err)
+	}
+
+	d.images[entry2.Binding.Outputs[outImage]] = &container.Image{ID: entry2.RemoteHash}
+	if err := p.Destroy(ctx, entry2); err != nil {
+		t.Fatal(err)
+	}
+	if len(d.images) != 0 {
+		t.Errorf("images left after destroy: %v", slices.Collect(maps.Keys(d.images)))
+	}
+	if _, err := os.Stat(filepath.Join(work, ".solaria", Name, "ci-docker", "helper")); !os.IsNotExist(err) {
+		t.Errorf("build contexts left after destroy: %v", err)
+	}
+}
+
+func TestPlatformSetting(t *testing.T) {
+	a := load(t, filepath.Join("testdata", "python"), "ci-docker")
+	a.Env.Providers[Name]["platform"] = "linux/s390x"
+	b, err := render(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.Diags.String(), "providers.claude-agent-sdk.platform must be linux/amd64 or linux/arm64, not linux/s390x") {
+		t.Errorf("diagnostics = %s", b.Diags)
+	}
+	a = load(t, filepath.Join("testdata", "python"), "ci")
+	a.Env.Providers[Name]["platform"] = "linux/arm64"
+	if b, _ = render(a); !strings.Contains(b.Diags.String(), "platform only applies to the docker placement") {
+		t.Errorf("diagnostics = %s", b.Diags)
 	}
 }

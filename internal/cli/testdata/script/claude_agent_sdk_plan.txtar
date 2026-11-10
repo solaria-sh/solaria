@@ -1,5 +1,17 @@
-# Planning for claude-agent-sdk reads no state and installs nothing, but it
-# checks that this machine has the runtime the launcher needs.
+# On docker, planning needs neither Docker nor a runtime: the image brings
+# its own.
+mkdir docker
+cp $EXAMPLES/hello/instructions.md docker
+cd docker
+exec solaria plan -e sdk-docker
+stdout '^Environment sdk-docker \(claude-agent-sdk/docker\)$'
+stdout 'resolvedDigest: sha256:08ffaed7b158'
+stdout 'note: builds solaria/sdk-docker/hello:[0-9a-f]{12} for linux/amd64 with @anthropic-ai/claude-agent-sdk@0\.3\.319; the first build installs the sandbox base and the SDK, which takes several minutes'
+! stderr 'error|managed settings'
+cd ..
+
+# On process, planning reads no state and installs nothing, but it checks
+# that this machine has the runtime the launcher needs.
 [!exec:node] skip 'the process placement checks for node'
 mkdir hello
 cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md hello
@@ -20,6 +32,24 @@ stderr 'error: Agent/hello on claude-agent-sdk/process: Environment providers.cl
 ! stdout .
 ! exists .solaria/claude-agent-sdk
 
+-- docker/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: hello}
+spec:
+  description: Says hello
+  instructions: [instructions.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  tools: {builtin: [read]}
+  limits: {maxTurns: 5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: sdk-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  sandbox: {network: {mode: unrestricted}}
 -- other/instructions.md --
 Say hello.
 -- other/sandbox.Dockerfile --

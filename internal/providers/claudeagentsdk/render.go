@@ -34,6 +34,8 @@ type bundle struct {
 	BuildDigest string
 	// Secrets are the names of the secrets a run is given.
 	Secrets []string
+	// Docker is set on the docker placement.
+	Docker *dockerParts
 	// Diags are the problems and degradations found while rendering.
 	Diags diag.List
 }
@@ -77,7 +79,13 @@ func render(a *resolve.Agent) (*bundle, error) {
 type renderer struct {
 	a *resolve.Agent
 	b *bundle
+	// platform is the docker placement's image platform.
+	platform string
+	// binaries are the programs the run needs on PATH.
+	binaries []string
 }
+
+func (r *renderer) docker() bool { return r.a.Placement == PlacementDocker }
 
 func (r *renderer) where() string {
 	return fmt.Sprintf("%s on %s/%s", r.a.ID(), Name, r.a.Placement)
@@ -170,6 +178,9 @@ func (r *renderer) render() error {
 		CacheDir: cacheDir,
 		Options:  opts,
 	}
+	if r.docker() {
+		bf.CacheDir = imageCache
+	}
 	if t := a.Definition.Limits.Timeout; t != "" {
 		d, err := time.ParseDuration(t)
 		if err != nil {
@@ -190,12 +201,23 @@ func (r *renderer) render() error {
 	}
 	b.Files[optionsFile] = marshal(bf)
 
-	iso := process.For(a, process.Needs{
+	needs := process.Needs{
 		Binaries: binaries(opts),
 		Pass:     []string{"ANTHROPIC_API_KEY"},
 		Set:      r.env(),
 		Scratch:  map[string]string{"CLAUDE_CONFIG_DIR": "home/.claude"},
-	})
+	}
+	if r.docker() {
+		needs.Path = imagePath
+	}
+	iso := process.For(a, needs)
+	r.binaries = iso.Binaries
+	if r.docker() {
+		// docker run puts the secrets in the container's environment, from
+		// the dotenv file or the caller's; the host's path means nothing
+		// inside.
+		iso.Dotenv = ""
+	}
 	b.Secrets = iso.Secrets
 	b.Files[isolationFile] = iso.JSON()
 
@@ -210,13 +232,31 @@ func (r *renderer) render() error {
 		b.Files["requirements.txt"] = []byte(PythonPackage + "==" + b.SDKVersion + "\n")
 	}
 
+	if r.docker() {
+		if err := r.renderDocker(); err != nil {
+			return err
+		}
+	}
+
 	files := map[string]string{}
 	for p, c := range b.Files {
 		files[p] = digest.Bytes(c)
 	}
 	var err error
-	b.BuildDigest, err = digest.Of(files)
-	return err
+	if r.docker() {
+		// The platform isn't in any file, but it's a different image.
+		b.BuildDigest, err = digest.Of(map[string]any{"files": files, "platform": r.platform})
+	} else {
+		b.BuildDigest, err = digest.Of(files)
+	}
+	if err != nil {
+		return err
+	}
+	if d := b.Docker; d != nil {
+		d.Image = d.Repository + ":" + b.ID()
+		d.Run = r.dockerRun(b.Secrets)
+	}
+	return nil
 }
 
 func sdkPackage(runtime string) string {
@@ -231,6 +271,7 @@ func sdkPackage(runtime string) string {
 func (r *renderer) settings() {
 	b := r.b
 	b.Runtime = RuntimeNode
+	r.platform = DefaultPlatform
 	var version string
 	set := r.a.Env.Providers[Name]
 	for _, k := range slices.Sorted(maps.Keys(set)) {
@@ -250,8 +291,18 @@ func (r *renderer) settings() {
 				continue
 			}
 			version = s
+		case "platform":
+			s, _ := v.(string)
+			switch {
+			case !r.docker():
+				r.warnf("Environment providers.%s.platform only applies to the docker placement and is ignored", Name)
+			case !slices.Contains(platforms, s):
+				r.errorf("Environment providers.%s.platform must be %s, not %v", Name, strings.Join(platforms, " or "), v)
+			default:
+				r.platform = s
+			}
 		default:
-			r.warnf("Environment providers.%s.%s isn't a setting of this provider and is ignored; the settings are: runtime, version", Name, k)
+			r.warnf("Environment providers.%s.%s isn't a setting of this provider and is ignored; the settings are: runtime, version, platform", Name, k)
 		}
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.a.Definition.Providers[Name])) {

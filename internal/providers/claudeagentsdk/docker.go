@@ -1,0 +1,288 @@
+package claudeagentsdk
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers/container"
+	"github.com/solaria-sh/solaria/internal/state"
+)
+
+// The docker placement builds an image per agent and environment on the
+// Solaria sandbox base (ADR 0007), with the SDK installed and the same
+// bundle and launcher inside. The run mounts the workspace at /workspace.
+const (
+	// PlacementDocker builds and keeps images in the local Docker engine.
+	PlacementDocker = "docker"
+	// DefaultPlatform matches the cloud sandbox (ADR 0007).
+	DefaultPlatform = "linux/amd64"
+
+	// imageBundle is where the bundle lives in the image.
+	imageBundle = "/opt/solaria/agent"
+	// imageCache holds package downloads inside a container. It goes with
+	// the container.
+	imageCache = "/var/cache/solaria"
+	// dockerfilePath is the Dockerfile's path in the build context, which
+	// is the bundle's directory.
+	dockerfilePath = "Dockerfile"
+	// labelPrefix namespaces Solaria's image labels.
+	labelPrefix = "sh.solaria."
+)
+
+// imagePath is PATH in the Solaria sandbox base. The prelude keeps it, so
+// the run finds what sandbox.packages installed.
+var imagePath = []string{"/opt/cargo/bin", "/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"}
+
+// platforms the docker placement builds for.
+var platforms = []string{"linux/amd64", "linux/arm64"}
+
+// Binding outputs of the docker placement.
+const (
+	outImage        = "image"
+	outPlatform     = "platform"
+	outSandboxImage = "sandboxImage"
+)
+
+// dockerParts are what render adds to a bundle on the docker placement.
+type dockerParts struct {
+	Platform string
+	// Repository is the image name without a tag; Image adds the tag.
+	Repository, Image string
+	Labels            map[string]string
+	// Base is set when sandbox.image is a Dockerfile: it is built first and
+	// tagged BaseImage, and the generated Dockerfile starts from it.
+	Base      *container.BuildRequest
+	BaseImage string
+	// Run is the docker run command, ready for a shell. The task goes
+	// after it, as -p "<task>".
+	Run string
+}
+
+// renderDocker renders the Dockerfile, the image's name and labels, and the run
+// command, once the bundle's other files are rendered.
+func (r *renderer) renderDocker() error {
+	a, b := r.a, r.b
+	d := &dockerParts{Platform: r.platform}
+	b.Docker = d
+	d.Repository = "solaria/" + a.Environment + "/" + a.Name
+
+	base, build, err := container.SandboxBase(a.Env.Sandbox, a.EnvDir, d.Repository+"-sandbox", d.Platform,
+		map[string]string{labelPrefix + "environment": a.Environment})
+	if err != nil {
+		return err
+	}
+	if build != nil {
+		d.Base, d.BaseImage = build, base
+	}
+	b.Files[dockerfilePath] = r.dockerfile(base)
+
+	d.Labels = map[string]string{
+		labelPrefix + "logical-id":      a.ID(),
+		labelPrefix + "environment":     a.Environment,
+		labelPrefix + "spec-digest":     a.SpecDigest,
+		labelPrefix + "resolved-digest": a.ResolvedDigest,
+		labelPrefix + "sdk-runtime":     b.Runtime,
+		labelPrefix + "sdk-version":     b.SDKVersion,
+	}
+	if desc := a.Definition.Description; desc != "" {
+		d.Labels["org.opencontainers.image.description"] = desc
+	}
+
+	sb := a.Env.Sandbox
+	if sb == nil || sb.Network == nil || sb.Network.Mode != v1alpha1.NetworkUnrestricted {
+		r.warnf("sandbox.network is limited, but docker doesn't enforce host lists yet: the container can reach any host")
+	}
+	if sb != nil && sb.Resources != nil && sb.Resources.Disk != "" {
+		r.warnf("sandbox.resources.disk isn't enforced on docker")
+	}
+	for _, pkg := range container.OptionLikePackages(sb) {
+		r.errorf("sandbox package %q starts with '-'; package managers would read it as an option", pkg)
+	}
+	if base != "" {
+		needs := runtimeNeeds(b.Runtime)
+		if len(r.binaries) > 0 {
+			needs += ", and " + strings.Join(r.binaries, " and ") + " for the agent's MCP servers"
+		}
+		r.warnf("sandbox.image replaces the Solaria sandbox base, so it must have %s", needs)
+	}
+	if t := a.Env.Telemetry; t != nil && localhost.MatchString(t.Endpoint) {
+		r.warnf("telemetry.endpoint %s points at the container itself; use host.docker.internal to reach the host", t.Endpoint)
+	}
+	return nil
+}
+
+var localhost = regexp.MustCompile(`^[a-z]+://(localhost|127\.0\.0\.1|\[::1\])(:|/|$)`)
+
+func runtimeNeeds(runtime string) string {
+	if runtime == RuntimePython {
+		return "python3 3.10 or later with venv"
+	}
+	return "node 18.14 or later with npm"
+}
+
+// dockerfile generates the image's Dockerfile: the sandbox stages, then the
+// SDK, then the bundle, so a card change only rebuilds the last layer.
+func (r *renderer) dockerfile(base string) []byte {
+	a, b := r.a, r.b
+	var s strings.Builder
+	w := func(format string, args ...any) { fmt.Fprintf(&s, format, args...) }
+	w("# syntax=docker/dockerfile:1\n")
+	w("# Generated by Solaria for %s in environment %s.\n", a.ID(), a.Environment)
+	w("# Change the card or the environment and run solaria apply instead of editing it.\n\n")
+
+	container.WriteSandboxStages(&s, base, container.Packages(a.Env.Sandbox))
+
+	w("# The agent: the SDK at an exact version, then the bundle. Only the last\n")
+	w("# layer changes when the card does.\n")
+	w("FROM sandbox\n")
+	w("WORKDIR %s\n", imageBundle)
+	var entry []string
+	switch b.Runtime {
+	case RuntimePython:
+		w("COPY requirements.txt ./\n")
+		w("RUN python3 -m venv venv \\\n")
+		w(" && venv/bin/pip install --no-cache-dir --disable-pip-version-check --no-input -r requirements.txt \\\n")
+		w(" && venv/bin/pip freeze --disable-pip-version-check > requirements.lock\n")
+		entry = []string{imageBundle + "/venv/bin/python", imageBundle + "/launch.py"}
+	default:
+		w("COPY package.json ./\n")
+		w("RUN npm install --no-audit --no-fund --no-update-notifier --loglevel=error\n")
+		entry = []string{"node", imageBundle + "/launch.mjs"}
+	}
+	var files, dirs []string
+	for name := range b.Files {
+		switch {
+		case name == dockerfilePath, name == "package.json", name == "requirements.txt":
+		case strings.Contains(name, "/"):
+			dir, _, _ := strings.Cut(name, "/")
+			if !slices.Contains(dirs, dir) {
+				dirs = append(dirs, dir)
+			}
+		default:
+			files = append(files, name)
+		}
+	}
+	slices.Sort(files)
+	slices.Sort(dirs)
+	w("COPY %s ./\n", strings.Join(files, " "))
+	for _, dir := range dirs {
+		w("COPY %s/ ./%s/\n", dir, dir)
+	}
+	w("WORKDIR /workspace\n")
+	w("ENTRYPOINT %s\n", container.JSONArray(entry))
+	return []byte(s.String())
+}
+
+// dockerRun builds the docker run command. It names secrets and the API
+// key but never contains their values: docker copies them from the
+// caller's environment, or from the environment's dotenv file.
+func (r *renderer) dockerRun(secrets []string) string {
+	a, d := r.a, r.b.Docker
+	q := container.ShellQuote
+	parts := []string{"docker", "run", "--rm", "-i", "--platform", q(d.Platform), "--memory", container.Memory(a.Env.Sandbox)}
+	parts = append(parts, "--volume", `"$PWD":/workspace`)
+	if s := a.Env.Secrets; s != nil && s.Source == v1alpha1.SecretsDotenv {
+		p := s.Path
+		if p == "" {
+			p = ".env"
+		}
+		parts = append(parts, "--env-file", q(filepath.Join(a.EnvDir, filepath.FromSlash(p))))
+	} else {
+		for _, s := range secrets {
+			parts = append(parts, "--env", s)
+		}
+	}
+	parts = append(parts, "--env", "ANTHROPIC_API_KEY", q(d.Image))
+	return strings.Join(parts, " ")
+}
+
+// applyDocker builds the agent's image from the bundle written in dir, and
+// removes the images it replaces.
+func (p *Provider) applyDocker(ctx context.Context, pl *provider.Plan, b *bundle, dir string) (*provider.Applied, error) {
+	d := b.Docker
+	if d.Base != nil {
+		p.logf("Building the sandbox image %s from %s\n", d.BaseImage, d.Base.Dockerfile)
+		if err := p.docker.Build(ctx, *d.Base, p.log); err != nil {
+			return nil, err
+		}
+	}
+	p.logf("Building %s for %s\n", d.Image, d.Platform)
+	err := p.docker.Build(ctx, container.BuildRequest{
+		Context:    dir,
+		Dockerfile: filepath.Join(dir, dockerfilePath),
+		Tag:        d.Image,
+		Platform:   d.Platform,
+		Labels:     d.Labels,
+	}, p.log)
+	if err != nil {
+		return nil, err
+	}
+	img, err := p.docker.Inspect(ctx, d.Image)
+	if err != nil {
+		return nil, err
+	}
+	if img == nil {
+		return nil, fmt.Errorf("%s: %s is missing right after building it", Name, d.Image)
+	}
+	if pl.Prior != nil {
+		for key, now := range map[string]string{outImage: d.Image, outSandboxImage: d.BaseImage} {
+			if old := pl.Prior.Binding.Outputs[key]; old != "" && old != now {
+				if err := p.docker.Remove(ctx, old); err != nil {
+					p.logf("warning: couldn't remove the previous image: %v\n", err)
+				}
+			}
+		}
+	}
+	p.removeOthers(pl.Desired.Name, b.ID())
+
+	outputs := p.outputs(b, dir, d.Run)
+	outputs[outImage] = d.Image
+	outputs[outPlatform] = d.Platform
+	if d.BaseImage != "" {
+		outputs[outSandboxImage] = d.BaseImage
+	}
+	return &provider.Applied{
+		Binding:    state.Binding{HostID: d.Repository, Version: shortID(img.ID), Outputs: outputs},
+		RemoteHash: img.ID,
+	}, nil
+}
+
+// readDocker inspects the entry's image. Its ID is the remote hash, so a
+// rebuild or retag outside Solaria shows up as drift.
+func (p *Provider) readDocker(ctx context.Context, e *state.Entry) (*provider.Observed, error) {
+	img, err := p.docker.Inspect(ctx, e.Binding.Outputs[outImage])
+	if err != nil {
+		return nil, err
+	}
+	if img == nil {
+		return &provider.Observed{Exists: false}, nil
+	}
+	return &provider.Observed{Exists: true, RemoteHash: img.ID}, nil
+}
+
+// destroyDocker removes the entry's images.
+func (p *Provider) destroyDocker(ctx context.Context, e *state.Entry) error {
+	for _, key := range []string{outImage, outSandboxImage} {
+		if ref := e.Binding.Outputs[key]; ref != "" {
+			if err := p.docker.Remove(ctx, ref); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// shortID shortens an image ID the way docker images shows it.
+func shortID(id string) string {
+	id = strings.TrimPrefix(id, "sha256:")
+	if len(id) > 12 {
+		return id[:12]
+	}
+	return id
+}

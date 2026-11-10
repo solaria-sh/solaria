@@ -54,3 +54,17 @@ spec:
     endpoint: http://localhost:4318
     protocol: http/protobuf
     headers: [{name: x-tenant, value: acme}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  sandbox:
+    packages: {apt: [jq], cargo: [ripgrep@14.1.0]}
+    resources: {memory: 4Gi, disk: 20Gi}
+  secrets: {source: dotenv}
+  telemetry: {endpoint: "http://localhost:4318"}
+  providers:
+    claude-agent-sdk: {platform: linux/arm64}

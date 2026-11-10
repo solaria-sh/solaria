@@ -55,7 +55,7 @@ A **provider** is the code that talks to one kind of host. A **placement** is wh
 |---|---|---|---|
 | [`stub`](providers/stub.md) | `file` | nowhere: it writes files, for tests and examples | nowhere |
 | [`gitagent`](providers/gitagent.md) | `docker` | gitagent, in a container image | the same container |
-| [`claude-agent-sdk`](providers/claude-agent-sdk.md) | `process` | the Claude Agent SDK, as a local Node or Python process | the same process, on the machine that starts it |
+| [`claude-agent-sdk`](providers/claude-agent-sdk.md) | `process`, `docker` | the Claude Agent SDK, as a Node or Python process | the same process, on the machine that starts it or in a container image |
 | [`managed-agents`](providers/managed-agents.md) | `cloud`, `self-hosted` | Claude Managed Agents | Anthropic's sandbox, or a worker container on your machine |
 
 Each provider declares its **capabilities**: which models it runs, which MCP transports it can use, whether it takes a custom sandbox image, whether it supports fallback models and approvals, and whether destroy deletes or archives. `plan` checks each agent against them before any host call, so an agent a host can't run fails early, with the reason. Smaller gaps are warnings, for example a limit the host doesn't enforce.

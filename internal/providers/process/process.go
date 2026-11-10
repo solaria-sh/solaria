@@ -40,6 +40,10 @@ type Isolation struct {
 	// runtime's own folder and the system folders. A missing one fails the
 	// run before it starts.
 	Binaries []string `json:"binaries"`
+	// Path lists folders PATH gets after the binaries' folders, for a
+	// placement that knows the machine the run starts on, such as the
+	// folders an image installs its packages into.
+	Path []string `json:"path,omitempty"`
 	// Pass lists variables copied from the caller's environment when set.
 	Pass []string `json:"pass"`
 	// Secrets lists the names of the secrets the run is given. Their values
@@ -61,6 +65,7 @@ type Isolation struct {
 // Needs is what a provider adds to the base isolation.
 type Needs struct {
 	Binaries []string
+	Path     []string
 	Pass     []string
 	Set      map[string]string
 	Scratch  map[string]string
@@ -108,6 +113,7 @@ var baseCache = map[string]string{
 func For(a *resolve.Agent, needs Needs) Isolation {
 	iso := Isolation{
 		Binaries: sortedUnique(needs.Binaries),
+		Path:     needs.Path,
 		Pass:     sortedUnique(append(slices.Clone(basePass), needs.Pass...)),
 		Secrets:  a.SecretRefs(),
 		Set:      merge(nil, needs.Set),

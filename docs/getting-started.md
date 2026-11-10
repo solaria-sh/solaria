@@ -195,7 +195,7 @@ You declared an agent once, without naming a host. You put it in an environment,
 
 ## Next steps
 
-- **Run it on a real host.** Add a second environment to `solaria.yaml` and apply the same agent there. [`gitagent`](providers/gitagent.md) builds it into a container image with Docker. [`claude-agent-sdk`](providers/claude-agent-sdk.md) runs it on the Claude Agent SDK as a local Node or Python process. [`managed-agents`](providers/managed-agents.md) deploys it to Claude Managed Agents with an `ANTHROPIC_API_KEY`. The agent and its digest stay the same.
+- **Run it on a real host.** Add a second environment to `solaria.yaml` and apply the same agent there. [`gitagent`](providers/gitagent.md) builds it into a container image with Docker. [`claude-agent-sdk`](providers/claude-agent-sdk.md) runs it on the Claude Agent SDK, as a local Node or Python process or in a container. [`managed-agents`](providers/managed-agents.md) deploys it to Claude Managed Agents with an `ANTHROPIC_API_KEY`. The agent and its digest stay the same.
 - **Understand the model.** [Concepts](concepts.md) covers environments, providers, identity, state and drift.
 - **Look up a field.** The resource pages list every field of [Agent](resources/agent.md), [Environment](resources/environment.md) and [McpServer](resources/mcp-server.md).
 - **Get completion in your editor.** `solaria schema > solaria.schema.json` saves the JSON Schema; point the YAML language server at it with `# yaml-language-server: $schema=./solaria.schema.json` at the top of each file.

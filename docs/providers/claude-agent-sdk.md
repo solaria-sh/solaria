@@ -1,6 +1,11 @@
 # `claude-agent-sdk` provider
 
-The `claude-agent-sdk` provider runs each agent on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview), in TypeScript or Python. Its placement, `process`, runs the agent loop and its tools as a local process: on your laptop, in CI, or wherever you start it. Solaria doesn't start it. `apply` writes a bundle with a launcher and records the command that starts it.
+The `claude-agent-sdk` provider runs each agent on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview), in TypeScript or Python. It has two placements:
+
+- `process` runs the agent loop and its tools as a local process: on your laptop, in CI, or wherever you start it.
+- `docker` runs the same launcher in a container image built on the [Solaria sandbox base](../concepts.md#the-sandbox), with the workspace mounted. It's the placement that installs `sandbox.packages`, and that keeps the machine's managed settings out.
+
+Solaria doesn't start either. `apply` writes a bundle with a launcher, builds the image on `docker`, and records the command that starts it.
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -13,7 +18,7 @@ spec:
     network: {mode: unrestricted}
 ```
 
-**Needs:** Node 18.14 or later, or Python 3.10 or later with `providers.claude-agent-sdk.runtime: python`. `plan` checks that it's installed. `apply` installs the SDK from npm or PyPI, so it needs network access the first time. Running the agent needs `ANTHROPIC_API_KEY`.
+**Needs:** on `process`, Node 18.14 or later, or Python 3.10 or later with `providers.claude-agent-sdk.runtime: python`; `plan` checks that it's installed. On `docker`, the `docker` CLI with BuildKit for `apply`, and nothing for `plan`. Either way, `apply` installs the SDK from npm or PyPI, so it needs network access the first time, and running the agent needs `ANTHROPIC_API_KEY`.
 
 ## What apply does
 
@@ -45,6 +50,33 @@ The bundle holds:
 | `isolation.json`, `isolate.mjs` or `isolate.py` | What keeps the run hermetic, below |
 | `launch.mjs` or `launch.py` | The launcher |
 
+## The `docker` placement
+
+```yaml
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  sandbox:
+    packages: {apt: [ripgrep]}
+```
+
+`apply` writes the same bundle, plus a `Dockerfile`, and builds `solaria/<environment>/<agent>:<id>` from it:
+
+1. The sandbox stages every Solaria image shares: the Solaria sandbox base, which has Node, Python and uv, or `sandbox.image`, then the environment's packages.
+2. The SDK at its exact version, installed in `/opt/solaria/agent`.
+3. The bundle, the only layer a card change rebuilds.
+
+The image is labeled with the logical ID, both digests, the runtime and the SDK version. A successful apply removes the previous image and build context, and records a `docker run` command; the task goes after it:
+
+```bash
+docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace \
+  --env ANTHROPIC_API_KEY solaria/local-sdk-docker/hello:3f9c1a0d2b7e -p "Say hello."
+```
+
+The secrets come from the environment's dotenv file (`--env-file`) or the caller's environment (`--env NAME`). Inside, the launcher isolates the run as on `process`, but keeps the image's own `PATH`, so the run finds what `sandbox.packages` installed. The first build installs the sandbox base and takes several minutes; later builds reuse Docker's cache.
+
+A `sandbox.image` replaces the Solaria sandbox base, so it must have the runtime (Node 18.14 or later with npm, or Python 3.10 or later with venv) and `npx` or `uvx` for stdio MCP servers. Plan warns about what it needs.
+
 ## Every run is hermetic
 
 A local process sees everything its user has: settings, skills and plugins in the home folder, `CLAUDE.md` files up the tree, stored logins, and every variable in the shell. The launcher keeps all of that out, so what runs is exactly the definition its digest describes:
@@ -53,7 +85,7 @@ A local process sees everything its user has: settings, skills and plugins in th
 - **`HOME`, `CLAUDE_CONFIG_DIR` and the temp folder are scratch directories,** created for the run and removed after it.
 - **The SDK loads no settings files** (`settingSources: []`) and only the card's MCP servers (`strictMcpConfig`). Claude Code's auto memory, `CLAUDE.md` loading, claude.ai connectors and nonessential traffic are off.
 
-**Managed settings are the exception.** A machine can carry settings that every Claude Code process obeys, and no process can turn them off: `managed-settings.json`, `managed-settings.d/` and `managed-mcp.json` in `/Library/Application Support/ClaudeCode/` (macOS), `/etc/claude-code/` (Linux) or `C:\Program Files\ClaudeCode\` (Windows), a macOS configuration profile, or the Windows policy registry. Plan warns about each one it finds. Settings an organization's server pushes when a session signs in can't be seen in advance.
+**Managed settings are the exception on `process`.** A machine can carry settings that every Claude Code process obeys, and no process can turn them off: `managed-settings.json`, `managed-settings.d/` and `managed-mcp.json` in `/Library/Application Support/ClaudeCode/` (macOS), `/etc/claude-code/` (Linux) or `C:\Program Files\ClaudeCode\` (Windows), a macOS configuration profile, or the Windows policy registry. Plan warns about each one it finds. A container doesn't see them, so `docker` is the placement that keeps them out. Settings an organization's server pushes when a session signs in can't be seen in advance on either placement.
 
 ## What a run prints
 
@@ -104,18 +136,28 @@ The `process` placement runs on the machine as it is, so it can't enforce the sa
 - `resources` aren't enforced. Plan warns.
 - `image` fails plan.
 
+The `docker` placement enforces more:
+
+- `packages` install in exec form: package names are arguments, never shell text, and a name starting with `-` fails plan.
+- `resources.memory` becomes `docker run --memory`, 8 GiB by default.
+- Docker can't enforce `network` host lists or `resources.disk`, so plan warns about them.
+- `image` takes an image reference, or a Dockerfile path relative to the environment's file, which is built first.
+
 ## Settings
 
 | Setting | Default | |
 |---|---|---|
 | `providers.claude-agent-sdk.runtime` | `node` | The launcher's language: `node` (`@anthropic-ai/claude-agent-sdk`) or `python` (`claude-agent-sdk`) |
 | `providers.claude-agent-sdk.version` | `0.3.319` for Node, `0.2.178` for Python | The SDK version to install. The default is the version Solaria was tested with. |
+| `providers.claude-agent-sdk.platform` | `linux/amd64` | `docker` only: the image platform. `linux/arm64` builds natively on Arm machines. |
 
 The binding records the runtime and SDK version (outputs `runtime` and `sdkVersion`), since a model's results depend on the harness it runs in. Changing either plans an update although the agent's digests stay the same.
 
 ## Drift and destroy
 
-The host ID is the agent's folder under `.solaria/claude-agent-sdk/` and the version is the bundle's ID. Refresh hashes the bundle's files as they are on disk, so a file edited outside Solaria shows as drift, and a bundle without its SDK shows as gone. Destroy removes the agent's bundles.
+On `process`, the host ID is the agent's folder under `.solaria/claude-agent-sdk/` and the version is the bundle's ID. Refresh hashes the bundle's files as they are on disk, so a file edited outside Solaria shows as drift, and a bundle without its SDK shows as gone. Destroy removes the agent's bundles.
+
+On `docker`, the host ID is the image repository and the version is the image ID, so an image rebuilt or retagged outside Solaria shows as drift. Destroy removes the images and the build context.
 
 ## Limits
 
@@ -124,3 +166,4 @@ The host ID is the agent's folder under `.solaria/claude-agent-sdk/` and the ver
 - `allowTools` can't hide a server's other tools from the agent, only deny them.
 - The SDK's own dependencies follow its version ranges: `package-lock.json` and `requirements.lock` record the versions an apply installed, but a new apply can resolve newer ones.
 - A telemetry header that comes from a secret can't reach Claude Code's exporter yet, so it's left out with a warning.
+- On `docker`, the image runs as root, and a telemetry endpoint on `localhost` points at the container; use `host.docker.internal`. Plan warns.
