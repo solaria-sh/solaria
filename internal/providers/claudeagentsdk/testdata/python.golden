@@ -1,0 +1,113 @@
+=== isolate.py (shared)
+=== isolation.json
+{
+  "binaries": [
+    "uvx"
+  ],
+  "pass": [
+    "ALL_PROXY",
+    "ANTHROPIC_API_KEY",
+    "COMSPEC",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "NODE_EXTRA_CA_CERTS",
+    "NO_PROXY",
+    "NUMBER_OF_PROCESSORS",
+    "OS",
+    "PATHEXT",
+    "PROCESSOR_ARCHITECTURE",
+    "PROGRAMFILES",
+    "REQUESTS_CA_BUNDLE",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "SYSTEMDRIVE",
+    "SYSTEMROOT",
+    "TZ",
+    "WINDIR",
+    "all_proxy",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy"
+  ],
+  "secrets": [],
+  "set": {
+    "CLAUDE_AGENT_SDK_CLIENT_APP": "solaria",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+  },
+  "scratch": {
+    "APPDATA": "home/AppData/Roaming",
+    "CLAUDE_CONFIG_DIR": "home/.claude",
+    "HOME": "home",
+    "LOCALAPPDATA": "home/AppData/Local",
+    "TEMP": "tmp",
+    "TMP": "tmp",
+    "TMPDIR": "tmp",
+    "USERPROFILE": "home",
+    "XDG_CACHE_HOME": "home/.cache",
+    "XDG_CONFIG_HOME": "home/.config",
+    "XDG_DATA_HOME": "home/.local/share",
+    "XDG_STATE_HOME": "home/.local/state"
+  },
+  "cache": {
+    "PIP_CACHE_DIR": "pip",
+    "UV_CACHE_DIR": "uv",
+    "npm_config_cache": "npm"
+  }
+}
+=== launch.py (shared)
+=== options.json
+{
+  "agent": {
+    "logicalId": "Agent/helper",
+    "environment": "ci",
+    "resolvedDigest": "sha256:f845570c2ebee00a9e5a275038b48a3513b9de9a79d25935867488735ffb3688"
+  },
+  "sdk": {
+    "runtime": "python",
+    "package": "claude-agent-sdk",
+    "version": "0.2.170"
+  },
+  "cacheDir": "../../../.cache",
+  "systemPromptFile": "system-prompt.md",
+  "options": {
+    "model": "claude-haiku-5-5",
+    "tools": [
+      "Glob",
+      "Read",
+      "WebFetch"
+    ],
+    "allowedTools": [
+      "Glob",
+      "Read",
+      "WebFetch",
+      "mcp__notes__*"
+    ],
+    "disallowedTools": [],
+    "permissionMode": "dontAsk",
+    "settingSources": [],
+    "strictMcpConfig": true,
+    "mcpServers": {
+      "notes": {
+        "type": "stdio",
+        "command": "uvx",
+        "args": [
+          "notes-mcp==0.4.1"
+        ]
+      }
+    }
+  }
+}
+=== requirements.txt
+claude-agent-sdk==0.2.170
+=== system-prompt.md
+You answer questions about the docs.
+=== secrets
+
+=== diagnostics
+warning: Agent/helper on claude-agent-sdk/process: providers.claude-agent-sdk.colour isn't a setting of this provider and is ignored; it has no per-agent settings

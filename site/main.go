@@ -109,6 +109,7 @@ func (b *builder) collect() error {
 		{"docs/resources/mcp-server.md", "/docs/resources/mcp-server/", "McpServer", "Resources"},
 		{"docs/providers/stub.md", "/docs/providers/stub/", "stub", "Providers"},
 		{"docs/providers/gitagent.md", "/docs/providers/gitagent/", "gitagent", "Providers"},
+		{"docs/providers/claude-agent-sdk.md", "/docs/providers/claude-agent-sdk/", "claude-agent-sdk", "Providers"},
 		{"docs/providers/managed-agents.md", "/docs/providers/managed-agents/", "managed-agents", "Providers"},
 	}
 	// The ADRs and spikes stay on GitHub: links to them resolve there.

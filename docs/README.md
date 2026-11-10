@@ -9,6 +9,7 @@
 - Providers:
   - [`stub`](providers/stub.md): files only, for trying Solaria and for tests;
   - [`gitagent`](providers/gitagent.md): a container image that runs gitagent;
+  - [`claude-agent-sdk`](providers/claude-agent-sdk.md): the Claude Agent SDK, as a local Node or Python process;
   - [`managed-agents`](providers/managed-agents.md): Claude Managed Agents, in the cloud or with a self-hosted sandbox.
 - [Architecture decision records](adr/): why Solaria works the way it does.
 - [Spikes](spikes/): what was learned about each host before building its provider.

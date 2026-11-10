@@ -15,6 +15,12 @@
 # first build takes several minutes. Running the image needs
 # ANTHROPIC_API_KEY: apply prints the docker run command.
 #
+# local-sdk runs the same agent on the Claude Agent SDK as a local Node
+# process. Planning needs Node 18.14 or later; apply installs the SDK from
+# npm into a bundle under .solaria/claude-agent-sdk/ and prints the command
+# that starts it. Running it needs ANTHROPIC_API_KEY, and nothing else from
+# your environment or home folder reaches the run.
+#
 # ma-cloud deploys the same agent to Claude Managed Agents, which runs it on
 # Anthropic's side. Planning needs nothing; apply and refresh need
 # ANTHROPIC_API_KEY, and apply creates real objects: a Managed Agents
@@ -53,6 +59,16 @@ metadata:
 spec:
   provider: gitagent
   placement: docker
+  sandbox:
+    network: {mode: unrestricted}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: local-sdk
+spec:
+  provider: claude-agent-sdk
+  placement: process
   sandbox:
     network: {mode: unrestricted}
 ---
