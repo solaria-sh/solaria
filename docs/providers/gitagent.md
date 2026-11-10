@@ -20,7 +20,7 @@ spec:
 1. Renders the agent into gitagent's config layer, `/root/.gitagent` in the image: `gitagent.yaml` (model, fallbacks, limits, MCP servers), `prompts/rules.md` (the instructions, which follow gitagent's own system prompt) and `skills/`.
 2. Generates a Dockerfile: gitagent compiled from a pinned commit, the [Solaria sandbox base](../concepts.md#the-sandbox) or `sandbox.image`, then the environment's packages.
 3. Builds `solaria/<environment>/<agent>:<resolvedDigest[:12]>`, labeled with the logical ID and both digests, and removes the previous tag.
-4. Records a `docker run` command in the state. `apply` prints it; the task goes after it with `-p`.
+4. Records a `docker run` command in the state. `apply` prints it, and `solaria status -e <environment> -a <agent>` shows it with the variables it needs; the task goes after it with `-p`. `status -o json` gives it as an `invocation` (see [Starting an agent](../concepts.md#starting-an-agent)).
 
 The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspection. The first build compiles gitagent and the sandbox base, which takes several minutes; later builds reuse Docker's cache.
 

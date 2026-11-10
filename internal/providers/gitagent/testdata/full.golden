@@ -99,6 +99,45 @@ two
 solaria/local-gitagent/reviewer:041f835f4aa3
 === run
 docker run --rm --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY --env OPENAI_API_KEY --env OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318 --env OTEL_SERVICE_NAME=reviewer --env OTEL_EXPORTER_OTLP_HEADERS=x-tenant=acme --env OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.name=reviewer,gen_ai.agent.id=solaria/local-gitagent/reviewer,gen_ai.agent.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.environment=local-gitagent solaria/local-gitagent/reviewer:041f835f4aa3
+=== invocation
+{
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "--platform",
+    "linux/arm64",
+    "--memory",
+    "4g",
+    "--volume",
+    "{workspace}:/workspace",
+    "--env-file",
+    "$ROOT/.env",
+    "--env",
+    "ANTHROPIC_API_KEY",
+    "--env",
+    "OPENAI_API_KEY",
+    "--env",
+    "OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318",
+    "--env",
+    "OTEL_SERVICE_NAME=reviewer",
+    "--env",
+    "OTEL_EXPORTER_OTLP_HEADERS=x-tenant=acme",
+    "--env",
+    "OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.name=reviewer,gen_ai.agent.id=solaria/local-gitagent/reviewer,gen_ai.agent.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.environment=local-gitagent",
+    "solaria/local-gitagent/reviewer:041f835f4aa3"
+  ],
+  "workspace": "mount",
+  "task": {
+    "flag": "-p",
+    "stdin": false
+  },
+  "env": [
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY"
+  ],
+  "envFile": "$ROOT/.env"
+}
 === labels
 org.opencontainers.image.description=Reviews pull requests.
 sh.solaria.environment=local-gitagent

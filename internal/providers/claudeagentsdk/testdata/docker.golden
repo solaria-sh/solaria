@@ -230,6 +230,36 @@ Never push.
 solaria/dev-docker/reviewer:39250381d987 for linux/arm64
 === run
 docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY solaria/dev-docker/reviewer:39250381d987
+=== invocation
+{
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-i",
+    "--platform",
+    "linux/arm64",
+    "--memory",
+    "4g",
+    "--volume",
+    "{workspace}:/workspace",
+    "--env-file",
+    "$ROOT/.env",
+    "--env",
+    "ANTHROPIC_API_KEY",
+    "solaria/dev-docker/reviewer:39250381d987"
+  ],
+  "workspace": "mount",
+  "task": {
+    "flag": "-p",
+    "stdin": true
+  },
+  "env": [
+    "ANTHROPIC_API_KEY"
+  ],
+  "envFile": "$ROOT/.env",
+  "result": "solaria.sh/result/v1"
+}
 === labels
 org.opencontainers.image.description=Reviews pull requests.
 sh.solaria.environment=dev-docker

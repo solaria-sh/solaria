@@ -34,6 +34,9 @@ type bundle struct {
 	BuildDigest string
 	// Secrets are the names of the secrets a run is given.
 	Secrets []string
+	// Dotenv is the absolute path of the dotenv file the secrets come
+	// from, when the environment has one.
+	Dotenv string
 	// Docker is set on the docker placement.
 	Docker *dockerParts
 	// Diags are the problems and degradations found while rendering.
@@ -212,6 +215,7 @@ func (r *renderer) render() error {
 	}
 	iso := process.For(a, needs)
 	r.binaries = iso.Binaries
+	b.Dotenv = iso.Dotenv
 	if r.docker() {
 		// docker run puts the secrets in the container's environment, from
 		// the dotenv file or the caller's; the host's path means nothing
@@ -254,7 +258,7 @@ func (r *renderer) render() error {
 	}
 	if d := b.Docker; d != nil {
 		d.Image = d.Repository + ":" + b.ID()
-		d.Run = r.dockerRun(b.Secrets)
+		d.Argv = r.dockerArgv()
 	}
 	return nil
 }

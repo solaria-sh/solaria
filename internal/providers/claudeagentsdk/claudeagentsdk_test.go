@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -67,7 +68,8 @@ func golden(b *bundle, root string) string {
 		fmt.Fprintf(&s, "=== %s\n%s", name, b.Files[name])
 	}
 	if d := b.Docker; d != nil {
-		fmt.Fprintf(&s, "=== image\n%s for %s\n=== run\n%s\n=== labels\n", d.Image, d.Platform, d.Run)
+		inv, _ := json.MarshalIndent(b.invocation(d.Argv, state.WorkspaceMount), "", "  ")
+		fmt.Fprintf(&s, "=== image\n%s for %s\n=== run\n%s\n=== invocation\n%s\n=== labels\n", d.Image, d.Platform, container.ShellCommand(d.Argv), inv)
 		for _, k := range slices.Sorted(maps.Keys(d.Labels)) {
 			fmt.Fprintf(&s, "%s=%s\n", k, d.Labels[k])
 		}
@@ -283,6 +285,21 @@ func TestLifecycle(t *testing.T) {
 	}
 	if out[outRuntime] != "node" || out[outSDKVersion] != DefaultNodeVersion || out[outSecrets] != "DOCS_TOKEN,GITHUB_TOKEN" {
 		t.Errorf("outputs = %v", out)
+	}
+	// The secrets come from the dotenv file, so only the API key is read
+	// from the caller's environment.
+	wantInv := &state.Invocation{
+		Argv:      []string{"node", filepath.Join(bundle, "launch.mjs")},
+		Workspace: state.WorkspaceCwd,
+		Task:      state.TaskInput{Flag: "-p", Stdin: true},
+		Env:       []string{"ANTHROPIC_API_KEY"},
+		EnvFile:   filepath.Join(a.EnvDir, ".env"),
+		Result:    ResultFormat,
+	}
+	if inv := entry.Binding.Invocation; !reflect.DeepEqual(inv, wantInv) {
+		t.Errorf("invocation = %+v, want %+v", inv, wantInv)
+	} else if container.ShellCommand(inv.Argv) != out[outRun] {
+		t.Errorf("run %q isn't the invocation's argv %q", out[outRun], inv.Argv)
 	}
 	if len(h.installs) != 1 || h.installs[0].Dir != bundle || h.installs[0].CacheDir != filepath.Join(work, ".solaria", Name, ".cache") {
 		t.Errorf("installs = %+v", h.installs)
@@ -729,6 +746,10 @@ func TestDockerLifecycle(t *testing.T) {
 	}
 	if !strings.HasPrefix(out[outRun], "docker run --rm -i ") || !strings.HasSuffix(out[outRun], " "+image) || out[outPlatform] != DefaultPlatform {
 		t.Errorf("outputs = %v", out)
+	}
+	if inv := entry.Binding.Invocation; inv == nil || inv.Workspace != state.WorkspaceMount || !slices.Contains(inv.Argv, state.WorkspacePlaceholder+":/workspace") ||
+		inv.Argv[len(inv.Argv)-1] != image || container.ShellCommand(inv.Argv) != out[outRun] {
+		t.Errorf("invocation = %+v", inv)
 	}
 	if got := d.builds[1].Labels["sh.solaria.sdk-version"]; got != DefaultPythonVersion {
 		t.Errorf("sdk-version label = %q", got)

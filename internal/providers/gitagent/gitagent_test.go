@@ -2,6 +2,7 @@ package gitagent
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -47,15 +48,19 @@ func golden(b *build, root string) string {
 	for _, name := range slices.Sorted(maps.Keys(b.Files)) {
 		fmt.Fprintf(&s, "=== %s\n%s", name, b.Files[name])
 	}
-	fmt.Fprintf(&s, "=== image\n%s\n=== run\n%s\n=== labels\n", b.Image, b.Run)
+	inv, _ := json.MarshalIndent(b.Invocation, "", "  ")
+	fmt.Fprintf(&s, "=== image\n%s\n=== run\n%s\n=== invocation\n%s\n=== labels\n", b.Image, b.Run, inv)
 	for _, k := range slices.Sorted(maps.Keys(b.Labels)) {
 		fmt.Fprintf(&s, "%s=%s\n", k, b.Labels[k])
 	}
 	s.WriteString("=== diagnostics\n")
 	s.WriteString(b.Diags.String())
 	// The run command holds the dotenv path in native, shell-quoted form;
-	// on Windows that's 'C:\...\.env' rather than a bare /.../.env.
-	out := strings.ReplaceAll(s.String(), container.ShellQuote(filepath.Join(root, ".env")), "$ROOT/.env")
+	// on Windows that's 'C:\...\.env' rather than a bare /.../.env. The
+	// invocation holds it JSON-escaped.
+	dotenv, _ := json.Marshal(filepath.Join(root, ".env"))
+	out := strings.ReplaceAll(s.String(), string(dotenv), `"$ROOT/.env"`)
+	out = strings.ReplaceAll(out, container.ShellQuote(filepath.Join(root, ".env")), "$ROOT/.env")
 	return strings.ReplaceAll(out, filepath.ToSlash(root), "$ROOT")
 }
 
@@ -188,6 +193,10 @@ func TestLifecycle(t *testing.T) {
 	}
 	if out[outContext] != ".solaria/gitagent/local-gitagent/reviewer" {
 		t.Errorf("context output = %q", out[outContext])
+	}
+	if inv := entry.Binding.Invocation; inv == nil || inv.Workspace != state.WorkspaceMount || inv.Task.Flag != "-p" ||
+		container.ShellCommand(inv.Argv) != out[outRun] {
+		t.Errorf("invocation = %+v, run %q", inv, out[outRun])
 	}
 	if _, err := os.Stat(filepath.Join(work, out[outContext], "home/.gitagent/skills/triage/labels.txt")); err != nil {
 		t.Errorf("skill file not in the build context: %v", err)

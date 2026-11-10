@@ -18,6 +18,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/providers/container"
 	"github.com/solaria-sh/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/state"
 )
 
 // build is everything the provider derives from one resolved agent: the
@@ -35,8 +36,10 @@ type build struct {
 	Base      *container.BuildRequest
 	BaseImage string
 	// Run is the docker run command, ready for a shell. The task goes
-	// after it, as -p "<task>".
-	Run string
+	// after it, as -p "<task>". Invocation is the same command as argv,
+	// with what it needs from the caller.
+	Run        string
+	Invocation *state.Invocation
 	// Digests of the parts that decide whether the image must be rebuilt.
 	SandboxDigest, BuildDigest, RunDigest string
 	// Diags are the problems and degradations found while rendering.
@@ -113,7 +116,8 @@ func (r *renderer) render() error {
 		Deny:        deny,
 	})
 
-	b.Run = r.run()
+	b.Invocation = r.invocation()
+	b.Run = container.ShellCommand(b.Invocation.Argv)
 	b.Labels = map[string]string{
 		labelPrefix + "logical-id":      a.ID(),
 		labelPrefix + "environment":     a.Environment,
@@ -387,14 +391,14 @@ func (r *renderer) sandboxWarnings() {
 	}
 }
 
-// run builds the docker run command. It names secrets and API keys but
+// invocation builds the docker run command. It names secrets and API keys but
 // never contains their values: docker copies them from the caller's
 // environment, or from the environment's dotenv file.
-func (r *renderer) run() string {
+func (r *renderer) invocation() *state.Invocation {
 	a := r.a
-	q := container.ShellQuote
-	parts := []string{"docker", "run", "--rm", "--platform", q(r.b.Platform), "--memory", container.Memory(a.Env.Sandbox)}
-	parts = append(parts, "--volume", `"$PWD":/workspace`)
+	inv := &state.Invocation{Workspace: state.WorkspaceMount, Task: state.TaskInput{Flag: "-p"}}
+	parts := []string{"docker", "run", "--rm", "--platform", r.b.Platform, "--memory", container.Memory(a.Env.Sandbox)}
+	parts = append(parts, "--volume", state.WorkspacePlaceholder+":/workspace")
 
 	secrets := a.SecretRefs()
 	if a.Env.Secrets != nil && a.Env.Secrets.Source == v1alpha1.SecretsDotenv {
@@ -402,14 +406,17 @@ func (r *renderer) run() string {
 		if p == "" {
 			p = ".env"
 		}
-		parts = append(parts, "--env-file", q(filepath.Join(a.EnvDir, filepath.FromSlash(p))))
+		inv.EnvFile = filepath.Join(a.EnvDir, filepath.FromSlash(p))
+		parts = append(parts, "--env-file", inv.EnvFile)
 	} else {
 		for _, s := range secrets {
 			parts = append(parts, "--env", s)
+			inv.Env = append(inv.Env, s)
 		}
 	}
 	for _, k := range modelKeys(a.Definition.Model) {
 		parts = append(parts, "--env", k)
+		inv.Env = append(inv.Env, k)
 	}
 
 	if t := a.Env.Telemetry; t != nil {
@@ -437,14 +444,15 @@ func (r *renderer) run() string {
 			"solaria.environment=" + a.Environment,
 		}, ","))
 		for _, e := range env {
-			parts = append(parts, "--env", q(e))
+			parts = append(parts, "--env", e)
 		}
 		if localhost.MatchString(t.Endpoint) {
 			r.warnf("telemetry.endpoint %s points at the container itself; use host.docker.internal to reach the host", t.Endpoint)
 		}
 	}
-	parts = append(parts, q(r.b.Image))
-	return strings.Join(parts, " ")
+	parts = append(parts, r.b.Image)
+	inv.Argv = parts
+	return inv
 }
 
 var localhost = regexp.MustCompile(`^[a-z]+://(localhost|127\.0\.0\.1|\[::1\])(:|/|$)`)

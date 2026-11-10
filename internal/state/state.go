@@ -94,6 +94,52 @@ type Binding struct {
 	HostID  string            `json:"hostId"`
 	Version string            `json:"version,omitempty"`
 	Outputs map[string]string `json:"outputs,omitempty"`
+	// Invocation is how to start the agent, for providers whose agents run
+	// where the caller starts them. Hosts that run agents themselves, and
+	// entries applied before Solaria recorded it, have none.
+	Invocation *Invocation `json:"invocation,omitempty"`
+}
+
+// WorkspacePlaceholder stands, in an Invocation's Argv, for the absolute
+// path of the folder the agent works on.
+const WorkspacePlaceholder = "{workspace}"
+
+// Invocation is how a caller starts an agent: a command, what it needs from
+// the caller, and what it prints. It names secrets but never holds their
+// values.
+type Invocation struct {
+	// Argv is the command and its arguments, without the task. An argument
+	// may contain WorkspacePlaceholder.
+	Argv []string `json:"argv"`
+	// Workspace says how the agent finds the folder it works on: "cwd" when
+	// the command runs in it, "mount" when Argv mounts it through
+	// WorkspacePlaceholder.
+	Workspace string `json:"workspace"`
+	// Task is how the command takes the task.
+	Task TaskInput `json:"task"`
+	// Env names the variables the command reads from the caller's
+	// environment.
+	Env []string `json:"env,omitempty"`
+	// EnvFile is the dotenv file the command reads secrets from.
+	EnvFile string `json:"envFile,omitempty"`
+	// Result names the format of what the command prints on stdout, when
+	// it's a format Solaria defines.
+	Result string `json:"result,omitempty"`
+}
+
+// How an Invocation finds its workspace.
+const (
+	WorkspaceCwd   = "cwd"
+	WorkspaceMount = "mount"
+)
+
+// TaskInput is how a command takes its task.
+type TaskInput struct {
+	// Flag precedes the task as an argument, such as -p.
+	Flag string `json:"flag,omitempty"`
+	// Stdin means the command also reads the task from stdin when no flag
+	// is given.
+	Stdin bool `json:"stdin"`
 }
 
 // Source is the commit an apply was made from.

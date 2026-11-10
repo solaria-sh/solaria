@@ -30,7 +30,7 @@ Chosen option: "Local, gitignored state per environment, behind a backend interf
 - **File:** `.solaria/state/<environment>.json`. It holds `format`, `lineage` (a UUID fixed when the state is created) and `serial` (incremented on every write). Each resource entry records:
   - the provider and its version;
   - `specDigest` and `resolvedDigest`;
-  - the host binding and outputs;
+  - the host binding and outputs, and, for agents the caller starts, an `invocation` that says how (ADR 0014);
   - the source commit, and whether the worktree was dirty;
   - when it was applied and by whom;
   - a `history` of earlier bindings.
