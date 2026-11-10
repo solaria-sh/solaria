@@ -46,7 +46,7 @@ What the digest input includes and excludes:
 
 **Digest input format `solaria.sh/definition/v1`** (implemented in `internal/resolve`). The format name is part of the input, so a new format gives new digests on purpose. Normalization rules:
 
-- **Left out:** the agent's name and labels (the logical ID covers who it is), the environment's sandbox, secrets and telemetry, and secret values.
+- **Left out:** the agent's name, labels and annotations (the logical ID covers who it is), the environment's sandbox, secrets and telemetry, and secret values.
 - **Instructions:** file contents in the listed order. File names don't count, so renaming a file keeps the digest.
 - **Skills:** keyed by skill name. Each holds a map of file path (forward slashes) to SHA-256. Hidden files and folders are skipped, and so are file modes.
 - **Line endings:** CRLF becomes LF in instruction and skill files that contain no NUL byte, so Windows and Unix checkouts agree.
@@ -66,7 +66,12 @@ This follows the [OpenTelemetry GenAI conventions](https://github.com/open-telem
 - `gen_ai.agent.id` = the host's resource ID (OTel defines it as the hosted agent resource's identifier);
 - `gen_ai.agent.name` = the logical name;
 - `gen_ai.agent.version` = `resolvedDigest`;
-- namespaced extras: `solaria.agent.spec_digest`, `solaria.environment`.
+- namespaced extras: `solaria.agent.spec_digest`, `solaria.environment`;
+- `service.version` = `resolvedDigest` too, for backends that group by service version (added 2026-11-10).
+
+An Environment's `telemetry.resourceAttributes` adds attributes of the team's own, such as `service.namespace`, which keeps agents with the same name in different projects apart without changing the logical ID. They can't replace the attributes above: `validate` rejects `gen_ai.agent.*`, `service.version` and `solaria.*` keys. Like the rest of `telemetry`, they're outside the digests, and a change to them is an environment change that providers plan as an update (see "What the digests don't cover").
+
+There's deliberately no attribute carrying the git commit. It would be rendered into every bundle or image, so every commit would update every agent, changed or not. `resolvedDigest` already identifies the version, and the commit stays in state and in `solaria.lock`.
 
 Providers inject these where the runtime allows it. Neither v0 runtime fully allows it today (M1 spikes):
 
@@ -74,6 +79,26 @@ Providers inject these where the runtime allows it. Neither v0 runtime fully all
 - **Managed Agents** spans already carry `gen_ai.agent.id` and `gen_ai.agent.name`, but no agent version, and destinations can't add attributes.
 
 So **Solaria's state is the join key**: a trace's host ID (plus the session's pinned version, where known) maps through the binding `history` to `resolvedDigest`. An OTel Collector `resource` processor can attach the attributes downstream when needed.
+
+### Identity inside the run
+
+Added 2026-11-10. Where a provider controls the run's environment variables (the `claude-agent-sdk` placements and `gitagent`), the run gets:
+
+- `SOLARIA_LOGICAL_ID`, for example `Agent/triage`;
+- `SOLARIA_ENVIRONMENT`;
+- `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST`.
+
+The agent and its tools can tag what they produce with the version that produced it. All four come from the definition and the environment's name, so they change only when the digests or the environment do, and cause no extra updates. On `managed-agents`, they're set if its environments accept variables; otherwise the provider documents the gap.
+
+### Annotations
+
+Added 2026-11-10. `metadata.annotations` is a map of strings for facts about how an agent is operated that aren't part of what it is: its trigger, owner, gates, the metric it's judged by, its target autonomy. Labels can't carry these, because label values are restricted and meant for selectors. Annotations are:
+
+- left out of both digests, so changing one never redeploys anything;
+- never sent to hosts, so they cause no updates and no host metadata limits apply;
+- shown by `solaria status -o json`, read from the configuration rather than from state, since an annotation change is never applied.
+
+Solaria stores them and never interprets them (ADR 0010).
 
 ### Host metadata
 
@@ -105,3 +130,4 @@ The golden files pin the digests themselves, so an accidental format change fail
 - [RFC 8785: JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
 - [OTel GenAI attributes](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/registry/attributes/gen-ai.md)
 - Revised in M5: how providers track environment changes the digests leave out.
+- Revised 2026-11-10 (Fidelity and polish): annotations, identity inside the run, `service.version` and `telemetry.resourceAttributes`, and why there's no git-commit attribute. A project namespace in the logical ID was considered and deferred: `service.namespace` covers the telemetry collision without migrating state. The agent's output schema joins the digest input under [ADR 0019](0019-agent-output-schema.md).
