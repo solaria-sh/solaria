@@ -401,7 +401,16 @@ func (r *renderer) invocation() *state.Invocation {
 	parts = append(parts, "--volume", state.WorkspacePlaceholder+":/workspace")
 
 	secrets := a.SecretRefs()
+	vars := a.SecretVars()
+	for _, v := range slices.Sorted(maps.Keys(vars)) {
+		if secret := vars[v]; v != secret {
+			r.errorf("a Vault credential sets %s from secret %s, but gitagent passes secrets to the container under their own names; name the variable after the secret", v, secret)
+		}
+	}
 	if a.Env.Secrets != nil && a.Env.Secrets.Source == v1alpha1.SecretsDotenv {
+		if len(a.Definition.Vaults) > 0 {
+			r.warnf("docker passes the whole dotenv file to the container, so the agent's vaults don't limit which secrets it sees; use secrets.source env to scope them")
+		}
 		p := a.Env.Secrets.Path
 		if p == "" {
 			p = ".env"

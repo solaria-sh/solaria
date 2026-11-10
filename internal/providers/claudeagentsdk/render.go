@@ -222,7 +222,10 @@ func (r *renderer) render() error {
 		// inside.
 		iso.Dotenv = ""
 	}
-	b.Secrets = iso.Secrets
+	// The caller supplies secrets by their own names, including those a
+	// Vault credential gives the run under another (iso.SecretEnv); the
+	// prelude renames them.
+	b.Secrets = a.SecretRefs()
 	b.Files[isolationFile] = iso.JSON()
 
 	switch b.Runtime {

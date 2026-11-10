@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solaria.sh/schemas/v1alpha1/vault.json",
+  "$defs": {
+    "Credential": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Name of the credential, unique in the vault."
+        },
+        "secretRef": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "Name of the secret that holds the value, in the environment's secret source (a variable or a dotenv entry)."
+        },
+        "for": {
+          "$ref": "#/$defs/CredentialTarget",
+          "description": "What the credential unlocks: an MCP server, or an environment variable of the run."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "secretRef",
+        "for"
+      ],
+      "description": "One secret and what it unlocks."
+    },
+    "CredentialTarget": {
+      "oneOf": [
+        {
+          "required": [
+            "mcpServer"
+          ]
+        },
+        {
+          "required": [
+            "env"
+          ]
+        }
+      ],
+      "properties": {
+        "mcpServer": {
+          "$ref": "#/$defs/ServerRef",
+          "description": "An MCP server that uses this secret in a header or a package variable, by reference to an McpServer resource."
+        },
+        "env": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "An environment variable the run gets, set to the secret's value."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Says what a credential unlocks. Set exactly one field."
+    },
+    "ObjectMeta": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 63
+          },
+          "propertyNames": {
+            "maxLength": 253,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "Identifies a resource."
+    },
+    "ServerRef": {
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of an McpServer resource."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ref"
+      ],
+      "description": "References an McpServer resource."
+    },
+    "VaultSpec": {
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Description of the vault."
+        },
+        "credentials": {
+          "items": {
+            "$ref": "#/$defs/Credential"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "Credentials in the vault, each with a unique name."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "credentials"
+      ],
+      "description": "Lists a vault's credentials."
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "const": "solaria.sh/v1alpha1",
+      "description": "API version of this resource."
+    },
+    "kind": {
+      "const": "Vault",
+      "description": "Kind of this resource."
+    },
+    "metadata": {
+      "$ref": "#/$defs/ObjectMeta",
+      "description": "Identifies the vault."
+    },
+    "spec": {
+      "$ref": "#/$defs/VaultSpec",
+      "description": "Lists the vault's credentials."
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "title": "Solaria Vault",
+  "description": "A set of credentials that agents use by reference. A credential says what it unlocks; its value comes from the environment's secret source when the agent runs, and is never written to a Vault."
+}

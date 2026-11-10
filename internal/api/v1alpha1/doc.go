@@ -20,7 +20,8 @@ const (
 	KindAgent       = "Agent"
 	KindEnvironment = "Environment"
 	KindMcpServer   = "McpServer"
+	KindVault       = "Vault"
 )
 
 // Kinds lists every kind in this API version, in documentation order.
-var Kinds = []string{KindAgent, KindEnvironment, KindMcpServer}
+var Kinds = []string{KindAgent, KindEnvironment, KindMcpServer, KindVault}

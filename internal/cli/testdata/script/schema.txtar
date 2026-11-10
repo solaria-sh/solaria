@@ -8,7 +8,7 @@ exec solaria schema mcpserver
 stdout '"\$id": "https://solaria.sh/schemas/v1alpha1/mcpserver.json"'
 
 ! exec solaria schema robot
-stderr '^Error: unknown kind "robot"; solaria.sh/v1alpha1 has Agent, Environment, McpServer$'
+stderr '^Error: unknown kind "robot"; solaria.sh/v1alpha1 has Agent, Environment, McpServer, Vault$'
 
 ! exec solaria schema agent extra
 stderr 'accepts at most 1 arg'

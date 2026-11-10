@@ -33,8 +33,8 @@ type Resource struct {
 	// File is the path the document was read from, as discovered, with
 	// forward slashes on every OS.
 	File string
-	// Object is a *v1alpha1.Agent, *v1alpha1.Environment or
-	// *v1alpha1.McpServer.
+	// Object is a *v1alpha1.Agent, *v1alpha1.Environment,
+	// *v1alpha1.McpServer or *v1alpha1.Vault.
 	Object any
 
 	node *yaml.Node
@@ -51,6 +51,9 @@ func (r *Resource) Environment() *v1alpha1.Environment {
 
 // McpServer returns the resource as an McpServer, or nil.
 func (r *Resource) McpServer() *v1alpha1.McpServer { m, _ := r.Object.(*v1alpha1.McpServer); return m }
+
+// Vault returns the resource as a Vault, or nil.
+func (r *Resource) Vault() *v1alpha1.Vault { v, _ := r.Object.(*v1alpha1.Vault); return v }
 
 // ID is the resource's logical ID, such as Agent/triage.
 func (r *Resource) ID() string { return r.Kind + "/" + r.Name }
@@ -320,6 +323,8 @@ func newObject(kind string) any {
 		return &v1alpha1.Agent{}
 	case v1alpha1.KindEnvironment:
 		return &v1alpha1.Environment{}
+	case v1alpha1.KindVault:
+		return &v1alpha1.Vault{}
 	default:
 		return &v1alpha1.McpServer{}
 	}

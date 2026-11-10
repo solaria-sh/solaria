@@ -93,6 +93,7 @@ func TestRenderGolden(t *testing.T) {
 		{"python", "python", "ci"},
 		{"docker", "full", "dev-docker"},
 		{"python-docker", "python", "ci-docker"},
+		{"vault-docker", "vault", "ci-docker"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir, err := filepath.Abs(filepath.Join("testdata", tc.fixture))

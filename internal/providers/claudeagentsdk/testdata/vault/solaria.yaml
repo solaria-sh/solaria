@@ -1,0 +1,41 @@
+# A Vault grants the reviewer two credentials: the git host's token for its
+# MCP server, and a CLI token the run sees as GH_TOKEN. Nothing else from
+# the secret source reaches the container.
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-sonnet-5-5}
+  tools:
+    builtin: [read, shell]
+    mcp: [{ref: git-host}]
+  vaults: [{ref: git-host}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git-host}
+spec:
+  credentials:
+    - name: git-host-token
+      secretRef: GIT_HOST_TOKEN
+      for: {mcpServer: {ref: git-host}}
+    - name: gh-cli
+      secretRef: GITHUB_PAT
+      for: {env: GH_TOKEN}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: git-host}
+spec:
+  remotes:
+    - type: streamable-http
+      url: https://git.example.com/mcp
+      headers: [{name: Authorization, secretRef: GIT_HOST_TOKEN}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker

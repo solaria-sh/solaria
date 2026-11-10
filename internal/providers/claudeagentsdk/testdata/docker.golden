@@ -227,9 +227,9 @@ You review pull requests.
 
 Never push.
 === image
-solaria/dev-docker/reviewer:a190a46a5a30 for linux/arm64
+solaria/dev-docker/reviewer:66b48ad0fd80 for linux/arm64
 === run
-docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY solaria/dev-docker/reviewer:a190a46a5a30
+docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY solaria/dev-docker/reviewer:66b48ad0fd80
 === invocation
 {
   "argv": [
@@ -247,7 +247,7 @@ docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace
     "$ROOT/.env",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/dev-docker/reviewer:a190a46a5a30"
+    "solaria/dev-docker/reviewer:66b48ad0fd80"
   ],
   "workspace": "mount",
   "task": {

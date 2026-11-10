@@ -36,6 +36,43 @@ func Validate(set *config.Set) diag.List {
 	for _, r := range set.Kind(v1alpha1.KindEnvironment) {
 		diags = append(diags, environment(set, r)...)
 	}
+	for _, r := range set.Kind(v1alpha1.KindVault) {
+		diags = append(diags, vault(set, r)...)
+	}
+	return diags
+}
+
+// vault checks that each credential is named once and unlocks something
+// that exists and uses it.
+func vault(set *config.Set, r *config.Resource) diag.List {
+	var diags diag.List
+	errorf := func(p diag.Pos, format string, args ...any) {
+		diags = append(diags, diag.Errorf(r.File, p, format, args...))
+	}
+	names := map[string]int{}
+	for i, c := range r.Vault().Spec.Credentials {
+		at := func(path ...string) diag.Pos {
+			return r.Pos(append([]string{"spec", "credentials", strconv.Itoa(i)}, path...)...)
+		}
+		if prev, dup := names[c.Name]; dup {
+			errorf(at("name"), "spec.credentials[%d].name: %q is also spec.credentials[%d]", i, c.Name, prev)
+		} else {
+			names[c.Name] = i
+		}
+		m := c.For.MCPServer
+		if m == nil {
+			continue
+		}
+		srv := set.Lookup(v1alpha1.KindMcpServer, m.Ref)
+		switch {
+		case !set.Exists(v1alpha1.KindMcpServer, m.Ref):
+			errorf(at("for", "mcpServer", "ref"), "spec.credentials[%d].for.mcpServer.ref: no McpServer named %q", i, m.Ref)
+		case srv == nil:
+			// The server exists but failed to load; its own errors say why.
+		case !slices.Contains(resolve.ServerSecrets(srv.McpServer().Spec), c.SecretRef):
+			errorf(at("secretRef"), "spec.credentials[%d].secretRef: McpServer %q doesn't use secret %q in a header or a package variable", i, m.Ref, c.SecretRef)
+		}
+	}
 	return diags
 }
 
@@ -88,6 +125,8 @@ func agent(set *config.Set, r *config.Resource) diag.List {
 		}
 	}
 
+	diags = append(diags, vaultRefs(set, r, mcp)...)
+
 	if perm := spec.Permissions; perm != nil {
 		for i, tool := range perm.Ask {
 			p := r.Pos("spec", "permissions", "ask", strconv.Itoa(i))
@@ -99,6 +138,75 @@ func agent(set *config.Set, r *config.Resource) diag.List {
 
 	diags = append(diags, passthrough(r, spec.Providers, "spec", "providers")...)
 	return diags
+}
+
+// vaultRefs checks an agent's vault references and that its vaults grant
+// every secret its MCP servers need. An agent without vaults gets its
+// servers' secrets straight from the secret source, as before Vaults
+// existed; validate suggests scoping them (ADR 0016).
+func vaultRefs(set *config.Set, r *config.Resource, mcp map[string]*v1alpha1.MCPToolRef) diag.List {
+	var diags diag.List
+	spec := r.Agent().Spec
+	refs := map[string]bool{}
+	granted := map[string]bool{} // server + "/" + secretRef
+	for i, v := range spec.Vaults {
+		p := r.Pos("spec", "vaults", strconv.Itoa(i), "ref")
+		if refs[v.Ref] {
+			diags = append(diags, diag.Errorf(r.File, p, "spec.vaults[%d].ref: Vault %q is referenced twice", i, v.Ref))
+			continue
+		}
+		refs[v.Ref] = true
+		vr := set.Lookup(v1alpha1.KindVault, v.Ref)
+		if vr == nil {
+			if !set.Exists(v1alpha1.KindVault, v.Ref) {
+				diags = append(diags, diag.Errorf(r.File, p, "spec.vaults[%d].ref: no Vault named %q", i, v.Ref))
+			}
+			continue
+		}
+		for _, c := range vr.Vault().Spec.Credentials {
+			if c.For.MCPServer != nil {
+				granted[c.For.MCPServer.Ref+"/"+c.SecretRef] = true
+			}
+		}
+	}
+
+	t := spec.Tools
+	if t == nil {
+		return diags
+	}
+	for i, ref := range t.MCP {
+		srv := set.Lookup(v1alpha1.KindMcpServer, ref.Ref)
+		if srv == nil || mcp[ref.Ref] != &t.MCP[i] {
+			continue // missing or a duplicate, reported above
+		}
+		secrets := resolve.ServerSecrets(srv.McpServer().Spec)
+		if len(secrets) == 0 {
+			continue
+		}
+		p := r.Pos("spec", "tools", "mcp", strconv.Itoa(i), "ref")
+		if len(spec.Vaults) == 0 {
+			diags = append(diags, diag.Warnf(r.File, p, "spec.tools.mcp[%d]: McpServer %q gets %s straight from the secret source; grant it through a Vault in spec.vaults to scope it to this agent", i, ref.Ref, quoteList(secrets)))
+			continue
+		}
+		for _, sec := range secrets {
+			if !granted[ref.Ref+"/"+sec] {
+				diags = append(diags, diag.Errorf(r.File, p, "spec.tools.mcp[%d]: McpServer %q needs secret %q, and none of the agent's vaults grants it for that server", i, ref.Ref, sec))
+			}
+		}
+	}
+	return diags
+}
+
+// quoteList quotes names and joins them for a message.
+func quoteList(names []string) string {
+	q := make([]string, len(names))
+	for i, n := range names {
+		q[i] = strconv.Quote(n)
+	}
+	if len(q) == 1 {
+		return "secret " + q[0]
+	}
+	return "secrets " + strings.Join(q[:len(q)-1], ", ") + " and " + q[len(q)-1]
 }
 
 // askTarget explains why an ask entry names no tool the agent has, or

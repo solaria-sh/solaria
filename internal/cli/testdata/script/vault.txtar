@@ -1,0 +1,172 @@
+# A Vault grants an agent the secrets its MCP servers need (ADR 0016).
+# Every mistake in a vault, or in an agent's refs to vaults, fails validate.
+cd project
+! exec solaria validate
+cmp stdout ../invalid.txt
+
+# Without the broken files the project is valid. An agent without vaults
+# still gets its servers' secrets, with a warning.
+rm bad.yaml
+exec solaria validate
+cmp stdout ../valid.txt
+
+# Where a vault names a variable after something other than its secret,
+# gitagent can't pass it, and a dotenv file reaches the container whole.
+cd ../hosts
+! exec solaria plan -e local-gitagent
+stderr 'error: Agent/reviewer on gitagent/docker: a Vault credential sets GH_TOKEN from secret GITHUB_PAT, but gitagent passes secrets to the container under their own names; name the variable after the secret'
+stderr 'warning: Agent/reviewer on gitagent/docker: docker passes the whole dotenv file to the container, so the agent''s vaults don''t limit which secrets it sees; use secrets.source env to scope them'
+! stdout .
+
+# Managed Agents can't create host vaults yet.
+env ANTHROPIC_API_KEY=
+! exec solaria plan -e ma-cloud
+stderr 'error: Agent/reviewer on managed-agents/cloud: the agent references vaults \(git-host\), and managed-agents can''t create host vaults yet'
+! stdout .
+
+# The claude-agent-sdk launcher scopes them, so it plans.
+exec solaria plan -e sdk-docker
+stdout '^  \+ Agent/reviewer$'
+! stderr 'error'
+
+-- invalid.txt --
+agents.yaml:18:17: warning: spec.tools.mcp[0]: McpServer "git-host" gets secret "GIT_HOST_TOKEN" straight from the secret source; grant it through a Vault in spec.vaults to scope it to this agent
+bad.yaml:8:34: error: spec.tools.mcp[1]: McpServer "ticketing" needs secret "TICKET_TOKEN", and none of the agent's vaults grants it for that server
+bad.yaml:9:35: error: spec.vaults[1].ref: Vault "git-host" is referenced twice
+bad.yaml:9:52: error: spec.vaults[2].ref: no Vault named "nowhere"
+bad.yaml:18:30: error: spec.credentials[0].for.mcpServer.ref: no McpServer named "missing"
+bad.yaml:19:13: error: spec.credentials[1].name: "token" is also spec.credentials[0]
+bad.yaml:20:18: error: spec.credentials[1].secretRef: McpServer "git-host" doesn't use secret "OTHER_TOKEN" in a header or a package variable
+-- valid.txt --
+agents.yaml:18:17: warning: spec.tools.mcp[0]: McpServer "git-host" gets secret "GIT_HOST_TOKEN" straight from the secret source; grant it through a Vault in spec.vaults to scope it to this agent
+valid: 2 Agents, 2 McpServers, 1 Vault (1 warning)
+-- project/agents.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-sonnet-5-5"}
+  tools:
+    mcp: [{ref: git-host}]
+  vaults: [{ref: git-host}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: loose}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-sonnet-5-5"}
+  tools:
+    mcp: [{ref: git-host}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git-host}
+spec:
+  credentials:
+    - name: git-host-token
+      secretRef: GIT_HOST_TOKEN
+      for: {mcpServer: {ref: git-host}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: git-host}
+spec:
+  remotes:
+    - type: streamable-http
+      url: https://git.example.com/mcp
+      headers: [{name: Authorization, secretRef: GIT_HOST_TOKEN}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: ticketing}
+spec:
+  packages:
+    - registryType: npm
+      identifier: "@example/ticketing-mcp"
+      version: 2.0.0
+      transport: {type: stdio}
+      environmentVariables: [{name: TOKEN, secretRef: TICKET_TOKEN}]
+-- project/role.md --
+You review pull requests.
+-- project/bad.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: bad}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-sonnet-5-5"}
+  tools:
+    mcp: [{ref: git-host}, {ref: ticketing}]
+  vaults: [{ref: git-host}, {ref: git-host}, {ref: nowhere}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: broken}
+spec:
+  credentials:
+    - name: token
+      secretRef: GIT_HOST_TOKEN
+      for: {mcpServer: {ref: missing}}
+    - name: token
+      secretRef: OTHER_TOKEN
+      for: {mcpServer: {ref: git-host}}
+    - name: cli
+      secretRef: CLI_TOKEN
+      for: {env: CLI_TOKEN}
+-- hosts/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-sonnet-5-5"}
+  tools:
+    mcp: [{ref: git-host}]
+  vaults: [{ref: git-host}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git-host}
+spec:
+  credentials:
+    - name: git-host-token
+      secretRef: GIT_HOST_TOKEN
+      for: {mcpServer: {ref: git-host}}
+    - name: gh-cli
+      secretRef: GITHUB_PAT
+      for: {env: GH_TOKEN}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: git-host}
+spec:
+  remotes:
+    - type: streamable-http
+      url: https://git.example.com/mcp
+      headers: [{name: Authorization, secretRef: GIT_HOST_TOKEN}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec:
+  provider: gitagent
+  placement: docker
+  secrets: {source: dotenv, path: .env}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec:
+  provider: managed-agents
+  placement: cloud
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: sdk-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+-- hosts/role.md --
+You review pull requests.

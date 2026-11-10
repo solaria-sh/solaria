@@ -2,7 +2,7 @@
 
 # Environment
 
-Describes where and how agents run. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Environment`. The other resources are [Agent](agent.md) and [McpServer](mcp-server.md), and the [concepts](../concepts.md) explain how they fit together.
+Describes where and how agents run. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Environment`. The other resources are [Agent](agent.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 
