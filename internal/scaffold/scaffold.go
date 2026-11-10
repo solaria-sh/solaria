@@ -247,13 +247,31 @@ func Conflicts(files []string, target string) []string {
 		if f == Gitignore {
 			continue
 		}
-		// Any answer other than "doesn't exist", including "a parent is a
-		// file", means the file can't be written.
-		if _, err := os.Lstat(filepath.Join(target, filepath.FromSlash(f))); !errors.Is(err, fs.ErrNotExist) {
+		if blocked(target, f) {
 			out = append(out, f)
 		}
 	}
 	return out
+}
+
+// blocked reports whether the file at slash path f under target can't be
+// created: it exists, or one of its parents exists and isn't a directory.
+// The parents are checked one by one because Windows reports a file under a
+// file as missing, where Unix reports "not a directory".
+func blocked(target, f string) bool {
+	p := target
+	parts := strings.Split(f, "/")
+	for i, part := range parts {
+		p = filepath.Join(p, part)
+		fi, err := os.Lstat(p)
+		if errors.Is(err, fs.ErrNotExist) {
+			return false
+		}
+		if err != nil || i == len(parts)-1 || !fi.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 // Result is what Write did.
