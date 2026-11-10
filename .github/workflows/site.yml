@@ -1,20 +1,23 @@
 name: Site
 
-# Builds solaria.sh from site/ and docs/, checks every link, and deploys it to
-# Cloudflare Pages: main goes to production, and each pull request from this
-# repository gets a preview. Without the Cloudflare secret (forks, Dependabot,
-# or before it's set up) the site is still built and checked, but not deployed.
+# Builds solaria.sh from site/, docs/ and schemas/, checks every link, and
+# deploys it to Cloudflare Pages: main goes to production, and each pull
+# request from this repository gets a preview. Without the Cloudflare secret
+# (forks, Dependabot, or before it's set up) the site is still built and
+# checked, but not deployed.
 on:
   push:
     branches: [main]
     paths:
       - "site/**"
       - "docs/**"
+      - "schemas/**"
       - ".github/workflows/site.yml"
   pull_request:
     paths:
       - "site/**"
       - "docs/**"
+      - "schemas/**"
       - ".github/workflows/site.yml"
   workflow_dispatch:
 

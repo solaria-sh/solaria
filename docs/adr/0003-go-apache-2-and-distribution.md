@@ -55,7 +55,7 @@ CI builds and tests with the Go version declared in `go.mod`.
 - **The image** `ghcr.io/solaria-sh/solaria` is the binary on distroless `static`, for amd64 and arm64, with its own SBOM. It has no docker CLI, so providers that build images don't work in it.
 - **Signing:** cosign signs `checksums.txt`, which covers every archive, and the image, with the workflow's GitHub OIDC identity.
 - **A person publishes:** a `v*` tag builds a draft release in the `release` environment, which a maintainer reviews and publishes. Since 0.1.0, [release-please](../../.github/workflows/release-please.yml) keeps a release pull request open from the Conventional Commits on `main`; merging it pushes the tag and writes `CHANGELOG.md`.
-- **The schema's stable URL** waits for the `solaria.sh` domain.
+- **The schema's stable URL:** solaria.sh serves `schemas/v1alpha1/*.json` at their `$id` URLs, such as `https://solaria.sh/schemas/v1alpha1/solaria.json`, built from `main` ([ADR 0015](0015-project-scaffolding-and-editor-support.md)).
 
 ## Pros and cons of the options
 
