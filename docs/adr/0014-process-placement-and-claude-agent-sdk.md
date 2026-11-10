@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-08
 decision-makers: Renan Tarouco da Fonseca
 ---
@@ -164,4 +164,4 @@ The `run` string is `argv` quoted for a POSIX shell, with `"$PWD"` for `{workspa
 - [ADR 0013](0013-lock-file-pins-digests.md): the lock file that keeps an older version pinned.
 - Claude Agent SDK: [options (TypeScript)](https://code.claude.com/docs/en/agent-sdk/typescript), [options (Python)](https://code.claude.com/docs/en/agent-sdk/python), [what `settingSources` controls and what it doesn't](https://code.claude.com/docs/en/agent-sdk/claude-code-features), [plugins](https://code.claude.com/docs/en/agent-sdk/plugins), [secure deployment](https://code.claude.com/docs/en/agent-sdk/secure-deployment).
 - Claude Code: [managed settings](https://code.claude.com/docs/en/managed-settings), [environment variables](https://code.claude.com/docs/en/env-vars).
-- Not yet verified, to check in the integration test before acceptance: whether a scratch `HOME` and `XDG_CONFIG_HOME` also move the Anthropic profile directory (`~/.config/anthropic`). The Python SDK merging `env` over `os.environ`, and the result message's fields, are now documented.
+- Still to verify in the integration test (accepted 2026-11-10 without it): whether a scratch `HOME` and `XDG_CONFIG_HOME` also move the Anthropic profile directory (`~/.config/anthropic`). The Python SDK merging `env` over `os.environ`, and the result message's fields, are now documented.
