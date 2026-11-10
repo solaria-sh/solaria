@@ -1,7 +1,7 @@
 # The full cycle on examples/hello with the stub provider.
 cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md .
 exec solaria validate
-stdout '^valid: 1 Agent, 4 Environments$'
+stdout '^valid: 1 Agent, 5 Environments$'
 
 # A first plan creates the agent and changes nothing.
 exec solaria plan -e local

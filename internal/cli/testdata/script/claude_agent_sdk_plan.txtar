@@ -1,0 +1,44 @@
+# Planning for claude-agent-sdk reads no state and installs nothing, but it
+# checks that this machine has the runtime the launcher needs.
+[!exec:node] skip 'the process placement checks for node'
+mkdir hello
+cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md hello
+cd hello
+exec solaria plan -e local-sdk
+stdout '^Environment local-sdk \(claude-agent-sdk/process\)$'
+stdout '^  \+ Agent/hello$'
+stdout 'resolvedDigest: sha256:08ffaed7b158'
+stdout 'note: writes a bundle to \.solaria/claude-agent-sdk/local-sdk/hello/[0-9a-f]{12} and installs @anthropic-ai/claude-agent-sdk@0\.3\.319 into it with npm, which needs network access'
+! stderr 'error'
+
+# What the SDK can't run fails the plan, before anything is written.
+cd ../other
+! exec solaria plan -e dev
+stderr 'error: Agent/hello on claude-agent-sdk/process: model openai:gpt-6-astra isn''t available; this host runs anthropic models only'
+stderr 'error: Agent/hello on claude-agent-sdk/process: sandbox.image isn''t supported here'
+stderr 'error: Agent/hello on claude-agent-sdk/process: Environment providers.claude-agent-sdk.runtime must be node or python, not deno'
+! stdout .
+! exists .solaria/claude-agent-sdk
+
+-- other/instructions.md --
+Say hello.
+-- other/sandbox.Dockerfile --
+FROM debian:bookworm-slim
+-- other/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: hello}
+spec:
+  instructions: [instructions.md]
+  model: {preferred: openai:gpt-6-astra}
+  tools: {builtin: [read]}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox: {image: ./sandbox.Dockerfile}
+  providers:
+    claude-agent-sdk: {runtime: deno}

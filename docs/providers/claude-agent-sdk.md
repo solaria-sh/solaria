@@ -1,0 +1,126 @@
+# `claude-agent-sdk` provider
+
+The `claude-agent-sdk` provider runs each agent on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview), in TypeScript or Python. Its placement, `process`, runs the agent loop and its tools as a local process: on your laptop, in CI, or wherever you start it. Solaria doesn't start it. `apply` writes a bundle with a launcher and records the command that starts it.
+
+```yaml
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-sdk}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox:
+    network: {mode: unrestricted}
+```
+
+**Needs:** Node 18.14 or later, or Python 3.10 or later with `providers.claude-agent-sdk.runtime: python`. `plan` checks that it's installed. `apply` installs the SDK from npm or PyPI, so it needs network access the first time. Running the agent needs `ANTHROPIC_API_KEY`.
+
+## What apply does
+
+1. Renders a bundle into `.solaria/claude-agent-sdk/<environment>/<agent>/<id>/`, where `<id>` is the first 12 hex digits of the bundle's build digest. The digest covers every file in the bundle, so it changes with the definition, the runtime, the SDK version and Solaria's launcher.
+2. Installs the SDK into the bundle at an exact version: `npm install` from a generated `package.json`, which writes `package-lock.json`, or a virtual environment (`venv/`) for Python, whose resolved versions go to `requirements.lock`. Downloads are cached in `.solaria/claude-agent-sdk/.cache/`.
+3. Removes the agent's previous bundle.
+4. Records the command that starts the launcher. `apply` prints it:
+
+```console
+$ solaria apply -e local-sdk
+...
+  Agent/hello: .solaria/claude-agent-sdk/local-sdk/hello version 3f9c1a0d2b7e (sha256:08ffaed7b158)
+    run: node /path/to/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs
+```
+
+Run it from the folder the agent should work in. The task goes after it with `-p`, or on stdin:
+
+```bash
+node .solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs -p "Say hello."
+```
+
+The bundle holds:
+
+| File | |
+|---|---|
+| `options.json` | The SDK options the definition maps to, with secrets as references |
+| `system-prompt.md` | The instructions, as one system prompt that replaces the SDK's own |
+| `plugin/` | The skills, as a local plugin named after the agent |
+| `isolation.json`, `isolate.mjs` or `isolate.py` | What keeps the run hermetic, below |
+| `launch.mjs` or `launch.py` | The launcher |
+
+## Every run is hermetic
+
+A local process sees everything its user has: settings, skills and plugins in the home folder, `CLAUDE.md` files up the tree, stored logins, and every variable in the shell. The launcher keeps all of that out, so what runs is exactly the definition its digest describes:
+
+- **The environment starts empty.** The run gets a minimal `PATH`, locale, proxy and certificate settings, `ANTHROPIC_API_KEY`, and the secrets its MCP servers name. Nothing else from your shell reaches it. A missing secret, or a missing `npx` or `uvx` for a stdio server, fails the run before it starts.
+- **`HOME`, `CLAUDE_CONFIG_DIR` and the temp folder are scratch directories,** created for the run and removed after it.
+- **The SDK loads no settings files** (`settingSources: []`) and only the card's MCP servers (`strictMcpConfig`). Claude Code's auto memory, `CLAUDE.md` loading, claude.ai connectors and nonessential traffic are off.
+
+**Managed settings are the exception.** A machine can carry settings that every Claude Code process obeys, and no process can turn them off: `managed-settings.json`, `managed-settings.d/` and `managed-mcp.json` in `/Library/Application Support/ClaudeCode/` (macOS), `/etc/claude-code/` (Linux) or `C:\Program Files\ClaudeCode\` (Windows), a macOS configuration profile, or the Windows policy registry. Plan warns about each one it finds. Settings an organization's server pushes when a session signs in can't be seen in advance.
+
+## What a run prints
+
+The launcher prints one JSON object on stdout: the SDK's result plus the agent's identity.
+
+```json
+{"logicalId": "Agent/hello", "environment": "local-sdk", "resolvedDigest": "sha256:08ffaed7b158...", "runtime": "node", "sdkVersion": "0.3.319",
+ "subtype": "success", "is_error": false, "result": "Hello!", "usage": {...}, "total_cost_usd": 0.0012, "num_turns": 1, "session_id": "..."}
+```
+
+| Exit code | `subtype` | |
+|---|---|---|
+| 0 | `success` | The run succeeded. |
+| 1 | `error_max_turns`, `error_max_budget_usd`, `error_during_execution`, ... | The SDK's own error, or `success` with `is_error` set. |
+| 1 | `error_timeout` | The run took longer than `limits.timeout` and was aborted. |
+| 2 | `error_launch` | The run couldn't start: no task, a missing secret, binary or API key, or the SDK isn't installed. |
+
+`errors` says what went wrong.
+
+## How the definition maps
+
+| Solaria | Claude Agent SDK |
+|---|---|
+| `instructions` | `systemPrompt`, one custom prompt. Without instructions, the SDK's minimal prompt. |
+| `model.preferred` | `model` |
+| `model.fallback` | `fallbackModel`, as a comma-separated chain. Claude Code caps a chain at three models, so plan warns when there are more than two fallbacks. |
+| `model.effort` | `effort` |
+| `tools.builtin` | `tools`, the exact list of built-in tools: `shell` is `Bash`, `read` is `Read`, `web_fetch` is `WebFetch`, and so on |
+| `tools.mcp` | `mcpServers`. A remote is used when the server has one, over streamable HTTP or SSE; otherwise `npx` or `uvx` runs the package. |
+| `allowTools` | `allowedTools` lists `mcp__<server>__<tool>` for each. The server's other tools are denied when called, but the agent still sees them, so plan warns. |
+| `skills` | A local plugin in `plugins`, with each skill in `skills` as `<agent>:<skill>` |
+| `permissions.ask` | The tool is denied: left out of `tools`, and in `disallowedTools`. Nobody can approve during an unattended run. |
+| `limits.maxTurns` | `maxTurns` |
+| `limits.timeout` | The launcher aborts the run |
+| `secretRef` | A reference in `options.json`; the launcher reads the value from the secret source when the run starts |
+| `telemetry` | Claude Code's OpenTelemetry variables: metrics and logs over OTLP |
+
+Every run uses permission mode `dontAsk`: the tools above are approved in advance, and any other call is denied instead of waiting for an answer.
+
+Models from providers other than `anthropic` fail at plan time; fallback models from other providers are skipped with a warning.
+
+## Sandbox
+
+The `process` placement runs on the machine as it is, so it can't enforce the sandbox:
+
+- `packages` aren't installed: the run uses the tools the machine has. Plan warns.
+- A limited `network` isn't enforced. Plan warns unless the mode is `unrestricted`.
+- `resources` aren't enforced. Plan warns.
+- `image` fails plan.
+
+## Settings
+
+| Setting | Default | |
+|---|---|---|
+| `providers.claude-agent-sdk.runtime` | `node` | The launcher's language: `node` (`@anthropic-ai/claude-agent-sdk`) or `python` (`claude-agent-sdk`) |
+| `providers.claude-agent-sdk.version` | `0.3.319` for Node, `0.2.178` for Python | The SDK version to install. The default is the version Solaria was tested with. |
+
+The binding records the runtime and SDK version (outputs `runtime` and `sdkVersion`), since a model's results depend on the harness it runs in. Changing either plans an update although the agent's digests stay the same.
+
+## Drift and destroy
+
+The host ID is the agent's folder under `.solaria/claude-agent-sdk/` and the version is the bundle's ID. Refresh hashes the bundle's files as they are on disk, so a file edited outside Solaria shows as drift, and a bundle without its SDK shows as gone. Destroy removes the agent's bundles.
+
+## Limits
+
+- Only Anthropic models run.
+- MCP packages other than npm and PyPI can't run.
+- `allowTools` can't hide a server's other tools from the agent, only deny them.
+- The SDK's own dependencies follow its version ranges: `package-lock.json` and `requirements.lock` record the versions an apply installed, but a new apply can resolve newer ones.
+- A telemetry header that comes from a secret can't reach Claude Code's exporter yet, so it's left out with a warning.

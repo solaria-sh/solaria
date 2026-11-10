@@ -1,0 +1,56 @@
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec:
+  description: Reviews pull requests.
+  instructions: [role.md, rules.md]
+  model:
+    preferred: anthropic:claude-sonnet-5-5
+    fallback: [anthropic:claude-haiku-5-5, openai:gpt-6-astra]
+    effort: high
+  tools:
+    builtin: [shell, read, edit, grep]
+    mcp:
+      - {ref: github, allowTools: [create_issue, get_pull_request]}
+      - {ref: docs}
+  skills: [skills/triage]
+  permissions: {ask: [shell, github/create_issue]}
+  limits: {maxTurns: 40, timeout: 15m}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: github}
+spec:
+  packages:
+    - registryType: npm
+      identifier: "@modelcontextprotocol/server-github"
+      version: "2025.4.8"
+      transport: {type: stdio}
+      packageArguments: [{type: named, name: --toolsets, value: issues}]
+      environmentVariables: [{name: GITHUB_PERSONAL_ACCESS_TOKEN, secretRef: GITHUB_TOKEN}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: docs}
+spec:
+  packages: [{registryType: pypi, identifier: docs-mcp, version: "1.2.0", transport: {type: stdio}}]
+  remotes:
+    - type: sse
+      url: https://docs.example.com/sse
+    - type: streamable-http
+      url: https://docs.example.com/mcp
+      headers: [{name: Authorization, secretRef: DOCS_TOKEN}, {name: X-Team, value: platform}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox:
+    network: {mode: unrestricted}
+  secrets: {source: dotenv}
+  telemetry:
+    endpoint: http://localhost:4318
+    protocol: http/protobuf
+    headers: [{name: x-tenant, value: acme}]

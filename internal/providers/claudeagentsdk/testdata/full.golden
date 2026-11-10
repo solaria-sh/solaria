@@ -1,0 +1,190 @@
+=== isolate.mjs (shared)
+=== isolation.json
+{
+  "binaries": [
+    "npx"
+  ],
+  "pass": [
+    "ALL_PROXY",
+    "ANTHROPIC_API_KEY",
+    "COMSPEC",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "NODE_EXTRA_CA_CERTS",
+    "NO_PROXY",
+    "NUMBER_OF_PROCESSORS",
+    "OS",
+    "PATHEXT",
+    "PROCESSOR_ARCHITECTURE",
+    "PROGRAMFILES",
+    "REQUESTS_CA_BUNDLE",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "SYSTEMDRIVE",
+    "SYSTEMROOT",
+    "TZ",
+    "WINDIR",
+    "all_proxy",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy"
+  ],
+  "secrets": [
+    "DOCS_TOKEN",
+    "GITHUB_TOKEN"
+  ],
+  "dotenv": "$ROOT/.env",
+  "set": {
+    "CLAUDE_AGENT_SDK_CLIENT_APP": "solaria",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
+    "OTEL_EXPORTER_OTLP_HEADERS": "x-tenant=acme",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7e6debe384925333e17d7bd433c522d41523acd2622d4287314d93406e799804,solaria.environment=dev",
+    "OTEL_SERVICE_NAME": "reviewer"
+  },
+  "scratch": {
+    "APPDATA": "home/AppData/Roaming",
+    "CLAUDE_CONFIG_DIR": "home/.claude",
+    "HOME": "home",
+    "LOCALAPPDATA": "home/AppData/Local",
+    "TEMP": "tmp",
+    "TMP": "tmp",
+    "TMPDIR": "tmp",
+    "USERPROFILE": "home",
+    "XDG_CACHE_HOME": "home/.cache",
+    "XDG_CONFIG_HOME": "home/.config",
+    "XDG_DATA_HOME": "home/.local/share",
+    "XDG_STATE_HOME": "home/.local/state"
+  },
+  "cache": {
+    "PIP_CACHE_DIR": "pip",
+    "UV_CACHE_DIR": "uv",
+    "npm_config_cache": "npm"
+  }
+}
+=== launch.mjs (shared)
+=== options.json
+{
+  "agent": {
+    "logicalId": "Agent/reviewer",
+    "environment": "dev",
+    "resolvedDigest": "sha256:7e6debe384925333e17d7bd433c522d41523acd2622d4287314d93406e799804"
+  },
+  "sdk": {
+    "runtime": "node",
+    "package": "@anthropic-ai/claude-agent-sdk",
+    "version": "0.3.319"
+  },
+  "cacheDir": "../../../.cache",
+  "timeout": "15m0s",
+  "timeoutMs": 900000,
+  "systemPromptFile": "system-prompt.md",
+  "options": {
+    "model": "claude-sonnet-5-5",
+    "fallbackModel": "claude-haiku-5-5",
+    "effort": "high",
+    "maxTurns": 40,
+    "tools": [
+      "Edit",
+      "Grep",
+      "Read",
+      "Skill"
+    ],
+    "allowedTools": [
+      "Edit",
+      "Grep",
+      "Read",
+      "Skill",
+      "mcp__docs__*",
+      "mcp__github__get_pull_request"
+    ],
+    "disallowedTools": [
+      "Bash",
+      "mcp__github__create_issue"
+    ],
+    "permissionMode": "dontAsk",
+    "settingSources": [],
+    "strictMcpConfig": true,
+    "mcpServers": {
+      "docs": {
+        "type": "http",
+        "url": "https://docs.example.com/mcp",
+        "headers": {
+          "Authorization": {
+            "secretRef": "DOCS_TOKEN"
+          },
+          "X-Team": "platform"
+        }
+      },
+      "github": {
+        "type": "stdio",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-github@2025.4.8",
+          "--toolsets",
+          "issues"
+        ],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": {
+            "secretRef": "GITHUB_TOKEN"
+          }
+        }
+      }
+    },
+    "skills": [
+      "reviewer:triage"
+    ],
+    "plugins": [
+      {
+        "type": "local",
+        "path": "plugin"
+      }
+    ]
+  }
+}
+=== package.json
+{
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.319"
+  },
+  "description": "Rendered by Solaria from Agent/reviewer (sha256:7e6debe384925333e17d7bd433c522d41523acd2622d4287314d93406e799804). Run solaria apply instead of editing this bundle.",
+  "name": "solaria-dev-reviewer",
+  "private": true,
+  "type": "module"
+}
+=== plugin/.claude-plugin/plugin.json
+{
+  "description": "Reviews pull requests.",
+  "name": "reviewer"
+}
+=== plugin/skills/triage/SKILL.md
+---
+name: triage
+description: Sorts issues. Use when asked to triage.
+---
+
+Label each issue.
+=== plugin/skills/triage/labels.txt
+one
+two
+=== system-prompt.md
+# Reviewer
+
+You review pull requests.
+
+Never push.
+=== secrets
+DOCS_TOKEN,GITHUB_TOKEN
+=== diagnostics
+warning: Agent/reviewer on claude-agent-sdk/process: allowTools on github: the other tools of these servers are denied when called, but the agent still sees them

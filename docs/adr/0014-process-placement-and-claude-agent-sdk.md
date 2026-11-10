@@ -66,7 +66,7 @@ Placements: `process` and `docker`.
 - the instructions, as one system prompt that replaces the SDK's preset;
 - skills, as a local plugin directory (`plugin/skills/<name>/SKILL.md`), loaded through the SDK's `plugins` option, which works with every setting source off;
 - the launcher, `launch.mjs` or `launch.py`;
-- the SDK, installed at an exact version (`package.json` with its lock file, or a virtual environment).
+- the SDK, installed at an exact version (`package.json` with its lock file, or a virtual environment). Package downloads are cached across bundles in `.solaria/claude-agent-sdk/.cache/`.
 
 A successful apply removes the previous bundle, as `gitagent` removes the previous image tag.
 
@@ -76,19 +76,19 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
 
 **What the launcher does on every run:**
 
-1. Runs the prelude: creates the scratch directory, with `CLAUDE_CONFIG_DIR` inside it, and builds the child environment from `isolation.json`. It then replaces its own environment with that one, rather than relying on the SDK's `env` option to replace the inherited environment. That is documented for TypeScript but not for Python, so both launchers clear their own environment before the SDK starts, and also pass the same environment as `env`.
+1. Runs the prelude: creates the scratch directory, with `CLAUDE_CONFIG_DIR` inside it, and builds the child environment from `isolation.json`. It then replaces its own environment with that one, rather than relying on the SDK's `env` option to replace the inherited environment. The TypeScript SDK's `env` replaces the inherited environment, but the Python SDK's is merged over it, so both launchers clear their own environment before the SDK starts, and also pass the same environment as `env`.
 2. Sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and `ENABLE_CLAUDEAI_MCP_SERVERS=false` in the child environment.
 3. Calls the SDK with `settingSources: []`, set explicitly. The SDK's default loads user, project and local settings, so leaving it out would load everything this ADR keeps out. It also passes a strict MCP config containing only the card's servers.
 4. Reads the task from `-p "<task>"`, or from stdin when there's no `-p`.
 5. Enforces `limits.timeout` by aborting the query, as the SDK has no timeout of its own.
-6. Prints one JSON object on stdout: the SDK's result (`subtype`, `result`, `structured_output`, `usage`, `total_cost_usd`, `num_turns`, `session_id`), plus `logicalId`, `resolvedDigest` and `sdkVersion`. It exits non-zero when the result is an error, and still prints the result in that case.
+6. Prints one JSON object on stdout: the SDK's result (`subtype`, `is_error`, `result`, `structured_output`, `usage`, `total_cost_usd`, `num_turns`, `session_id`, `stop_reason`, `errors`, `permission_denials`), plus `logicalId`, `resolvedDigest` and `sdkVersion`. It exits 1 when the result is an error, including a timeout, and 2 when the run couldn't start, and still prints an object in both cases.
 7. Removes the scratch directories.
 
 **How the definition maps** (details in `docs/providers/claude-agent-sdk.md` once it's built):
 
-- `model.preferred` becomes `model`. The SDK takes one fallback model, so the first `fallback` entry becomes `fallbackModel`, and plan warns when there are more.
-- `tools.builtin` is enforced with `disallowedTools` for the built-ins the card leaves out. `allowedTools` only approves tools in advance; it doesn't restrict them.
-- Tools under `permissions.ask` are denied in unattended runs, as on `gitagent`. The `Approvals` capability is false, so plan warns.
+- `model.preferred` becomes `model`. `fallbackModel` takes a comma-separated chain, which Claude Code caps at three models, so the `fallback` entries become the chain, and plan warns when there are more than two.
+- `tools.builtin` becomes `tools`, the exact list of built-in tools the agent sees. `allowedTools` approves those and the MCP tools in advance; on its own it doesn't restrict anything. Permission mode `dontAsk` denies every other call instead of asking.
+- Tools under `permissions.ask` are denied in unattended runs, as on `gitagent`: left out of `tools` and `allowedTools`, and named in `disallowedTools`. The `Approvals` capability is false, so plan warns.
 - `limits.maxTurns` becomes `maxTurns`.
 - MCP servers go into the strict MCP config: stdio packages run through `npx` or `uvx`, remotes over streamable HTTP or SSE.
 - Model providers other than `anthropic` fail at plan time.
@@ -143,7 +143,4 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
 - [ADR 0013](0013-lock-file-pins-digests.md): the lock file that keeps an older version pinned.
 - Claude Agent SDK: [options (TypeScript)](https://code.claude.com/docs/en/agent-sdk/typescript), [options (Python)](https://code.claude.com/docs/en/agent-sdk/python), [what `settingSources` controls and what it doesn't](https://code.claude.com/docs/en/agent-sdk/claude-code-features), [plugins](https://code.claude.com/docs/en/agent-sdk/plugins), [secure deployment](https://code.claude.com/docs/en/agent-sdk/secure-deployment).
 - Claude Code: [managed settings](https://code.claude.com/docs/en/managed-settings), [environment variables](https://code.claude.com/docs/en/env-vars).
-- Not yet verified, to check in the integration test before acceptance:
-  - whether the Python SDK merges `os.environ` into its `env` option;
-  - whether a scratch `HOME` also moves the Anthropic profile directory (`~/.config/anthropic`);
-  - the full TypeScript result message fields.
+- Not yet verified, to check in the integration test before acceptance: whether a scratch `HOME` and `XDG_CONFIG_HOME` also move the Anthropic profile directory (`~/.config/anthropic`). The Python SDK merging `env` over `os.environ`, and the result message's fields, are now documented.

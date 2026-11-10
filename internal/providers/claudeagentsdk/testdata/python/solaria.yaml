@@ -1,0 +1,29 @@
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: helper}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  tools:
+    builtin: [read, glob, web_fetch]
+    mcp: [{ref: notes}]
+  providers:
+    claude-agent-sdk: {colour: blue}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: notes}
+spec:
+  packages: [{registryType: pypi, identifier: notes-mcp, version: "0.4.1", transport: {type: stdio}}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox:
+    packages: {apt: [jq]}
+    resources: {memory: 2Gi}
+  providers:
+    claude-agent-sdk: {runtime: python, version: 0.2.170}

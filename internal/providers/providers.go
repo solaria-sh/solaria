@@ -7,15 +7,17 @@ import (
 	"strings"
 
 	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers/claudeagentsdk"
 	"github.com/solaria-sh/solaria/internal/providers/gitagent"
 	"github.com/solaria-sh/solaria/internal/providers/managedagents"
 	"github.com/solaria-sh/solaria/internal/providers/stub"
 )
 
 var factories = map[string]provider.Factory{
-	gitagent.Name:      gitagent.New,
-	managedagents.Name: managedagents.New,
-	stub.Name:          stub.New,
+	claudeagentsdk.Name: claudeagentsdk.New,
+	gitagent.Name:       gitagent.New,
+	managedagents.Name:  managedagents.New,
+	stub.Name:           stub.New,
 }
 
 // Names lists the available providers, sorted.
