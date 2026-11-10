@@ -66,9 +66,10 @@ func golden(b *bundle, root string) string {
 		fmt.Fprintf(&s, "=== %s\n%s", name, b.Files[name])
 	}
 	fmt.Fprintf(&s, "=== secrets\n%s\n=== diagnostics\n%s", strings.Join(b.Secrets, ","), b.Diags)
-	// isolation.json holds the dotenv path in native form, JSON-escaped.
-	native, _ := json.Marshal(root)
-	out := strings.ReplaceAll(s.String(), strings.Trim(string(native), `"`), "$ROOT")
+	// isolation.json holds the dotenv path in native form, JSON-escaped:
+	// on Windows that's C:\\...\\.env rather than /.../.env.
+	dotenv, _ := json.Marshal(filepath.Join(root, ".env"))
+	out := strings.ReplaceAll(s.String(), string(dotenv), `"$ROOT/.env"`)
 	return strings.ReplaceAll(out, filepath.ToSlash(root), "$ROOT")
 }
 
