@@ -229,7 +229,7 @@ func (r *renderer) render() error {
 	case RuntimeNode:
 		b.Files["isolate.mjs"] = process.PreludeJS
 		b.Files["launch.mjs"] = launchJS
-		b.Files["package.json"] = packageJSON(a, b.SDKVersion)
+		b.Files["package.json"] = packageJSON(b.SDKVersion)
 	case RuntimePython:
 		b.Files["isolate.py"] = process.PreludePython
 		b.Files["launch.py"] = launchPython
@@ -564,13 +564,15 @@ func (r *renderer) plugin() error {
 }
 
 // packageJSON pins the SDK for npm. npm writes package-lock.json next to
-// it when apply installs.
-func packageJSON(a *resolve.Agent, version string) []byte {
+// it. It names neither the agent nor its digest: on docker, the SDK's layer
+// is built from it, and must stay cached when the card changes and be
+// shared by every agent on the same SDK version.
+func packageJSON(version string) []byte {
 	return marshal(map[string]any{
-		"name":         "solaria-" + a.Environment + "-" + a.Name,
+		"name":         "solaria-agent",
 		"private":      true,
 		"type":         "module",
-		"description":  "Rendered by Solaria from " + a.ID() + " (" + a.ResolvedDigest + "). Run solaria apply instead of editing this bundle.",
+		"description":  "Rendered by Solaria. Run solaria apply instead of editing this bundle.",
 		"dependencies": map[string]string{NodePackage: version},
 	})
 }

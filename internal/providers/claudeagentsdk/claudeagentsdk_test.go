@@ -796,6 +796,70 @@ func TestDockerLifecycle(t *testing.T) {
 	}
 }
 
+// TestSDKLayerIgnoresCard checks that the docker image's SDK layer, and
+// everything before it, doesn't depend on the agent: a card change rebuilds
+// only the bundle's layer, and agents on the same SDK version share the
+// install.
+func TestSDKLayerIgnoresCard(t *testing.T) {
+	for _, tc := range []struct {
+		fixture, env, install string
+		// rename also renames the agent and the environment. The python
+		// fixture builds its sandbox image from a Dockerfile, tagged per
+		// agent; BuildKit's cache keys on the image, not the tag.
+		rename bool
+	}{
+		{"full", "dev-docker", "RUN npm install ", true},
+		{"python", "ci-docker", "RUN python3 -m venv venv ", false},
+	} {
+		t.Run(tc.fixture, func(t *testing.T) {
+			dir, err := filepath.Abs(filepath.Join("testdata", tc.fixture))
+			if err != nil {
+				t.Fatal(err)
+			}
+			a := load(t, dir, tc.env)
+			b1, err := render(a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			other := *a
+			if tc.rename {
+				other.Name, other.Environment = "other", "other-env"
+			}
+			other.ResolvedDigest = "sha256:" + strings.Repeat("0", 64)
+			other.Definition.Instructions = []string{"Something else entirely.\n"}
+			b2, err := render(&other)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if b1.BuildDigest == b2.BuildDigest {
+				t.Fatal("the card change didn't change the bundle")
+			}
+			for _, name := range []string{"package.json", "requirements.txt"} {
+				if !bytes.Equal(b1.Files[name], b2.Files[name]) {
+					t.Errorf("%s depends on the agent:\n%s\n%s", name, b1.Files[name], b2.Files[name])
+				}
+			}
+			upToSDK := func(b *bundle) string {
+				var out []string
+				for _, line := range strings.SplitAfter(string(b.Files[dockerfilePath]), "\n") {
+					if strings.HasPrefix(line, "#") {
+						continue // comments don't affect the build cache
+					}
+					out = append(out, line)
+					if strings.HasPrefix(line, tc.install) {
+						return strings.Join(out, "")
+					}
+				}
+				t.Fatalf("Dockerfile has no %q line", tc.install)
+				return ""
+			}
+			if got, want := upToSDK(b2), upToSDK(b1); got != want {
+				t.Errorf("the Dockerfile up to the SDK install depends on the agent:\n%s\n---\n%s", want, got)
+			}
+		})
+	}
+}
+
 func TestPlatformSetting(t *testing.T) {
 	a := load(t, filepath.Join("testdata", "python"), "ci-docker")
 	a.Env.Providers[Name]["platform"] = "linux/s390x"

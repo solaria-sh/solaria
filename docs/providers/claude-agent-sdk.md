@@ -63,7 +63,7 @@ spec:
 `apply` writes the same bundle, plus a `Dockerfile`, and builds `solaria/<environment>/<agent>:<id>` from it:
 
 1. The sandbox stages every Solaria image shares: the Solaria sandbox base, which has Node, Python and uv, or `sandbox.image`, then the environment's packages.
-2. The SDK at its exact version, installed in `/opt/solaria/agent`.
+2. The SDK at its exact version, installed in `/opt/solaria/agent`. Nothing in this layer depends on the agent, so agents on the same SDK version and sandbox share it.
 3. The bundle, the only layer a card change rebuilds.
 
 The image is labeled with the logical ID, both digests, the runtime and the SDK version. A successful apply removes the previous image and build context, and records a `docker run` command; the task goes after it:
