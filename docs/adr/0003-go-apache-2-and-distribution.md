@@ -75,3 +75,4 @@ CI builds and tests with the Go version declared in `go.mod`.
 - [hashicorp/go-plugin](https://github.com/hashicorp/go-plugin)
 - [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
 - Revised 2026-11-07: the repository, image and Homebrew tap moved from the `renantarouco` account to the `solaria-sh` organization, and the Go module path with them. The install scripts on solaria.sh were added at the same time.
+- Revised 2026-11-10: [ADR 0015](0015-project-scaffolding-and-editor-support.md) decides how solaria.sh serves the schema at its `$id` URLs and what the SchemaStore entry matches.
