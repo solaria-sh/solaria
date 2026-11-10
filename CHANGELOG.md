@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.6.0](https://github.com/solaria-sh/solaria/compare/v0.5.1...v0.6.0) (2026-11-10)
+
+
+### Added
+
+* **init:** scaffold new projects from templates ([2c6bf92](https://github.com/solaria-sh/solaria/commit/2c6bf925688f6fc73c97af75e53c7b1035a00181))
+* **site:** serve the JSON Schemas at their $id URLs ([0354935](https://github.com/solaria-sh/solaria/commit/0354935b5ffd4aa5f1dce373c43ec3556f593d30))
+
+
+### Fixed
+
+* **init:** detect a file in place of a template directory on Windows ([8077677](https://github.com/solaria-sh/solaria/commit/8077677579667c512304dd65037d39bd4b03ed9e))
+
 ## [0.5.1](https://github.com/solaria-sh/solaria/compare/v0.5.0...v0.5.1) (2026-11-10)
 
 
