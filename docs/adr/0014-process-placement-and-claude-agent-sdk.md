@@ -38,12 +38,23 @@ Chosen option: "A bundle per digest plus a launcher that Solaria generates", bec
 A new placement for providers whose loop runs as a local process. Every run gets:
 
 - **An empty environment plus an allowlist:** a minimal `PATH`, the variables the provider needs, and the secrets the environment declares, by name. Nothing else from the caller's environment reaches the loop. This is an allowlist, not a blocklist of known leaks, so a variable nobody thought of can't leak either.
-- **A scratch `HOME` and config directory,** created for the run and removed after it, so user-level settings, skills, plugins, stored logins and memory are never found.
+  - `PATH` holds only the folders of the binaries the provider names (such as `npx`), the runtime's own folder and the system folders. A missing binary fails the run before it starts.
+  - Locale, proxy and certificate variables pass through when set, as do the variables Windows programs need to start. They change how the machine reaches the network, not what the agent is.
+  - Secret values come from the environment's dotenv file, or from the caller's environment for the `env` source. A missing secret fails the run before it starts.
+- **A scratch `HOME`, config and temp directory,** created for the run and removed after it, so user-level settings, skills, plugins, stored logins and memory are never found. Every variable POSIX, XDG and Windows programs read for these points into it.
+- **A package cache that persists across runs** (`npm_config_cache`, `UV_CACHE_DIR`, `PIP_CACHE_DIR`), so stdio MCP servers aren't downloaded on every run. It holds packages only, no configuration.
 - **A working directory** that is the workspace the caller names (the current directory by default). Files in it are the agent's to work on, but the runtime is told not to load configuration from it or its parents.
 
-How a provider enforces this depends on the runtime. A library runtime does it in the launcher (below); a CLI runtime, such as pi or OpenCode later, gets a generated wrapper. Shared code lives in `internal/providers/process/`, next to `internal/providers/container/`.
+Solaria never starts the process (ADR 0002), so the Go side only describes the isolation. A provider writes it into its bundle as `isolation.json`, and a prelude that every launcher runs first enforces it: `isolate.mjs` for Node, `isolate.py` for Python. A CLI runtime, such as pi or OpenCode later, gets a generated wrapper that does the same. Shared code, the preludes included, lives in `internal/providers/process/`, next to `internal/providers/container/`. The preludes parse dotenv files exactly as Solaria does, and a test runs both against the same file.
 
-The guarantee has a documented limit. A machine can carry **managed settings** that every Claude Code process obeys, wherever it runs: `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS, `/etc/claude-code/managed-settings.json` on Linux, the Windows registry, or MDM. When a session authenticates with an organisation's credential, the server can push managed settings too. Neither can be turned off from inside the process. Plan warns when it finds a managed settings file on a `process` placement. The `docker` placement doesn't see the host's files, so it's the answer when that matters.
+The guarantee has a documented limit. A machine can carry **managed settings** that every Claude Code process obeys, wherever it runs:
+- `managed-settings.json`, `managed-settings.d/*.json` and `managed-mcp.json` in the system directory: `/Library/Application Support/ClaudeCode/` on macOS, `/etc/claude-code/` on Linux and WSL, `C:\Program Files\ClaudeCode\` on Windows. `managed-mcp.json` can add MCP servers to every run.
+- A macOS configuration profile for `com.anthropic.claudecode`.
+- A `Settings` value under `SOFTWARE\Policies\ClaudeCode` in the Windows `HKLM` or `HKCU` registry.
+
+When a session authenticates with an organisation's credential, the server can push managed settings too. None of these can be turned off from inside the process. Plan warns about each source it finds on a `process` placement; server-managed settings can't be seen before a run. The `docker` placement doesn't see the host's files, so it's the answer when that matters.
+
+The `process` placement can't enforce the sandbox either: plan warns that `sandbox.packages` aren't installed, that a limited `sandbox.network` isn't enforced, and that `sandbox.resources` aren't enforced. `sandbox.image` fails, as on every placement that isn't a container.
 
 ### The `claude-agent-sdk` provider
 
@@ -65,7 +76,7 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
 
 **What the launcher does on every run:**
 
-1. Creates the scratch `HOME` and `CLAUDE_CONFIG_DIR` and builds the child environment from the allowlist. It does this itself rather than relying on the SDK's `env` option to replace the inherited environment. That is documented for TypeScript but not for Python, so the Python launcher clears `os.environ` before the SDK starts.
+1. Runs the prelude: creates the scratch directory, with `CLAUDE_CONFIG_DIR` inside it, and builds the child environment from `isolation.json`. It then replaces its own environment with that one, rather than relying on the SDK's `env` option to replace the inherited environment. That is documented for TypeScript but not for Python, so both launchers clear their own environment before the SDK starts, and also pass the same environment as `env`.
 2. Sets `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` and `ENABLE_CLAUDEAI_MCP_SERVERS=false` in the child environment.
 3. Calls the SDK with `settingSources: []`, set explicitly. The SDK's default loads user, project and local settings, so leaving it out would load everything this ADR keeps out. It also passes a strict MCP config containing only the card's servers.
 4. Reads the task from `-p "<task>"`, or from stdin when there's no `-p`.
@@ -108,7 +119,7 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
   - `CLAUDE_*` and `ANTHROPIC_*` variables in the caller's environment.
 
   The test reads the session's init message and checks its tools, skills and MCP servers against the card.
-- A unit test of the `process` helper's environment allowlist.
+- Unit tests that run both preludes, when Node or Python is installed, with a caller environment full of leaks, and check that the run sees only allowlisted variables, that `HOME` and `CLAUDE_CONFIG_DIR` are in the scratch directory, and that cleanup removes it.
 
 ## Pros and cons of the options
 

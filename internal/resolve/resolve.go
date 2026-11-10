@@ -55,6 +55,29 @@ type Agent struct {
 // ID returns the agent's logical ID.
 func (a *Agent) ID() string { return v1alpha1.KindAgent + "/" + a.Name }
 
+// SecretRefs lists the secrets the agent's MCP servers use, sorted: the
+// names a run must be given values for.
+func (a *Agent) SecretRefs() []string {
+	var out []string
+	add := func(kvs []v1alpha1.KeyValue) {
+		for _, kv := range kvs {
+			if kv.SecretRef != "" {
+				out = append(out, kv.SecretRef)
+			}
+		}
+	}
+	for _, m := range a.Definition.Tools.MCP {
+		for _, rem := range m.Spec.Remotes {
+			add(rem.Headers)
+		}
+		for _, p := range m.Spec.Packages {
+			add(p.EnvironmentVariables)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
 // Environment resolves every agent the named environment receives, sorted
 // by name.
 func Environment(set *config.Set, name string) ([]Agent, error) {
