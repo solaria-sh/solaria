@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.3.0](https://github.com/solaria-sh/solaria/compare/v0.2.0...v0.3.0) (2026-11-10)
+
+
+### Added
+
+* **process:** add the hermetic process placement's isolation ([7c2cf72](https://github.com/solaria-sh/solaria/commit/7c2cf72a9214ade5e56ff63b6cbab5ff96a77443))
+* **providers:** add the claude-agent-sdk provider on the process placement ([8f4eb38](https://github.com/solaria-sh/solaria/commit/8f4eb38d79752ba9b887d7b7a1bf40a0a4bf888f))
+
 ## [0.2.0](https://github.com/solaria-sh/solaria/compare/v0.1.0...v0.2.0) (2026-11-10)
 
 
