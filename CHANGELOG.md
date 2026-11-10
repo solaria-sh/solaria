@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.5.1](https://github.com/solaria-sh/solaria/compare/v0.5.0...v0.5.1) (2026-11-10)
+
+
+### Fixed
+
+* **cli:** name local processes among the hosts in solaria --help ([424a159](https://github.com/solaria-sh/solaria/commit/424a159437cbba85687cd68bdb99e5986ddafc89))
+
 ## [0.5.0](https://github.com/solaria-sh/solaria/compare/v0.4.0...v0.5.0) (2026-11-10)
 
 
