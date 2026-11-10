@@ -17,7 +17,8 @@ func NewRootCommand() *cobra.Command {
 		Long: `Solaria is a control plane for agent definitions.
 
 Declare an agent once, then plan and apply it to any host a provider
-supports: a local container, Claude Managed Agents, and more over time.
+supports: a local process, a local container, Claude Managed Agents, and
+more over time.
 Solaria records what it deployed where, so every agent keeps one identity
 wherever it runs.`,
 		SilenceUsage:  true,
