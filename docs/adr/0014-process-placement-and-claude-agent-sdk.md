@@ -56,6 +56,8 @@ When a session authenticates with an organisation's credential, the server can p
 
 The `process` placement can't enforce the sandbox either: plan warns that `sandbox.packages` aren't installed, that a limited `sandbox.network` isn't enforced, and that `sandbox.resources` aren't enforced. `sandbox.image` fails, as on every placement that isn't a container.
 
+**Opt-in isolation** (added 2026-11-10, ADR 0017): an environment with `sandbox.isolation: srt` runs the launcher inside Anthropic's sandbox-runtime. The whole process tree shares one boundary: the SDK, its tools and stdio MCP servers. Writes are limited to the run's scratch folders and to the inputs the agent declares writable, and the network is limited to the model API plus `sandbox.network`. With isolation, `process` enforces a read-only workspace and the network; without it, nothing changes. srt runs on macOS and Linux; on Windows, plan fails when isolation is requested.
+
 ### The `claude-agent-sdk` provider
 
 Placements: `process` and `docker`.

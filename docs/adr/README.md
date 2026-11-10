@@ -19,5 +19,8 @@ Each significant design decision is recorded here using [MADR](https://adr.githu
 | [0013](0013-lock-file-pins-digests.md) | A committed lock file pins each environment's digests | proposed |
 | [0014](0014-process-placement-and-claude-agent-sdk.md) | Local agent loops: a hermetic `process` placement and the `claude-agent-sdk` provider | proposed |
 | [0015](0015-project-scaffolding-and-editor-support.md) | Project scaffolding and editor support | proposed |
+| [0016](0016-vault-scoped-credentials.md) | A Vault resource scopes credentials to the agents that reference it | proposed |
+| [0017](0017-run-inputs.md) | Run inputs: agents declare a workspace and repositories, environments bind them | proposed |
+| [0018](0018-plan-json-and-saved-plans.md) | A documented plan JSON, and saved plans that apply only what was reviewed | proposed |
 
 ADRs 0005–0009 were revised on 2026-11-04 with findings from the [M1 spikes](../spikes/). ADR 0008 records the digest input format since M3.
