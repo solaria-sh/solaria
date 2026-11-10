@@ -33,6 +33,8 @@ It prints the version, the commit it was built from, and your platform.
 
 ## Define an agent
 
+This guide writes each file by hand, so you see what every line does. `solaria init hello` writes the same project in one step, with a second environment for the Claude Agent SDK; [start from a template](#start-from-a-template) has more.
+
 Make a folder for the project. Solaria reads every `.yaml` file in it.
 
 ```console
@@ -192,6 +194,26 @@ Destroy complete: 0 created, 0 updated, 0 replaced, 1 deleted. State serial 3.
 ## What you did
 
 You declared an agent once, without naming a host. You put it in an environment, planned and applied it, changed it and saw the change as a field diff and a new digest, then destroyed it. That's the whole workflow, and it doesn't change from one host to the next.
+
+## Start from a template
+
+`solaria init` creates a project without writing the files by hand. With no flags it writes the project you just built into the current directory, with a second environment, `local-sdk`, that runs the agent on the Claude Agent SDK:
+
+```console
+$ solaria init my-agent
+Created 3 files in my-agent from template minimal:
+  instructions.md
+  solaria.yaml
+  .gitignore
+```
+
+Any Solaria project in a git repository works as a template too. Name the repository, a directory in it after `//`, and a tag, branch or commit after `?ref=`, as Terraform does for module sources. This starts from the reviewer example at a release:
+
+```console
+$ solaria init reviewer --template 'https://github.com/solaria-sh/solaria//examples/reviewer?ref=v0.5.0'
+```
+
+`init` uses your `git` command and its credentials, so private repositories work as they do for `git clone`. It copies the template as it is and never runs anything from it. It checks the template the way `validate` does first, and writes nothing if the template has errors or if any of its files is already in the directory. An existing `.gitignore` is kept, and `init` adds `.solaria/` to it.
 
 ## Next steps
 

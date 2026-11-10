@@ -72,6 +72,15 @@ Chosen options: "`solaria init` with embedded templates and templates fetched fr
 - Testscripts cover a conflicting file, the `.gitignore` append, a template that fails validation, and a git template from a local bare repository (no network).
 - The site's tests check that every file in `schemas/v1alpha1/` is served at its `$id`.
 
+**As implemented** (`internal/scaffold`, `internal/cli/init.go`):
+
+- The embedded template is `minimal`, and `-t` is short for `--template`. A value that looks like a name (lowercase letters, digits and dashes) is always an embedded template, so a misspelled name is an error rather than a git fetch.
+- Git templates are fetched by `git init`, then `git fetch --depth 1 -- <url> <ref>`, then a detached checkout, instead of a shallow clone, because a fetch by name works for a branch, a tag or a commit alike. Without `ref` it fetches `HEAD`. Git runs with `GIT_TERMINAL_PROMPT=0`, so it fails instead of prompting, and with `protocol.ext.allow=never`, so a URL can't run a command. The `--` stops a URL from being read as an option.
+- A template may hold only regular files and directories. A symbolic link is an error, so a template can't make init copy a file from outside it. Executable bits are kept.
+- The `.gitignore` merge also adds the template's own `.gitignore` lines that the project's file doesn't have, under a `# Added by solaria init` comment.
+- The next steps suggest the `local` environment when the template has one, or else its first environment.
+- The git testscript uses an ordinary local repository through a `file://` URL, and is skipped on Windows and where git isn't installed.
+
 ## Pros and cons of the options
 
 ### `solaria init` with embedded templates only

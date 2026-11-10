@@ -1,0 +1,89 @@
+# init copies a template from a git repository, at a ref and from a
+# subdirectory. The repository is local, so the script needs no network.
+[!exec:git] skip 'needs git'
+[windows] skip 'file:// URLs are written for Unix paths here'
+
+env GIT_AUTHOR_NAME=Test GIT_AUTHOR_EMAIL=test@example.com GIT_COMMITTER_NAME=Test GIT_COMMITTER_EMAIL=test@example.com
+env GIT_AUTHOR_DATE=2026-01-01T00:00:00Z GIT_COMMITTER_DATE=2026-01-01T00:00:00Z GIT_CONFIG_NOSYSTEM=1
+exec git init --quiet repo
+exec git -C repo add .
+exec git -C repo commit --quiet -m templates
+exec git -C repo tag v1
+
+# A later commit changes the team template's instructions.
+cp new-role.md repo/team/instructions/role.md
+exec git -C repo commit --quiet -am 'new role'
+
+# At v1: the subdirectory's files, without .solaria/, and the commit copied.
+exec solaria init --template file://$WORK/repo//team?ref=v1 at-v1
+stdout '^Created 3 files in at-v1 from template file://.*/repo//team\?ref=v1 at [0-9a-f]{40}:$'
+stdout '^  solaria.yaml$'
+stdout '^  solaria plan -e dev$'
+! stderr .
+cmp at-v1/instructions/role.md repo-v1-role.md
+cmp at-v1/.gitignore want-gitignore
+! exists at-v1/.solaria
+! exists at-v1/.git
+! exists at-v1/broken
+exec solaria validate at-v1
+stdout '^valid: 1 Agent, 1 Environment$'
+
+# Without a ref: the default branch.
+exec solaria init --template file://$WORK/repo//team latest
+cmp latest/instructions/role.md new-role.md
+
+# A template that doesn't validate: its errors, and nothing written.
+! exec solaria init --template file://$WORK/repo//broken bad
+stderr '^solaria.yaml:\d+:\d+: error: '
+stderr 'has 1 error; nothing was written'
+! exists bad
+
+# A directory the repository doesn't have.
+! exec solaria init --template file://$WORK/repo//nope?ref=v1 none
+stderr 'the repository has no directory nope at [0-9a-f]{12}'
+! exists none
+
+# A ref the repository doesn't have.
+! exec solaria init --template file://$WORK/repo//team?ref=v9 none
+stderr 'fetch template .*: git fetch: '
+! exists none
+
+-- repo/team/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: triage
+spec:
+  instructions: [instructions/role.md]
+  model:
+    preferred: anthropic:claude-haiku-5-5
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+spec:
+  provider: stub
+  placement: file
+-- repo/team/instructions/role.md --
+Sort incoming issues.
+-- repo/team/.gitignore --
+node_modules/
+-- repo/team/.solaria/state/dev.json --
+{}
+-- repo/broken/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata:
+  name: broken
+spec:
+  instructions: [missing.md]
+  model:
+    preferred: anthropic:claude-haiku-5-5
+-- repo-v1-role.md --
+Sort incoming issues.
+-- new-role.md --
+Sort incoming issues by team.
+-- want-gitignore --
+node_modules/
+.solaria/

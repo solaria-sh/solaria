@@ -78,7 +78,7 @@ Release archives and `checksums.txt` are on the [releases page](https://github.c
 
 ## Try it
 
-[`examples/hello`](examples/hello) runs the whole workflow with the `stub` provider. It writes its "host objects" to files, so it needs no credentials:
+`solaria init my-agent` creates a new project to start from. [`examples/hello`](examples/hello) runs the whole workflow with the `stub` provider. It writes its "host objects" to files, so it needs no credentials:
 
 ```console
 $ go install github.com/solaria-sh/solaria/cmd/solaria@latest

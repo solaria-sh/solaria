@@ -31,21 +31,7 @@ is one. It doesn't contact any host.`,
 			if len(args) == 0 {
 				args = []string{"."}
 			}
-			set, diags := config.Load(args)
-			if set != nil {
-				diags = append(diags, validate.Validate(set)...)
-				lock, err := lockfile.Read(lockPath)
-				if err != nil {
-					diags = append(diags, diag.Errorf("", diag.Pos{}, "%v", err))
-				} else {
-					diags = append(diags, lock.Validate(lockPath, set)...)
-				}
-				if len(set.Resources) == 0 && !diags.HasErrors() {
-					diags = append(diags, diag.Errorf("", diag.Pos{},
-						"no %s resources found in %s", v1alpha1.Group, strings.Join(args, ", ")))
-				}
-			}
-			diags.Sort()
+			set, diags := check(args, lockPath)
 
 			write := writeText
 			if output == "json" {
@@ -63,6 +49,28 @@ is one. It doesn't contact any host.`,
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
 	registerLockFile(cmd, &lockPath)
 	return cmd
+}
+
+// check runs everything validate checks on the resources under paths: the
+// schema, references, the files they name, and the lock file at lockPath.
+// The diagnostics come back sorted.
+func check(paths []string, lockPath string) (*config.Set, diag.List) {
+	set, diags := config.Load(paths)
+	if set != nil {
+		diags = append(diags, validate.Validate(set)...)
+		lock, err := lockfile.Read(lockPath)
+		if err != nil {
+			diags = append(diags, diag.Errorf("", diag.Pos{}, "%v", err))
+		} else {
+			diags = append(diags, lock.Validate(lockPath, set)...)
+		}
+		if len(set.Resources) == 0 && !diags.HasErrors() {
+			diags = append(diags, diag.Errorf("", diag.Pos{},
+				"no %s resources found in %s", v1alpha1.Group, strings.Join(paths, ", ")))
+		}
+	}
+	diags.Sort()
+	return set, diags
 }
 
 func writeText(w io.Writer, set *config.Set, diags diag.List) error {

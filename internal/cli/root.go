@@ -26,6 +26,7 @@ wherever it runs.`,
 	}
 
 	root.AddCommand(
+		newInitCommand(),
 		newValidateCommand(),
 		newPlanCommand(),
 		newApplyCommand(),
