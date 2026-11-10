@@ -25,6 +25,19 @@ cmp stdout plan-none.txt
 exec solaria status
 stdout '^  Agent/hello +stub/file +stub_[0-9a-f]{12} +1 +sha256:08ffaed7b158 +\S+ \S+ +up to date$'
 
+# -a shows one agent, and how to start it; the stub has no command.
+exec solaria status -e local -a hello
+stdout '^  Agent/hello +stub/file '
+stdout '^  stub runs the agent on its host; there''s no command to start it.$'
+exec solaria status -e local -a hello -o json
+stdout '"logicalId": "Agent/hello"'
+stdout '"configuration": "upToDate"'
+! stdout '"invocation"'
+! exec solaria status -a hello
+stderr '^Error: --agent needs --environment'
+! exec solaria status -e local -a nobody
+stderr '^Error: agent "nobody" isn''t in the state of Environment "local", and its configuration doesn''t select it$'
+
 # An override changes only this environment: resolvedDigest moves,
 # specDigest stays.
 replace solaria.yaml '  placement: file' '  placement: file\n  overrides:\n    hello: {limits: {maxTurns: 2}}'
@@ -56,7 +69,7 @@ stdout '^  - Agent/hello$'
 stdout 'Destroy complete: 0 created, 0 updated, 0 replaced, 1 deleted. State serial 3.'
 ! exists .solaria/stub/local/hello.json
 exec solaria status -o json
-stdout '"agents": \{\}'
+stdout '"logicalId": "Agent/hello",\n +"configuration": "notApplied"'
 exec solaria plan -e local
 stdout '\+ Agent/hello'
 

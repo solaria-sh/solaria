@@ -142,6 +142,33 @@ You answer questions about the docs.
 solaria/ci-docker/helper:7ccfae726d75 for linux/amd64
 === run
 docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY solaria/ci-docker/helper:7ccfae726d75
+=== invocation
+{
+  "argv": [
+    "docker",
+    "run",
+    "--rm",
+    "-i",
+    "--platform",
+    "linux/amd64",
+    "--memory",
+    "8g",
+    "--volume",
+    "{workspace}:/workspace",
+    "--env",
+    "ANTHROPIC_API_KEY",
+    "solaria/ci-docker/helper:7ccfae726d75"
+  ],
+  "workspace": "mount",
+  "task": {
+    "flag": "-p",
+    "stdin": true
+  },
+  "env": [
+    "ANTHROPIC_API_KEY"
+  ],
+  "result": "solaria.sh/result/v1"
+}
 === labels
 sh.solaria.environment=ci-docker
 sh.solaria.logical-id=Agent/helper

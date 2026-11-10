@@ -34,7 +34,7 @@ $ solaria apply -e local-sdk
     run: node /path/to/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs
 ```
 
-Run it from the folder the agent should work in. The task goes after it with `-p`, or on stdin:
+`solaria status -e local-sdk -a hello` shows it again later, with the variables it needs, and `-o json` gives it as an `invocation` for programs (see [Starting an agent](../concepts.md#starting-an-agent)). Run it from the folder the agent should work in. The task goes after it with `-p`, or on stdin:
 
 ```bash
 node .solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs -p "Say hello."

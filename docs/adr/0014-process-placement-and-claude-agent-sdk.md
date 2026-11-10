@@ -93,7 +93,17 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
 - MCP servers go into the strict MCP config: stdio packages run through `npx` or `uvx`, remotes over streamable HTTP or SSE.
 - Model providers other than `anthropic` fail at plan time.
 
-**Run command:** apply records it as the `run` output and prints it, as `gitagent` does. On `process` it's `node <bundle>/launch.mjs`, or the bundle's own `venv` Python running `<bundle>/launch.py`, and the `secrets` output names the secrets it expects. On `docker` it's a `docker run` of an image built on the shared sandbox base (ADR 0007), with the same launcher and bundle inside and the workspace mounted at `/workspace`. `solaria status -e <env> -a <agent>` shows the same command, and `-o json` gives it as a documented `invocation` block, so callers never depend on the state format.
+**Run command:** apply records it as the `run` output and prints it, as `gitagent` does. On `process` it's `node <bundle>/launch.mjs`, or the bundle's own `venv` Python running `<bundle>/launch.py`, and the `secrets` output names the secrets it expects. On `docker` it's a `docker run` of an image built on the shared sandbox base (ADR 0007), with the same launcher and bundle inside and the workspace mounted at `/workspace`. The binding also records the command as an `invocation`, so a caller doesn't have to parse a shell string:
+
+- `argv`: the command without the task. On `docker`, the mount is `{workspace}:/workspace`, and the caller replaces `{workspace}` with the folder's absolute path.
+- `workspace`: `cwd` when the command runs in the workspace, `mount` when `argv` mounts it.
+- `task`: how the task is given: `{"flag": "-p", "stdin": true}` for the launcher, which reads stdin when there's no `-p`.
+- `env`: the variables read from the caller's environment, `ANTHROPIC_API_KEY` and, without a dotenv file, the secrets. `envFile`: the dotenv file, when there is one.
+- `result`: `solaria.sh/result/v1`, the launcher's JSON on stdout.
+
+The `run` string is `argv` quoted for a POSIX shell, with `"$PWD"` for `{workspace}`. `gitagent` records an invocation too, without `result`, since it prints its own output. Providers whose host runs the agent record none. Names only: the invocation never holds a secret's value.
+
+`solaria status -e <env> -a <agent>` shows the command and what it needs, and `status -o json` prints a documented shape (environments, then agents with their digests, configuration status, `run` and `invocation`) instead of the state file, so callers never depend on the state format. Entries applied before the invocation existed show their `run` only, until the next apply.
 
 **On `docker`:**
 
@@ -128,6 +138,7 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
 
   The test reads the session's init message and checks its tools, skills and MCP servers against the card.
 - Unit tests that run both preludes, when Node or Python is installed, with a caller environment full of leaks, and check that the run sees only allowlisted variables, that `HOME` and `CLAUDE_CONFIG_DIR` are in the scratch directory, and that cleanup removes it.
+- A testscript of `status -a` and `status -o json` against a state that holds an invocation, and unit tests that the `run` string is the invocation's `argv` quoted.
 
 ## Pros and cons of the options
 

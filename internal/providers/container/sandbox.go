@@ -10,6 +10,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/digest"
 	"github.com/solaria-sh/solaria/internal/resolve"
+	"github.com/solaria-sh/solaria/internal/state"
 )
 
 // Pinned inputs of the Solaria sandbox base. Changing one changes every
@@ -147,6 +148,23 @@ func JSONArray(args []string) string {
 	enc.SetEscapeHTML(false)
 	_ = enc.Encode(args) // strings always encode
 	return strings.TrimSuffix(b.String(), "\n")
+}
+
+// ShellCommand joins argv into a command for a POSIX shell run from the
+// workspace: each argument quoted when it needs it, and
+// state.WorkspacePlaceholder as "$PWD".
+func ShellCommand(argv []string) string {
+	parts := make([]string, len(argv))
+	for i, arg := range argv {
+		pieces := strings.Split(arg, state.WorkspacePlaceholder)
+		for j, p := range pieces {
+			if p != "" || len(pieces) == 1 {
+				pieces[j] = ShellQuote(p)
+			}
+		}
+		parts[i] = strings.Join(pieces, `"$PWD"`)
+	}
+	return strings.Join(parts, " ")
 }
 
 // ShellQuote quotes s for a POSIX shell when it needs it.

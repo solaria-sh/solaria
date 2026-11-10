@@ -1,0 +1,143 @@
+# status -a shows how to start an agent, from the invocation its provider
+# recorded at apply (ADR 0014). The states are written by hand: applying
+# needs npm or Docker.
+cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md .
+mkdir .solaria/state
+cp local-sdk.json .solaria/state/local-sdk.json
+cp local-gitagent.json .solaria/state/local-gitagent.json
+
+# Without -a, the table alone.
+exec solaria status
+stdout '^Environment local-gitagent \(state serial 4\)$'
+stdout '^  Agent/hello +claude-agent-sdk/process +\.solaria/claude-agent-sdk/local-sdk/hello +3f9c1a0d2b7e +sha256:08ffaed7b158 +2026-11-01 10:00 +up to date$'
+! stdout 'run:'
+
+exec solaria status -e local-sdk -a hello
+cmp stdout status-sdk.txt
+exec solaria status -e local-sdk -a hello -o json
+cmp stdout status-sdk.json
+
+# An entry applied before Solaria recorded invocations still has its run
+# command.
+exec solaria status -e local-gitagent -a hello
+stdout '^  run: docker run --rm --platform linux/amd64 --memory 8g --volume "\$PWD":/workspace --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158$'
+stdout '^  Applied before Solaria recorded what the command needs; apply again to see it.$'
+
+# An agent the configuration selects but nothing applied yet.
+exec solaria status -e ma-cloud -a hello
+stdout '^  Agent/hello +- +- +- +- +- +not applied$'
+stdout '^  Not applied; run solaria apply -e ma-cloud first.$'
+
+-- status-sdk.txt --
+Environment local-sdk (state serial 2)
+  OBJECT       PROVIDER                  HOST ID                                    VERSION       DIGEST               APPLIED           CONFIGURATION
+  Agent/hello  claude-agent-sdk/process  .solaria/claude-agent-sdk/local-sdk/hello  3f9c1a0d2b7e  sha256:08ffaed7b158  2026-11-01 10:00  up to date
+
+  run: node '/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs'
+  task: after the command with -p, or on stdin
+  workspace: the directory it runs in
+  environment: ANTHROPIC_API_KEY, GITHUB_TOKEN
+  prints: solaria.sh/result/v1
+-- status-sdk.json --
+{
+  "environments": [
+    {
+      "name": "local-sdk",
+      "serial": 2,
+      "inConfiguration": true,
+      "locked": false,
+      "agents": [
+        {
+          "logicalId": "Agent/hello",
+          "provider": "claude-agent-sdk",
+          "placement": "process",
+          "hostId": ".solaria/claude-agent-sdk/local-sdk/hello",
+          "version": "3f9c1a0d2b7e",
+          "specDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+          "resolvedDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+          "appliedAt": "2026-11-01T10:00:00Z",
+          "configuration": "upToDate",
+          "run": "node '/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs'",
+          "invocation": {
+            "argv": [
+              "node",
+              "/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs"
+            ],
+            "workspace": "cwd",
+            "task": {
+              "flag": "-p",
+              "stdin": true
+            },
+            "env": [
+              "ANTHROPIC_API_KEY",
+              "GITHUB_TOKEN"
+            ],
+            "result": "solaria.sh/result/v1"
+          }
+        }
+      ]
+    }
+  ]
+}
+-- local-sdk.json --
+{
+  "format": "solaria.sh/state/v1",
+  "lineage": "6f1c2d3e-0000-4000-8000-000000000001",
+  "serial": 2,
+  "environment": "local-sdk",
+  "agents": {
+    "Agent/hello": {
+      "id": "Agent/hello",
+      "provider": "claude-agent-sdk",
+      "providerVersion": "0.4.0",
+      "placement": "process",
+      "specDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+      "resolvedDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+      "binding": {
+        "hostId": ".solaria/claude-agent-sdk/local-sdk/hello",
+        "version": "3f9c1a0d2b7e",
+        "outputs": {
+          "run": "node '/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs'",
+          "secrets": "GITHUB_TOKEN"
+        },
+        "invocation": {
+          "argv": ["node", "/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs"],
+          "workspace": "cwd",
+          "task": {"flag": "-p", "stdin": true},
+          "env": ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"],
+          "result": "solaria.sh/result/v1"
+        }
+      },
+      "definition": {},
+      "source": {},
+      "appliedAt": "2026-11-01T10:00:00Z"
+    }
+  }
+}
+-- local-gitagent.json --
+{
+  "format": "solaria.sh/state/v1",
+  "lineage": "6f1c2d3e-0000-4000-8000-000000000002",
+  "serial": 4,
+  "environment": "local-gitagent",
+  "agents": {
+    "Agent/hello": {
+      "id": "Agent/hello",
+      "provider": "gitagent",
+      "providerVersion": "0.3.0",
+      "placement": "docker",
+      "specDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+      "resolvedDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+      "binding": {
+        "hostId": "solaria/local-gitagent/hello",
+        "version": "1a2b3c4d5e6f",
+        "outputs": {
+          "run": "docker run --rm --platform linux/amd64 --memory 8g --volume \"$PWD\":/workspace --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158"
+        }
+      },
+      "definition": {},
+      "source": {},
+      "appliedAt": "2026-10-20T09:30:00Z"
+    }
+  }
+}

@@ -110,6 +110,7 @@ $ solaria lock -e <environment>   # pin them, for review in git
 $ solaria plan -e <environment>   # what apply would do
 $ solaria apply -e <environment>  # do it, after confirming
 $ solaria status                  # what's deployed where
+$ solaria status -e <environment> -a <agent> # how to start it
 $ solaria destroy -e <environment>
 ```
 
@@ -131,6 +132,82 @@ Symbols: `+` create, `~` update, `-/+` replace (the agent moved to another provi
 **Drift.** Refresh asks the host for each object. An object changed outside Solaria, for example in a console, plans an update that puts the definition's version back. One deleted outside Solaria plans a create. `plan --refresh=false` skips the host calls.
 
 **Rollback** is a checkout and an apply: `git checkout <earlier commit>` and `solaria apply`. Hosts that version agents, such as Managed Agents, create a new version with the old content, and the history in state shows that both versions share a `resolvedDigest`.
+
+## Starting an agent
+
+Solaria doesn't run agents (ADR 0002). On providers whose agents run where you start them, `claude-agent-sdk` and `gitagent`, apply records the command, and `status -a` shows it with what it needs:
+
+```console
+$ solaria status -e local-sdk -a hello
+Environment local-sdk (state serial 2)
+  OBJECT       PROVIDER                  HOST ID                                    VERSION       DIGEST               APPLIED           CONFIGURATION
+  Agent/hello  claude-agent-sdk/process  .solaria/claude-agent-sdk/local-sdk/hello  3f9c1a0d2b7e  sha256:08ffaed7b158  2026-11-01 10:00  up to date
+
+  run: node /work/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs
+  task: after the command with -p, or on stdin
+  workspace: the directory it runs in
+  environment: ANTHROPIC_API_KEY, GITHUB_TOKEN
+  prints: solaria.sh/result/v1
+```
+
+Scripts should read `solaria status -o json` rather than the state file, whose format can change. It prints this shape, narrowed by `-e` and `-a`:
+
+```json
+{
+  "environments": [
+    {
+      "name": "local-sdk",
+      "serial": 2,
+      "inConfiguration": true,
+      "locked": false,
+      "agents": [
+        {
+          "logicalId": "Agent/hello",
+          "provider": "claude-agent-sdk",
+          "placement": "process",
+          "hostId": ".solaria/claude-agent-sdk/local-sdk/hello",
+          "version": "3f9c1a0d2b7e",
+          "specDigest": "sha256:08ffaed7b158...",
+          "resolvedDigest": "sha256:08ffaed7b158...",
+          "appliedAt": "2026-11-01T10:00:00Z",
+          "configuration": "upToDate",
+          "run": "node /work/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs",
+          "invocation": {
+            "argv": ["node", "/work/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs"],
+            "workspace": "cwd",
+            "task": {"flag": "-p", "stdin": true},
+            "env": ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"],
+            "result": "solaria.sh/result/v1"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Field | |
+|---|---|
+| `serial` | The state's serial; `0` when the environment has no state yet |
+| `inConfiguration` | `false` for an environment that only has state left |
+| `locked` | `solaria.lock` pins the environment; each agent's `lockedDigest` is its pinned `resolvedDigest` |
+| `host` | The environment's shared host object, when its provider keeps one: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt` |
+| `configuration` | `upToDate`, `changed`, `overridesChanged` (only the environment's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `configuration` and `lockedDigest`. |
+| `run` | The command for a POSIX shell, run from the workspace. The task goes after it. |
+| `invocation` | The same command, for programs. Absent for providers whose host runs the agent, and for agents applied before Solaria recorded it. |
+
+The `invocation`:
+
+| Field | |
+|---|---|
+| `argv` | The command and its arguments, without the task. `{workspace}` in an argument stands for the workspace's absolute path. |
+| `workspace` | `cwd`: run the command in the workspace. `mount`: `argv` mounts it through `{workspace}`. |
+| `task` | `flag` comes before the task, as in `-p "Review the diff."`. With `stdin`, the command also reads the task from stdin when the flag isn't given. |
+| `env` | Variables the command reads from the caller's environment |
+| `envFile` | The dotenv file the secrets come from |
+| `result` | What the command prints on stdout, when it's a format Solaria defines: `solaria.sh/result/v1` is the launcher's JSON (see [claude-agent-sdk](providers/claude-agent-sdk.md#what-a-run-prints)) |
+
+Both name secrets, never their values.
 
 ## Pinning environments
 

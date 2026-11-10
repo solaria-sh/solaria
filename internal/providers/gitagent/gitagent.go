@@ -200,7 +200,7 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		outputs[outSandboxImage] = b.BaseImage
 	}
 	return &provider.Applied{
-		Binding:    state.Binding{HostID: b.Repository, Version: shortID(img.ID), Outputs: outputs},
+		Binding:    state.Binding{HostID: b.Repository, Version: shortID(img.ID), Outputs: outputs, Invocation: b.Invocation},
 		RemoteHash: img.ID,
 	}, nil
 }

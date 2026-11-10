@@ -211,16 +211,17 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		return nil, fmt.Errorf("%s: install the SDK: %w", Name, err)
 	}
 	p.removeOthers(a.Name, b.ID())
+	inv := b.invocation(p.argv(dir, b), state.WorkspaceCwd)
 	return &provider.Applied{
-		Binding:    state.Binding{HostID: p.rel(p.agentDir(a.Name)), Version: b.ID(), Outputs: p.outputs(b, dir, p.run(dir, b))},
+		Binding:    state.Binding{HostID: p.rel(p.agentDir(a.Name)), Version: b.ID(), Outputs: p.outputs(b, dir, inv), Invocation: inv},
 		RemoteHash: b.BuildDigest,
 	}, nil
 }
 
 // outputs are the binding outputs both placements record.
-func (p *Provider) outputs(b *bundle, dir, run string) map[string]string {
+func (p *Provider) outputs(b *bundle, dir string, inv *state.Invocation) map[string]string {
 	out := map[string]string{
-		outRun:         run,
+		outRun:         container.ShellCommand(inv.Argv),
 		outBundle:      p.rel(dir),
 		outRuntime:     b.Runtime,
 		outSDKVersion:  b.SDKVersion,
@@ -232,15 +233,36 @@ func (p *Provider) outputs(b *bundle, dir, run string) map[string]string {
 	return out
 }
 
-// run is the command that starts the launcher. It runs in the workspace
+// argv is the command that starts the launcher. It runs in the workspace
 // the agent works on, which is the current directory, so the bundle's
 // paths are absolute.
-func (p *Provider) run(dir string, b *bundle) string {
-	q := container.ShellQuote
+func (p *Provider) argv(dir string, b *bundle) []string {
 	if b.Runtime == RuntimePython {
-		return q(venvPython(p.host.GOOS(), dir)) + " " + q(filepath.Join(dir, "launch.py"))
+		return []string{venvPython(p.host.GOOS(), dir), filepath.Join(dir, "launch.py")}
 	}
-	return "node " + q(filepath.Join(dir, "launch.mjs"))
+	return []string{"node", filepath.Join(dir, "launch.mjs")}
+}
+
+// ResultFormat names what the launcher prints: one JSON object with the
+// SDK's result and the agent's identity.
+const ResultFormat = "solaria.sh/result/v1"
+
+// invocation records how to start the launcher: the task goes after argv
+// with -p, or on stdin; the API key and the secrets come from the caller's
+// environment, or the secrets from the dotenv file.
+func (b *bundle) invocation(argv []string, workspace string) *state.Invocation {
+	env := []string{"ANTHROPIC_API_KEY"}
+	if b.Dotenv == "" {
+		env = append(env, b.Secrets...)
+	}
+	return &state.Invocation{
+		Argv:      argv,
+		Workspace: workspace,
+		Task:      state.TaskInput{Flag: "-p", Stdin: true},
+		Env:       env,
+		EnvFile:   b.Dotenv,
+		Result:    ResultFormat,
+	}
 }
 
 // removeOthers removes the agent's bundles other than keep: the one this

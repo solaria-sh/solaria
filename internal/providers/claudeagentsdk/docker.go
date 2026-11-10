@@ -59,9 +59,9 @@ type dockerParts struct {
 	// tagged BaseImage, and the generated Dockerfile starts from it.
 	Base      *container.BuildRequest
 	BaseImage string
-	// Run is the docker run command, ready for a shell. The task goes
-	// after it, as -p "<task>".
-	Run string
+	// Argv is the docker run command. The task goes after it, as
+	// -p "<task>".
+	Argv []string
 }
 
 // renderDocker renders the Dockerfile, the image's name and labels, and the run
@@ -179,27 +179,21 @@ func (r *renderer) dockerfile(base string) []byte {
 	return []byte(s.String())
 }
 
-// dockerRun builds the docker run command. It names secrets and the API
+// dockerArgv builds the docker run command. It names secrets and the API
 // key but never contains their values: docker copies them from the
 // caller's environment, or from the environment's dotenv file.
-func (r *renderer) dockerRun(secrets []string) string {
-	a, d := r.a, r.b.Docker
-	q := container.ShellQuote
-	parts := []string{"docker", "run", "--rm", "-i", "--platform", q(d.Platform), "--memory", container.Memory(a.Env.Sandbox)}
-	parts = append(parts, "--volume", `"$PWD":/workspace`)
-	if s := a.Env.Secrets; s != nil && s.Source == v1alpha1.SecretsDotenv {
-		p := s.Path
-		if p == "" {
-			p = ".env"
-		}
-		parts = append(parts, "--env-file", q(filepath.Join(a.EnvDir, filepath.FromSlash(p))))
+func (r *renderer) dockerArgv() []string {
+	a, b, d := r.a, r.b, r.b.Docker
+	argv := []string{"docker", "run", "--rm", "-i", "--platform", d.Platform, "--memory", container.Memory(a.Env.Sandbox)}
+	argv = append(argv, "--volume", state.WorkspacePlaceholder+":/workspace")
+	if b.Dotenv != "" {
+		argv = append(argv, "--env-file", b.Dotenv)
 	} else {
-		for _, s := range secrets {
-			parts = append(parts, "--env", s)
+		for _, s := range b.Secrets {
+			argv = append(argv, "--env", s)
 		}
 	}
-	parts = append(parts, "--env", "ANTHROPIC_API_KEY", q(d.Image))
-	return strings.Join(parts, " ")
+	return append(argv, "--env", "ANTHROPIC_API_KEY", d.Image)
 }
 
 // applyDocker builds the agent's image from the bundle written in dir, and
@@ -241,14 +235,15 @@ func (p *Provider) applyDocker(ctx context.Context, pl *provider.Plan, b *bundle
 	}
 	p.removeOthers(pl.Desired.Name, b.ID())
 
-	outputs := p.outputs(b, dir, d.Run)
+	inv := b.invocation(d.Argv, state.WorkspaceMount)
+	outputs := p.outputs(b, dir, inv)
 	outputs[outImage] = d.Image
 	outputs[outPlatform] = d.Platform
 	if d.BaseImage != "" {
 		outputs[outSandboxImage] = d.BaseImage
 	}
 	return &provider.Applied{
-		Binding:    state.Binding{HostID: d.Repository, Version: shortID(img.ID), Outputs: outputs},
+		Binding:    state.Binding{HostID: d.Repository, Version: shortID(img.ID), Outputs: outputs, Invocation: inv},
 		RemoteHash: img.ID,
 	}, nil
 }
