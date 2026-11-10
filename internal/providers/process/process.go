@@ -1,0 +1,184 @@
+// Package process is the shared code of the process placement (ADR 0014):
+// providers whose agent loop runs as a plain local process, such as
+// claude-agent-sdk.
+//
+// Solaria never starts that process (ADR 0002). What this package builds is
+// a description of the isolation every run gets, which a provider writes into
+// its bundle as isolation.json, and the preludes (prelude/isolate.mjs and
+// prelude/isolate.py) that the provider's launcher runs first to enforce it:
+//
+//   - an empty environment plus an allowlist: a minimal PATH, locale, proxy
+//     and certificate settings, the variables the provider needs, and the
+//     environment's secrets, by name;
+//   - a scratch HOME, config and temp directory per run, removed afterwards,
+//     so user-level settings, skills, plugins, logins and memory are never
+//     found;
+//   - a cache directory for package downloads that persists across runs and
+//     holds no configuration.
+package process
+
+import (
+	"bytes"
+	"encoding/json"
+	"maps"
+	"path/filepath"
+	"slices"
+
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
+	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/resolve"
+)
+
+// Placement is the placement's name.
+const Placement = "process"
+
+// Isolation is what a launcher needs to start a hermetic run. Its JSON form
+// is the contract with the preludes: change both together.
+type Isolation struct {
+	// Binaries the run needs on PATH, such as node or npx. The launcher looks
+	// each up on the caller's PATH and builds PATH from their folders, the
+	// runtime's own folder and the system folders. A missing one fails the
+	// run before it starts.
+	Binaries []string `json:"binaries"`
+	// Pass lists variables copied from the caller's environment when set.
+	Pass []string `json:"pass"`
+	// Secrets lists the names of the secrets the run is given. Their values
+	// come from Dotenv when it's set, otherwise from the caller's
+	// environment. A missing secret fails the run before it starts.
+	Secrets []string `json:"secrets"`
+	// Dotenv is the absolute path of the environment's dotenv file.
+	Dotenv string `json:"dotenv,omitempty"`
+	// Set lists variables set to fixed values.
+	Set map[string]string `json:"set"`
+	// Scratch maps variables to folders under the run's scratch directory,
+	// which is created for each run and removed after it.
+	Scratch map[string]string `json:"scratch"`
+	// Cache maps variables to folders under the bundle's cache directory,
+	// which persists across runs. Only package caches belong here.
+	Cache map[string]string `json:"cache"`
+}
+
+// Needs is what a provider adds to the base isolation.
+type Needs struct {
+	Binaries []string
+	Pass     []string
+	Set      map[string]string
+	Scratch  map[string]string
+	Cache    map[string]string
+}
+
+// basePass are the variables every run may see: locale, proxies and
+// certificates, which affect how the machine reaches the network but not
+// what the agent is, and the variables Windows programs need to start.
+var basePass = []string{
+	"LANG", "LC_ALL", "LC_CTYPE", "TZ",
+	"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY",
+	"http_proxy", "https_proxy", "no_proxy", "all_proxy",
+	"SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS", "REQUESTS_CA_BUNDLE",
+	"SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT",
+	"PROGRAMFILES", "OS", "PROCESSOR_ARCHITECTURE", "NUMBER_OF_PROCESSORS",
+}
+
+// baseScratch points every home, config and temp variable that POSIX,
+// XDG and Windows programs read at the scratch directory. Setting the
+// Windows ones on POSIX, and the reverse, is harmless.
+var baseScratch = map[string]string{
+	"HOME":            "home",
+	"USERPROFILE":     "home",
+	"XDG_CONFIG_HOME": "home/.config",
+	"XDG_DATA_HOME":   "home/.local/share",
+	"XDG_STATE_HOME":  "home/.local/state",
+	"XDG_CACHE_HOME":  "home/.cache",
+	"APPDATA":         "home/AppData/Roaming",
+	"LOCALAPPDATA":    "home/AppData/Local",
+	"TMPDIR":          "tmp",
+	"TEMP":            "tmp",
+	"TMP":             "tmp",
+}
+
+// baseCache keeps package downloads for stdio MCP servers across runs.
+var baseCache = map[string]string{
+	"npm_config_cache": "npm",
+	"UV_CACHE_DIR":     "uv",
+	"PIP_CACHE_DIR":    "pip",
+}
+
+// For builds the isolation of one agent's runs: the base allowlist, the
+// provider's needs, and the environment's secrets.
+func For(a *resolve.Agent, needs Needs) Isolation {
+	iso := Isolation{
+		Binaries: sortedUnique(needs.Binaries),
+		Pass:     sortedUnique(append(slices.Clone(basePass), needs.Pass...)),
+		Secrets:  a.SecretRefs(),
+		Set:      merge(nil, needs.Set),
+		Scratch:  merge(baseScratch, needs.Scratch),
+		Cache:    merge(baseCache, needs.Cache),
+	}
+	if iso.Secrets == nil {
+		iso.Secrets = []string{}
+	}
+	if s := a.Env.Secrets; s != nil && s.Source == v1alpha1.SecretsDotenv {
+		p := s.Path
+		if p == "" {
+			p = ".env"
+		}
+		abs, err := filepath.Abs(filepath.Join(a.EnvDir, filepath.FromSlash(p)))
+		if err != nil {
+			abs = filepath.Join(a.EnvDir, filepath.FromSlash(p))
+		}
+		iso.Dotenv = abs
+	}
+	return iso
+}
+
+// JSON returns the isolation as the preludes read it: indented, with sorted
+// keys, so the same isolation always gives the same bytes.
+func (iso Isolation) JSON() []byte {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	// Encoding these types can't fail.
+	_ = enc.Encode(iso)
+	return b.Bytes()
+}
+
+// Validate returns the warnings every process placement gives about an
+// agent's environment: what a local process can't enforce, and managed
+// settings that reach every Claude Code process on this machine.
+func Validate(a *resolve.Agent, managed []string) diag.List {
+	var diags diag.List
+	warn := func(format string, args ...any) {
+		diags = append(diags, diag.Warnf("", diag.Pos{}, format, args...))
+	}
+	sb := a.Env.Sandbox
+	if sb != nil && sb.Packages != nil {
+		warn("sandbox.packages aren't installed on the process placement: the run uses the tools this machine has")
+	}
+	if sb == nil || sb.Network == nil || sb.Network.Mode != v1alpha1.NetworkUnrestricted {
+		warn("sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can")
+	}
+	if sb != nil && sb.Resources != nil && (sb.Resources.Memory != "" || sb.Resources.Disk != "") {
+		warn("sandbox.resources aren't enforced on the process placement")
+	}
+	for _, m := range managed {
+		warn("managed settings in %s apply to every Claude Code process on this machine and can't be turned off on the process placement; use the docker placement to keep them out", m)
+	}
+	return diags
+}
+
+func sortedUnique(xs []string) []string {
+	out := slices.Clone(xs)
+	if out == nil {
+		return []string{}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+func merge(base, extra map[string]string) map[string]string {
+	out := map[string]string{}
+	maps.Copy(out, base)
+	maps.Copy(out, extra)
+	return out
+}

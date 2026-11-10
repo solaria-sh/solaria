@@ -396,7 +396,7 @@ func (r *renderer) run() string {
 	parts := []string{"docker", "run", "--rm", "--platform", q(r.b.Platform), "--memory", container.Memory(a.Env.Sandbox)}
 	parts = append(parts, "--volume", `"$PWD":/workspace`)
 
-	secrets := secretRefs(a)
+	secrets := a.SecretRefs()
 	if a.Env.Secrets != nil && a.Env.Secrets.Source == v1alpha1.SecretsDotenv {
 		p := a.Env.Secrets.Path
 		if p == "" {
@@ -448,29 +448,6 @@ func (r *renderer) run() string {
 }
 
 var localhost = regexp.MustCompile(`^[a-z]+://(localhost|127\.0\.0\.1|\[::1\])(:|/|$)`)
-
-// secretRefs lists the secrets the agent's MCP servers and telemetry use,
-// sorted.
-func secretRefs(a *resolve.Agent) []string {
-	var out []string
-	add := func(kvs []v1alpha1.KeyValue) {
-		for _, kv := range kvs {
-			if kv.SecretRef != "" {
-				out = append(out, kv.SecretRef)
-			}
-		}
-	}
-	for _, m := range a.Definition.Tools.MCP {
-		for _, rem := range m.Spec.Remotes {
-			add(rem.Headers)
-		}
-		for _, p := range m.Spec.Packages {
-			add(p.EnvironmentVariables)
-		}
-	}
-	slices.Sort(out)
-	return slices.Compact(out)
-}
 
 // modelKeys lists the variables gitagent reads API keys from, for every
 // model the agent may use (crates/provider/src at the pinned commit).
