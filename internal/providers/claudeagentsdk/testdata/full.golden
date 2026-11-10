@@ -158,8 +158,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.319"
   },
-  "description": "Rendered by Solaria from Agent/reviewer (sha256:7e6debe384925333e17d7bd433c522d41523acd2622d4287314d93406e799804). Run solaria apply instead of editing this bundle.",
-  "name": "solaria-dev-reviewer",
+  "description": "Rendered by Solaria. Run solaria apply instead of editing this bundle.",
+  "name": "solaria-agent",
   "private": true,
   "type": "module"
 }
