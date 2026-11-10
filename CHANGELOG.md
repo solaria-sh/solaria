@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.5.0](https://github.com/solaria-sh/solaria/compare/v0.4.0...v0.5.0) (2026-11-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* **status:** status -o json no longer prints the raw state; see docs/concepts.md#starting-an-agent for the new shape.
+
+### Added
+
+* **status:** show how to start an agent ([e1d22df](https://github.com/solaria-sh/solaria/commit/e1d22dfe872bfda62383f2005d8519efcc874249))
+
+
+### Fixed
+
+* **claude-agent-sdk:** keep the docker SDK layer cached across card changes ([dda906a](https://github.com/solaria-sh/solaria/commit/dda906a6ebc1f2346cd31eaa26a7b4fbc744364e))
+
 ## [0.4.0](https://github.com/solaria-sh/solaria/compare/v0.3.0...v0.4.0) (2026-11-10)
 
 
