@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -122,6 +123,78 @@ func askTarget(tool string, builtin map[string]bool, mcp map[string]*v1alpha1.MC
 	return ""
 }
 
+// narrowing checks that an override only takes access away from the agent
+// (ADR 0004): it may keep fewer built-in tools, narrow a server's
+// allowTools, and add tools to permissions.ask, but never add a tool.
+func narrowing(r *config.Resource, name string, agent v1alpha1.AgentSpec, o v1alpha1.AgentOverride) diag.List {
+	var diags diag.List
+	errorf := func(p diag.Pos, format string, args ...any) {
+		diags = append(diags, diag.Errorf(r.File, p, format, args...))
+	}
+	field := "spec.overrides." + name
+
+	// What the agent has, and what it keeps here.
+	builtin := map[string]bool{}
+	mcp := map[string]*v1alpha1.MCPToolRef{}
+	if t := agent.Tools; t != nil {
+		for _, b := range t.Builtin {
+			builtin[string(b)] = true
+		}
+		for i := range t.MCP {
+			if _, dup := mcp[t.MCP[i].Ref]; !dup {
+				mcp[t.MCP[i].Ref] = &t.MCP[i]
+			}
+		}
+	}
+	keptBuiltin, keptMCP := builtin, mcp
+
+	if t := o.Tools; t != nil {
+		if t.Builtin != nil {
+			keptBuiltin = map[string]bool{}
+			for i, b := range t.Builtin {
+				if !builtin[string(b)] {
+					errorf(r.Pos("spec", "overrides", name, "tools", "builtin", strconv.Itoa(i)),
+						"%s.tools.builtin[%d]: Agent %q doesn't have %q, and an override can only remove tools", field, i, name, b)
+					continue
+				}
+				keptBuiltin[string(b)] = true
+			}
+		}
+		keptMCP = maps.Clone(mcp)
+		seen := map[string]bool{}
+		for i, m := range t.MCP {
+			p := r.Pos("spec", "overrides", name, "tools", "mcp", strconv.Itoa(i), "ref")
+			ref, ok := mcp[m.Ref]
+			switch {
+			case !ok:
+				errorf(p, "%s.tools.mcp[%d].ref: Agent %q doesn't use McpServer %q, and an override can only remove tools", field, i, name, m.Ref)
+				continue
+			case seen[m.Ref]:
+				errorf(p, "%s.tools.mcp[%d].ref: McpServer %q is narrowed twice", field, i, m.Ref)
+				continue
+			}
+			seen[m.Ref] = true
+			for j, tool := range m.AllowTools {
+				if len(ref.AllowTools) > 0 && !slices.Contains(ref.AllowTools, tool) {
+					errorf(r.Pos("spec", "overrides", name, "tools", "mcp", strconv.Itoa(i), "allowTools", strconv.Itoa(j)),
+						"%s.tools.mcp[%d].allowTools[%d]: %q is not in Agent %q's allowTools of %q, and an override can only remove tools", field, i, j, tool, name, m.Ref)
+				}
+			}
+			keptMCP[m.Ref] = &v1alpha1.MCPToolRef{Ref: m.Ref, AllowTools: m.AllowTools}
+		}
+	}
+
+	if p := o.Permissions; p != nil {
+		for i, tool := range p.Ask {
+			if askTarget(tool, keptBuiltin, keptMCP) != "" {
+				errorf(r.Pos("spec", "overrides", name, "permissions", "ask", strconv.Itoa(i)),
+					"%s.permissions.ask[%d]: %q is not one of Agent %q's tools in this environment", field, i, tool, name)
+			}
+		}
+	}
+	return diags
+}
+
 func environment(set *config.Set, r *config.Resource) diag.List {
 	var diags diag.List
 	spec := r.Environment().Spec
@@ -151,6 +224,9 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 			// The agent exists but failed to load; its own errors say why.
 		case !selected[name]:
 			warnf(p, "spec.overrides: Agent %q is not selected by spec.agents.selector, so this override has no effect", name)
+		}
+		if a := set.Lookup(v1alpha1.KindAgent, name); a != nil {
+			diags = append(diags, narrowing(r, name, a.Agent().Spec, spec.Overrides[name])...)
 		}
 		diags = append(diags, passthrough(r, spec.Overrides[name].Providers, "spec", "overrides", name, "providers")...)
 	}

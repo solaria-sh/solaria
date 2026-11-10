@@ -47,6 +47,22 @@ spec:
 
 An environment receives every agent, or those matching `spec.agents.selector`. Moving an agent to another host means applying it to another environment. The Agent doesn't change.
 
+`spec.overrides.<agent>` changes an agent in one environment. It can replace model fields and limits, and merge provider fields. It can also take access away, so a stage can run the same agent with less, but never give it more:
+
+- `tools.builtin` keeps only the listed built-in tools, out of the agent's own (`[]` keeps none);
+- `tools.mcp` narrows a server's `allowTools`, within the agent's own list when it has one;
+- `permissions.ask` adds tools that need approval, which unattended hosts deny.
+
+```yaml
+  overrides:
+    reviewer:            # a shadow stage that only reads
+      tools:
+        builtin: [read, grep]
+        mcp: [{ref: git-host, allowTools: [get_pull_request]}]
+```
+
+An override that would add a tool fails `validate`, naming the field. Overrides change the agent's `resolvedDigest` in that environment, never its `specDigest`.
+
 ## Providers and placements
 
 A **provider** is the code that talks to one kind of host. A **placement** is where that host keeps the agent's sandbox. "Local" isn't special: it's an environment like any other.

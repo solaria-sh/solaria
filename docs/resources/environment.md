@@ -52,6 +52,13 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.overrides.<name>.model.preferred` | string |  | Preferred model, as provider:model. Matches `^[a-z][a-z0-9-]*:[^ ]+$`. |
 | `spec.overrides.<name>.model.fallback` | list of strings |  | Fallback models, replacing the agent's list. Each matches `^[a-z][a-z0-9-]*:[^ ]+$`. |
 | `spec.overrides.<name>.model.effort` | `low` or `medium` or `high` or `xhigh` or `max` |  | Effort level. |
+| `spec.overrides.<name>.tools` | object |  | Tools to take away in this environment. An override can only narrow the agent's tools: validate fails on one that adds a tool. |
+| `spec.overrides.<name>.tools.builtin` | list of `shell` or `read` or `write` or `edit` or `glob` or `grep` or `web_fetch` or `web_search` |  | Built-in tools to keep, out of the agent's spec.tools.builtin. Tools the agent has but this list leaves out are removed here; an empty list removes them all. Naming a tool the agent doesn't have is an error. |
+| `spec.overrides.<name>.tools.mcp` | list of objects |  | MCP servers whose tools to narrow. Servers the agent uses but this list doesn't name are unchanged; a server the agent doesn't use is an error. |
+| `spec.overrides.<name>.tools.mcp[].ref` | string | yes | Name of an McpServer the agent references in spec.tools.mcp. |
+| `spec.overrides.<name>.tools.mcp[].allowTools` | list of strings | yes | The server's tools this agent may call here. When the agent has its own allowTools for the server, this must be a subset of it. At least 1. |
+| `spec.overrides.<name>.permissions` | object |  | Permissions to tighten in this environment. |
+| `spec.overrides.<name>.permissions.ask` | list of strings |  | Tools to add to the agent's permissions.ask: a builtin name, or server/tool for an MCP tool. The agent's own entries stay. |
 | `spec.overrides.<name>.limits` | object |  | Limits to replace. |
 | `spec.overrides.<name>.limits.maxTurns` | integer |  | Most model calls in one run. |
 | `spec.overrides.<name>.limits.timeout` | string |  | Longest a run may take, as a duration such as 30m or 1h30m. Matches `^([0-9]+(h\|m\|s))+$`. |

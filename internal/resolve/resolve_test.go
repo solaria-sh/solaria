@@ -226,6 +226,70 @@ func TestOverrides(t *testing.T) {
 	}
 }
 
+// TestNarrowingOverride narrows tools and tightens permissions in one
+// environment (ADR 0004) and checks that the other is untouched.
+func TestNarrowingOverride(t *testing.T) {
+	files := maps.Clone(project)
+	files["environments.yaml"] += `  overrides:
+    reviewer:
+      tools:
+        builtin: [read, grep]
+        mcp: [{ref: git-host, allowTools: [get_pull_request]}]
+      permissions:
+        ask: [grep]
+`
+	all := resolveAll(t, files)
+	cloud := find(t, all["cloud"], "reviewer")
+	d := cloud.Definition
+	if got := strings.Join(d.Tools.Builtin, ","); got != "grep,read" {
+		t.Errorf("builtin = %s, want grep,read", got)
+	}
+	if got := strings.Join(d.Tools.MCP["git-host"].AllowTools, ","); got != "get_pull_request" {
+		t.Errorf("git-host allowTools = %s, want get_pull_request", got)
+	}
+	// shell and git-host/add_comment are gone here, so asking for them is
+	// dropped; grep is added.
+	if got := strings.Join(d.Permissions.Ask, ","); got != "grep" {
+		t.Errorf("ask = %s, want grep", got)
+	}
+	if cloud.ResolvedDigest == cloud.SpecDigest {
+		t.Error("narrowing didn't change resolvedDigest")
+	}
+
+	local := find(t, all["local"], "reviewer").Definition
+	if got := strings.Join(local.Tools.Builtin, ","); got != "grep,read,shell" {
+		t.Errorf("local builtin = %s, want the agent's own grep,read,shell", got)
+	}
+	if got := strings.Join(local.Tools.MCP["git-host"].AllowTools, ","); got != "add_comment,get_pull_request" {
+		t.Errorf("local git-host allowTools = %s, want the agent's own", got)
+	}
+}
+
+// TestNarrowingRemovesAll checks that an empty builtin list removes every
+// built-in tool, and that an override can narrow a server the agent allows
+// entirely.
+func TestNarrowingRemovesAll(t *testing.T) {
+	files := maps.Clone(project)
+	files["agents.yaml"] = strings.Replace(files["agents.yaml"], "        allowTools: [get_pull_request, add_comment]\n", "", 1)
+	files["agents.yaml"] = strings.Replace(files["agents.yaml"], "ask: [shell, git-host/add_comment]", "ask: [shell]", 1)
+	files["environments.yaml"] += `  overrides:
+    reviewer:
+      tools:
+        builtin: []
+        mcp: [{ref: git-host, allowTools: [list_files]}]
+`
+	d := find(t, resolveAll(t, files)["cloud"], "reviewer").Definition
+	if len(d.Tools.Builtin) != 0 {
+		t.Errorf("builtin = %v, want none", d.Tools.Builtin)
+	}
+	if got := strings.Join(d.Tools.MCP["git-host"].AllowTools, ","); got != "list_files" {
+		t.Errorf("git-host allowTools = %s, want list_files", got)
+	}
+	if len(d.Permissions.Ask) != 0 {
+		t.Errorf("ask = %v, want none: shell was removed", d.Permissions.Ask)
+	}
+}
+
 // TestDigestStability changes the project in ways that must not, and must,
 // change the reviewer's specDigest.
 func TestDigestStability(t *testing.T) {

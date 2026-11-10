@@ -296,10 +296,44 @@ const (
 type AgentOverride struct {
 	// Model fields to replace.
 	Model *ModelOverride `json:"model,omitempty"`
+	// Tools to take away in this environment. An override can only narrow
+	// the agent's tools: validate fails on one that adds a tool.
+	Tools *ToolsOverride `json:"tools,omitempty"`
+	// Permissions to tighten in this environment.
+	Permissions *PermissionsOverride `json:"permissions,omitempty"`
 	// Limits to replace.
 	Limits *LimitsSpec `json:"limits,omitempty"`
 	// Providers fields to merge over the agent's own.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
+}
+
+// ToolsOverride narrows an agent's tools in one environment, for example so
+// a shadow stage only reads.
+type ToolsOverride struct {
+	// Built-in tools to keep, out of the agent's spec.tools.builtin. Tools
+	// the agent has but this list leaves out are removed here; an empty list
+	// removes them all. Naming a tool the agent doesn't have is an error.
+	Builtin []BuiltinTool `json:"builtin,omitempty" jsonschema:"uniqueItems=true"`
+	// MCP servers whose tools to narrow. Servers the agent uses but this
+	// list doesn't name are unchanged; a server the agent doesn't use is an
+	// error.
+	MCP []MCPToolOverride `json:"mcp,omitempty"`
+}
+
+// MCPToolOverride narrows the tools of one MCP server the agent uses.
+type MCPToolOverride struct {
+	// Name of an McpServer the agent references in spec.tools.mcp.
+	Ref string `json:"ref" jsonschema:"required,minLength=1"`
+	// The server's tools this agent may call here. When the agent has its
+	// own allowTools for the server, this must be a subset of it.
+	AllowTools []string `json:"allowTools" jsonschema:"required,minItems=1,uniqueItems=true"`
+}
+
+// PermissionsOverride tightens an agent's permissions in one environment.
+type PermissionsOverride struct {
+	// Tools to add to the agent's permissions.ask: a builtin name, or
+	// server/tool for an MCP tool. The agent's own entries stay.
+	Ask []string `json:"ask,omitempty" jsonschema:"uniqueItems=true"`
 }
 
 // ModelOverride replaces some of an agent's model fields.
