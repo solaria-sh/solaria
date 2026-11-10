@@ -248,6 +248,23 @@ func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 			d.Model.Effort = m.Effort
 		}
 	}
+	if t := o.Tools; t != nil {
+		tools, err := narrowTools(d.Tools, t)
+		if err != nil {
+			return Definition{}, err
+		}
+		d.Tools = tools
+	}
+	if p := o.Permissions; p != nil {
+		d.Permissions.Ask = slices.Compact(sorted(append(slices.Clone(d.Permissions.Ask), p.Ask...)))
+	}
+	if o.Tools != nil || o.Permissions != nil {
+		// An ask entry for a tool this environment removed has nothing left
+		// to ask about. validate reports one the override itself names.
+		d.Permissions.Ask = slices.DeleteFunc(slices.Clone(d.Permissions.Ask), func(tool string) bool {
+			return !d.Tools.has(tool)
+		})
+	}
 	if o.Limits != nil {
 		lim, err := limits(d.Limits, o.Limits)
 		if err != nil {
@@ -267,6 +284,48 @@ func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 		d.Providers = merged
 	}
 	return d, nil
+}
+
+// narrowTools applies an override's tools to an agent's, returning new
+// Tools. An override can only take tools away (ADR 0004); one that would
+// add a tool is an error, which validate reports first with its position.
+func narrowTools(t Tools, o *v1alpha1.ToolsOverride) (Tools, error) {
+	out := Tools{Builtin: t.Builtin, MCP: maps.Clone(t.MCP)}
+	if o.Builtin != nil {
+		out.Builtin = []string{}
+		for _, b := range o.Builtin {
+			if !slices.Contains(t.Builtin, string(b)) {
+				return Tools{}, fmt.Errorf("tools.builtin: %q is not one of the agent's built-in tools", b)
+			}
+			out.Builtin = append(out.Builtin, string(b))
+		}
+		slices.Sort(out.Builtin)
+	}
+	for _, m := range o.MCP {
+		srv, ok := out.MCP[m.Ref]
+		if !ok {
+			return Tools{}, fmt.Errorf("tools.mcp: the agent doesn't use McpServer %q", m.Ref)
+		}
+		for _, tool := range m.AllowTools {
+			if srv.AllowTools != nil && !slices.Contains(srv.AllowTools, tool) {
+				return Tools{}, fmt.Errorf("tools.mcp: %q is not in the agent's allowTools of %q", tool, m.Ref)
+			}
+		}
+		srv.AllowTools = sorted(m.AllowTools)
+		out.MCP[m.Ref] = srv
+	}
+	return out, nil
+}
+
+// has reports whether a permissions.ask entry (a builtin name, or
+// server/tool) names a tool in t.
+func (t Tools) has(tool string) bool {
+	server, name, isMCP := strings.Cut(tool, "/")
+	if !isMCP {
+		return slices.Contains(t.Builtin, tool)
+	}
+	srv, ok := t.MCP[server]
+	return ok && (srv.AllowTools == nil || slices.Contains(srv.AllowTools, name))
 }
 
 // limits merges set fields of l over base, normalizing the timeout.
