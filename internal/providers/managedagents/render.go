@@ -289,6 +289,9 @@ func validateAgent(a *resolve.Agent, s settings, where string) diag.List {
 	if n := len(d.Tools.MCP); n > maxMCPServers {
 		errorf("the agent uses %d MCP servers; the host takes %d", n, maxMCPServers)
 	}
+	if len(d.Vaults) > 0 {
+		errorf("the agent references vaults (%s), and managed-agents can't create host vaults yet; until it can, run this agent where a launcher passes its credentials (claude-agent-sdk or gitagent)", strings.Join(slices.Sorted(maps.Keys(d.Vaults)), ", "))
+	}
 	for _, name := range slices.Sorted(maps.Keys(d.Tools.MCP)) {
 		_, r := remote(d.Tools.MCP[name].Spec)
 		if r != nil && len(r.Headers) > 0 {

@@ -24,11 +24,12 @@ The analogy stops at two points. Kubernetes runs a controller that reconciles al
 
 A Solaria project is a folder of YAML files. Each document in them is a resource with `apiVersion: solaria.sh/v1alpha1`, a `kind`, `metadata.name` and a `spec`. Solaria reads every `.yaml` and `.yml` file under the folder, except in hidden folders, `node_modules`, `vendor` and `testdata`.
 
-There are three kinds:
+There are four kinds:
 
 - **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits.
 - **McpServer**: an MCP server, in the shape of the [MCP Registry's `server.json`](https://github.com/modelcontextprotocol/registry): `packages` that run locally over stdio (npm, PyPI), `remotes` reached over HTTP, or both. Agents refer to servers by name with `ref:`, and can narrow them with `allowTools`.
 - **Environment**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: the sandbox, the secret source, telemetry, per-agent overrides and host settings.
+- **Vault**: credentials an agent may use, each naming a secret and what it unlocks. Agents list the vaults they use in `spec.vaults`. See [Credentials and vaults](#credentials-and-vaults).
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -62,6 +63,36 @@ An environment receives every agent, or those matching `spec.agents.selector`. M
 ```
 
 An override that would add a tool fails `validate`, naming the field. Overrides change the agent's `resolvedDigest` in that environment, never its `specDigest`.
+
+### Credentials and vaults
+
+An McpServer names the secrets it needs with `secretRef`, in a remote's headers or a package's environment variables. The environment's secret source (`secrets.source`: the caller's environment, or a dotenv file) holds the values. A Vault decides which agents get them:
+
+```yaml
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git-host}
+spec:
+  credentials:
+    - name: git-host-token
+      secretRef: GIT_HOST_TOKEN          # read from the secret source
+      for: {mcpServer: {ref: git-host}}  # a server that uses GIT_HOST_TOKEN
+    - name: gh-cli
+      secretRef: GITHUB_PAT
+      for: {env: GH_TOKEN}               # the run sees GITHUB_PAT as GH_TOKEN
+```
+
+```yaml
+kind: Agent
+spec:
+  tools:
+    mcp: [{ref: git-host}]
+  vaults: [{ref: git-host}]
+```
+
+Once an agent lists a vault, it gets exactly the credentials of its vaults: a secret one of its servers needs that no vault grants for that server fails `validate`. An agent without vaults still gets every secret its servers name, and `validate` warns, so a project can move to vaults one agent at a time. A Vault never holds a value. The digest covers each credential's name, secret name and target, so granting one changes the agent's `resolvedDigest`.
+
+Where a vault's credentials reach the run depends on the provider: see [claude-agent-sdk](providers/claude-agent-sdk.md), [gitagent](providers/gitagent.md#limits) and [managed-agents](providers/managed-agents.md).
 
 ## Providers and placements
 

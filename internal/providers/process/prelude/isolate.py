@@ -92,11 +92,15 @@ def isolate(spec, cache_dir):
             values = parse_dotenv(text)
         except ValueError as err:
             raise RuntimeError(f"{spec['dotenv']}: {err}") from None
-    unset = [n for n in spec["secrets"] if not _lookup(values, n)]
+    renamed = spec.get("secretEnv") or {}
+    needed = sorted(set(spec["secrets"]) | set(renamed.values()))
+    unset = [n for n in needed if not _lookup(values, n)]
     if unset:
         raise RuntimeError(f"secrets not set in {where}: " + ", ".join(unset))
     for n in spec["secrets"]:
         env[n] = _lookup(values, n)
+    for v, n in renamed.items():
+        env[v] = _lookup(values, n)
 
     env.update(spec["set"])
 

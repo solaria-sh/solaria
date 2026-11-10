@@ -19,6 +19,7 @@ var referencePages = []struct{ kind, file string }{
 	{v1alpha1.KindAgent, "agent.md"},
 	{v1alpha1.KindEnvironment, "environment.md"},
 	{v1alpha1.KindMcpServer, "mcp-server.md"},
+	{v1alpha1.KindVault, "vault.md"},
 }
 
 // Reference renders the resource reference: a page per kind, keyed by file
@@ -46,7 +47,11 @@ func Reference() (map[string][]byte, error) {
 				others = append(others, "["+o.kind+"]("+o.file+")")
 			}
 		}
-		b.WriteString(" The other resources are " + strings.Join(others, " and ") + ", and the [concepts](../concepts.md) explain how they fit together.\n\n")
+		list := others[len(others)-1]
+		if len(others) > 1 {
+			list = strings.Join(others[:len(others)-1], ", ") + " and " + list
+		}
+		b.WriteString(" The other resources are " + list + ", and the [concepts](../concepts.md) explain how they fit together.\n\n")
 		b.WriteString("## Fields\n\n")
 		b.WriteString("The same rules are in the [JSON Schema](../../schemas/" + v1alpha1.Version + "/), which `solaria schema` prints for editors. ")
 		b.WriteString("Paths use `.` for nested fields, `[]` for list items and `<name>` for map keys you choose.\n\n")

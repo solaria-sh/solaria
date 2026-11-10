@@ -60,3 +60,5 @@ The host ID is the image repository and the version is the image ID, so an image
 - The image runs as root, with `HOME=/root`.
 - gitagent can't run MCP packages other than npm and PyPI.
 - A telemetry header that comes from a secret can't reach gitagent's exporter yet, so it's left out with a warning.
+- [Vault](../concepts.md#credentials-and-vaults) credentials reach the container under their secret's name, so an `env` credential must name its variable after its secret, or plan fails.
+- With `secrets.source: dotenv`, docker passes the whole file to the container, so vaults don't limit which secrets the agent sees; plan warns. Use `secrets.source: env` to scope them.

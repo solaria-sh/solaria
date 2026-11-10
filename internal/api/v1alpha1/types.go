@@ -47,6 +47,10 @@ type AgentSpec struct {
 	Permissions *PermissionsSpec `json:"permissions,omitempty"`
 	// Bounds each run of the agent.
 	Limits *LimitsSpec `json:"limits,omitempty"`
+	// Vaults whose credentials the agent may use, by reference to Vault
+	// resources. Once an agent lists any, every secret its MCP servers need
+	// must come from one of them, and the run gets nothing else.
+	Vaults []VaultRef `json:"vaults,omitempty"`
 	// Fields passed unchanged to one provider, keyed by provider name. Using
 	// them makes the agent less portable, and validate reports it.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
@@ -449,4 +453,59 @@ type KeyValue struct {
 	// Name of a secret in the environment's secret source, in
 	// UPPER_SNAKE_CASE. Its value is never stored by Solaria.
 	SecretRef string `json:"secretRef,omitempty" jsonschema:"pattern=^[A-Z_][A-Z0-9_]*$"`
+}
+
+// VaultRef references a Vault resource.
+type VaultRef struct {
+	// Name of a Vault resource.
+	Ref string `json:"ref" jsonschema:"required,minLength=1"`
+}
+
+// Vault is a set of credentials that agents use by reference. A credential
+// says what it unlocks; its value comes from the environment's secret
+// source when the agent runs, and is never written to a Vault.
+type Vault struct {
+	// API version of this resource.
+	APIVersion string `json:"apiVersion" jsonschema:"required"`
+	// Kind of this resource.
+	Kind string `json:"kind" jsonschema:"required"`
+	// Identifies the vault.
+	Metadata ObjectMeta `json:"metadata" jsonschema:"required"`
+	// Lists the vault's credentials.
+	Spec VaultSpec `json:"spec" jsonschema:"required"`
+}
+
+// VaultSpec lists a vault's credentials.
+type VaultSpec struct {
+	// Description of the vault.
+	Description string `json:"description,omitempty"`
+	// Credentials in the vault, each with a unique name.
+	Credentials []Credential `json:"credentials" jsonschema:"required,minItems=1"`
+}
+
+// Credential is one secret and what it unlocks.
+type Credential struct {
+	// Name of the credential, unique in the vault.
+	Name string `json:"name" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$,maxLength=63"`
+	// Name of the secret that holds the value, in the environment's secret
+	// source (a variable or a dotenv entry).
+	SecretRef string `json:"secretRef" jsonschema:"required,pattern=^[A-Z_][A-Z0-9_]*$"`
+	// What the credential unlocks: an MCP server, or an environment
+	// variable of the run.
+	For CredentialTarget `json:"for" jsonschema:"required"`
+}
+
+// CredentialTarget says what a credential unlocks. Set exactly one field.
+type CredentialTarget struct {
+	// An MCP server that uses this secret in a header or a package
+	// variable, by reference to an McpServer resource.
+	MCPServer *ServerRef `json:"mcpServer,omitempty"`
+	// An environment variable the run gets, set to the secret's value.
+	Env string `json:"env,omitempty" jsonschema:"pattern=^[A-Z_][A-Z0-9_]*$"`
+}
+
+// ServerRef references an McpServer resource.
+type ServerRef struct {
+	// Name of an McpServer resource.
+	Ref string `json:"ref" jsonschema:"required,minLength=1"`
 }

@@ -1,4 +1,5 @@
-# A complete, valid project: one agent, one MCP server, two environments.
+# A complete, valid project: one agent, one MCP server, one vault, two
+# environments.
 exec solaria validate
 cmp stdout want.txt
 ! stderr .
@@ -8,7 +9,7 @@ exec solaria validate -o json
 cmp stdout want.json
 
 -- want.txt --
-valid: 1 Agent, 2 Environments, 1 McpServer
+valid: 1 Agent, 2 Environments, 1 McpServer, 1 Vault
 -- want.json --
 {
   "valid": true,
@@ -26,6 +27,11 @@ valid: 1 Agent, 2 Environments, 1 McpServer
     {
       "kind": "Agent",
       "name": "reviewer",
+      "file": "solaria.yaml"
+    },
+    {
+      "kind": "Vault",
+      "name": "git-host",
       "file": "solaria.yaml"
     },
     {
@@ -58,6 +64,17 @@ spec:
   permissions:
     ask: [shell, git-host/add_comment]
   limits: {maxTurns: 40, timeout: 30m}
+  vaults: [{ref: git-host}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git-host}
+spec:
+  description: The reviewer's access to the git host
+  credentials:
+    - name: git-host-token
+      secretRef: GIT_HOST_TOKEN
+      for: {mcpServer: {ref: git-host}}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: McpServer

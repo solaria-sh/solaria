@@ -40,6 +40,7 @@ var kinds = []kindSchema{
 	{v1alpha1.KindAgent, &v1alpha1.Agent{}},
 	{v1alpha1.KindEnvironment, &v1alpha1.Environment{}},
 	{v1alpha1.KindMcpServer, &v1alpha1.McpServer{}},
+	{v1alpha1.KindVault, &v1alpha1.Vault{}},
 }
 
 // Generate returns the schema files by name. It reads doc comments from the
@@ -185,6 +186,9 @@ func extend(s *jsonschema.Schema, kind string) {
 	}
 	if d := s.Definitions["McpServerSpec"]; d != nil {
 		d.AnyOf = []*jsonschema.Schema{{Required: []string{"packages"}}, {Required: []string{"remotes"}}}
+	}
+	if d := s.Definitions["CredentialTarget"]; d != nil {
+		d.OneOf = []*jsonschema.Schema{{Required: []string{"mcpServer"}}, {Required: []string{"env"}}}
 	}
 	if d := s.Definitions["KeyValue"]; d != nil {
 		d.OneOf = []*jsonschema.Schema{{Required: []string{"value"}}, {Required: []string{"secretRef"}}}

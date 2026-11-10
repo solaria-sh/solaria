@@ -6,7 +6,8 @@
 - Resources, every field of each kind, generated from the schema:
   - [`Agent`](resources/agent.md): what the agent is, independently of any host;
   - [`Environment`](resources/environment.md): where agents run, and everything about that place;
-  - [`McpServer`](resources/mcp-server.md): an MCP server that agents refer to by name.
+  - [`McpServer`](resources/mcp-server.md): an MCP server that agents refer to by name;
+  - [`Vault`](resources/vault.md): credentials that agents use by reference.
 - Providers:
   - [`stub`](providers/stub.md): files only, for trying Solaria and for tests;
   - [`gitagent`](providers/gitagent.md): a container image that runs gitagent;

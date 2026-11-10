@@ -50,6 +50,10 @@ type Isolation struct {
 	// come from Dotenv when it's set, otherwise from the caller's
 	// environment. A missing secret fails the run before it starts.
 	Secrets []string `json:"secrets"`
+	// SecretEnv maps variables to the secrets that hold their values, for a
+	// Vault credential whose variable is named differently from its secret.
+	// The secret is read as for Secrets, and the run sees only the variable.
+	SecretEnv map[string]string `json:"secretEnv,omitempty"`
 	// Dotenv is the absolute path of the environment's dotenv file.
 	Dotenv string `json:"dotenv,omitempty"`
 	// Set lists variables set to fixed values.
@@ -109,20 +113,28 @@ var baseCache = map[string]string{
 }
 
 // For builds the isolation of one agent's runs: the base allowlist, the
-// provider's needs, and the environment's secrets.
+// provider's needs, and the secrets the agent is granted.
 func For(a *resolve.Agent, needs Needs) Isolation {
 	iso := Isolation{
 		Binaries: sortedUnique(needs.Binaries),
 		Path:     needs.Path,
 		Pass:     sortedUnique(append(slices.Clone(basePass), needs.Pass...)),
-		Secrets:  a.SecretRefs(),
+		Secrets:  []string{},
 		Set:      merge(nil, needs.Set),
 		Scratch:  merge(baseScratch, needs.Scratch),
 		Cache:    merge(baseCache, needs.Cache),
 	}
-	if iso.Secrets == nil {
-		iso.Secrets = []string{}
+	for v, secret := range a.SecretVars() {
+		if v == secret {
+			iso.Secrets = append(iso.Secrets, v)
+			continue
+		}
+		if iso.SecretEnv == nil {
+			iso.SecretEnv = map[string]string{}
+		}
+		iso.SecretEnv[v] = secret
 	}
+	slices.Sort(iso.Secrets)
 	if s := a.Env.Secrets; s != nil && s.Source == v1alpha1.SecretsDotenv {
 		p := s.Path
 		if p == "" {

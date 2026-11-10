@@ -55,9 +55,48 @@ type Agent struct {
 // ID returns the agent's logical ID.
 func (a *Agent) ID() string { return v1alpha1.KindAgent + "/" + a.Name }
 
-// SecretRefs lists the secrets the agent's MCP servers use, sorted: the
-// names a run must be given values for.
+// SecretRefs lists the secrets a run must be given values for, sorted: the
+// values of SecretVars.
 func (a *Agent) SecretRefs() []string {
+	var out []string
+	for _, secret := range a.SecretVars() {
+		out = append(out, secret)
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// SecretVars maps each environment variable a run gets to the secret that
+// holds its value. An agent with vaults gets exactly its credentials: one
+// for an MCP server sets a variable named after its secret, which the
+// server's configuration reads, and one for a variable sets that variable.
+// An agent without vaults gets every secret its MCP servers use, each under
+// its own name (ADR 0016).
+func (a *Agent) SecretVars() map[string]string {
+	out := map[string]string{}
+	if len(a.Definition.Vaults) == 0 {
+		for _, m := range a.Definition.Tools.MCP {
+			for _, s := range ServerSecrets(m.Spec) {
+				out[s] = s
+			}
+		}
+		return out
+	}
+	for _, v := range a.Definition.Vaults {
+		for _, c := range v.Credentials {
+			name := c.SecretRef
+			if c.Env != "" {
+				name = c.Env
+			}
+			out[name] = c.SecretRef
+		}
+	}
+	return out
+}
+
+// ServerSecrets lists the secrets an MCP server uses in a remote's headers
+// or a package's variables, sorted.
+func ServerSecrets(spec v1alpha1.McpServerSpec) []string {
 	var out []string
 	add := func(kvs []v1alpha1.KeyValue) {
 		for _, kv := range kvs {
@@ -66,13 +105,11 @@ func (a *Agent) SecretRefs() []string {
 			}
 		}
 	}
-	for _, m := range a.Definition.Tools.MCP {
-		for _, rem := range m.Spec.Remotes {
-			add(rem.Headers)
-		}
-		for _, p := range m.Spec.Packages {
-			add(p.EnvironmentVariables)
-		}
+	for _, rem := range spec.Remotes {
+		add(rem.Headers)
+	}
+	for _, p := range spec.Packages {
+		add(p.EnvironmentVariables)
 	}
 	slices.Sort(out)
 	return slices.Compact(out)
@@ -221,6 +258,16 @@ func definition(set *config.Set, r *config.Resource) (Definition, map[string]str
 	if p := s.Permissions; p != nil {
 		d.Permissions.Ask = sorted(p.Ask)
 	}
+	for _, ref := range s.Vaults {
+		v := set.Lookup(v1alpha1.KindVault, ref.Ref)
+		if v == nil {
+			return Definition{}, nil, fmt.Errorf("no Vault named %q", ref.Ref)
+		}
+		if d.Vaults == nil {
+			d.Vaults = map[string]Vault{}
+		}
+		d.Vaults[ref.Ref] = vault(v.Vault().Spec)
+	}
 	if l := s.Limits; l != nil {
 		lim, err := limits(Limits{}, l)
 		if err != nil {
@@ -284,6 +331,21 @@ func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 		d.Providers = merged
 	}
 	return d, nil
+}
+
+// vault normalizes a Vault: its credentials by name, with their targets.
+// Values never appear here, so they never reach a digest.
+func vault(spec v1alpha1.VaultSpec) Vault {
+	v := Vault{Credentials: make([]Credential, 0, len(spec.Credentials))}
+	for _, c := range spec.Credentials {
+		cr := Credential{Name: c.Name, SecretRef: c.SecretRef, Env: c.For.Env}
+		if c.For.MCPServer != nil {
+			cr.MCPServer = c.For.MCPServer.Ref
+		}
+		v.Credentials = append(v.Credentials, cr)
+	}
+	slices.SortFunc(v.Credentials, func(a, b Credential) int { return strings.Compare(a.Name, b.Name) })
+	return v
 }
 
 // narrowTools applies an override's tools to an agent's, returning new

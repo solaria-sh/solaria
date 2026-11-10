@@ -2,7 +2,7 @@
 
 # Agent
 
-Describes an agent independently of the host it runs on. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Agent`. The other resources are [Environment](environment.md) and [McpServer](mcp-server.md), and the [concepts](../concepts.md) explain how they fit together.
+Describes an agent independently of the host it runs on. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Agent`. The other resources are [Environment](environment.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 
@@ -33,4 +33,6 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.limits` | object |  | Bounds each run of the agent. |
 | `spec.limits.maxTurns` | integer |  | Most model calls in one run. |
 | `spec.limits.timeout` | string |  | Longest a run may take, as a duration such as 30m or 1h30m. Matches `^([0-9]+(h\|m\|s))+$`. |
+| `spec.vaults` | list of objects |  | Vaults whose credentials the agent may use, by reference to Vault resources. Once an agent lists any, every secret its MCP servers need must come from one of them, and the run gets nothing else. |
+| `spec.vaults[].ref` | string | yes | Name of a Vault resource. |
 | `spec.providers` | map of objects |  | Fields passed unchanged to one provider, keyed by provider name. Using them makes the agent less portable, and validate reports it. |

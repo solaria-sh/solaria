@@ -111,9 +111,12 @@ export function isolate(spec, { cacheDir }) {
       throw new Error(`${spec.dotenv}: ${err.message}`);
     }
   }
-  const unset = spec.secrets.filter((n) => !lookup(values, n));
+  const renamed = spec.secretEnv || {};
+  const needed = [...new Set([...spec.secrets, ...Object.values(renamed)])].sort();
+  const unset = needed.filter((n) => !lookup(values, n));
   if (unset.length > 0) throw new Error(`secrets not set in ${where}: ${unset.join(", ")}`);
   for (const n of spec.secrets) env[n] = lookup(values, n);
+  for (const [v, n] of Object.entries(renamed)) env[v] = lookup(values, n);
 
   Object.assign(env, spec.set);
 

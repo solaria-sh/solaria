@@ -6,7 +6,8 @@ import (
 
 // Format names the shape of Definition. Any change to what goes into a
 // definition, or how it is normalized, changes every digest, so it needs a
-// new Format (ADR 0008).
+// new Format (ADR 0008). The one exception is a new field that is omitted
+// when empty, such as Vaults: agents that don't use it keep their digests.
 const Format = "solaria.sh/definition/v1"
 
 // Definition is everything that makes up an agent's behavior, normalized so
@@ -29,6 +30,24 @@ type Definition struct {
 	Permissions  Permissions               `json:"permissions"`
 	Limits       Limits                    `json:"limits"`
 	Providers    map[string]ProviderFields `json:"providers"`
+	// Vaults the agent references, by name. Left out when there are none,
+	// so agents without vaults hash as they did before Vaults existed.
+	Vaults map[string]Vault `json:"vaults,omitempty"`
+}
+
+// Vault is a referenced Vault: what each credential unlocks, never a value.
+type Vault struct {
+	// Credentials sorted by name.
+	Credentials []Credential `json:"credentials"`
+}
+
+// Credential is one credential of a vault. Exactly one of MCPServer and Env
+// is set.
+type Credential struct {
+	Name      string `json:"name"`
+	SecretRef string `json:"secretRef"`
+	MCPServer string `json:"mcpServer,omitempty"`
+	Env       string `json:"env,omitempty"`
 }
 
 // Model is the resolved model binding.

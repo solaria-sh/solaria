@@ -40,6 +40,13 @@
           "$ref": "#/$defs/LimitsSpec",
           "description": "Bounds each run of the agent."
         },
+        "vaults": {
+          "items": {
+            "$ref": "#/$defs/VaultRef"
+          },
+          "type": "array",
+          "description": "Vaults whose credentials the agent may use, by reference to Vault resources. Once an agent lists any, every secret its MCP servers need must come from one of them, and the run gets nothing else."
+        },
         "providers": {
           "additionalProperties": {
             "type": "object"
@@ -209,6 +216,21 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Lists the tools an agent may use. Tools not listed are not available."
+    },
+    "VaultRef": {
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a Vault resource."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ref"
+      ],
+      "description": "References a Vault resource."
     }
   },
   "properties": {

@@ -22,7 +22,7 @@ To update expected output after an intended change, run `go test ./... -update` 
 
 - `cmd/solaria/`: the entry point only. No logic here.
 - `internal/cli/`: cobra commands. Keep them thin; they call into the engine.
-- `internal/api/v1alpha1/`: resource types (Agent, Environment, McpServer). These are the source of truth for the JSON Schema in `schemas/`. Field doc comments become schema descriptions, so write them for people editing agent definitions.
+- `internal/api/v1alpha1/`: resource types (Agent, Environment, McpServer, Vault). These are the source of truth for the JSON Schema in `schemas/`. Field doc comments become schema descriptions, so write them for people editing agent definitions.
 - `internal/scaffold/`: the templates `solaria init` writes, embedded from `internal/scaffold/templates/<name>/`, and fetching git templates. `internal/cli/testdata/script/init*.txtar` validates and plans each embedded template, so a template can't fall behind the schema (ADR 0015).
 - `internal/schemagen/`: generates `schemas/v1alpha1/*.json` from the types. A test fails when the committed files are stale.
 - `internal/config/`: finds YAML files, checks each document against its schema, and decodes it. Errors carry file, line and column.
@@ -47,6 +47,6 @@ Everything is under `internal/` until the API stabilizes. Don't add public packa
 - User-facing errors name the file and field so the problem can be fixed.
 - Unit tests must not use the network, Docker or real credentials. Use fakes (`httptest`, interface fakes). Integration tests are opt-in through `SOLARIA_IT_*` environment variables.
 - Secrets never reach state, digests, logs, plan output or rendered files. Only the names of secret references do.
-- Anything that changes `resolve.Definition` or its normalization changes every digest. Bump `resolve.Format`, update ADR 0008, and only then regenerate the golden files.
+- Anything that changes `resolve.Definition` or its normalization changes every digest. Bump `resolve.Format`, update ADR 0008, and only then regenerate the golden files. The exception is a new field omitted when empty (`omitempty`), which leaves existing digests alone; it still needs a line in ADR 0008.
 - Conventional Commits, signed off (`git commit -s`).
 - A change to an architectural decision needs an updated or new ADR in the same pull request.

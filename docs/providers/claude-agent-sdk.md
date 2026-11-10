@@ -81,7 +81,7 @@ A `sandbox.image` replaces the Solaria sandbox base, so it must have the runtime
 
 A local process sees everything its user has: settings, skills and plugins in the home folder, `CLAUDE.md` files up the tree, stored logins, and every variable in the shell. The launcher keeps all of that out, so what runs is exactly the definition its digest describes:
 
-- **The environment starts empty.** The run gets a minimal `PATH`, locale, proxy and certificate settings, `ANTHROPIC_API_KEY`, and the secrets its MCP servers name. Nothing else from your shell reaches it. A missing secret, or a missing `npx` or `uvx` for a stdio server, fails the run before it starts.
+- **The environment starts empty.** The run gets a minimal `PATH`, locale, proxy and certificate settings, `ANTHROPIC_API_KEY`, and the secrets its MCP servers name, or, when the agent lists [vaults](../concepts.md#credentials-and-vaults), exactly their credentials, with an `env` credential set under its variable's name. Nothing else from your shell, or from the dotenv file, reaches it. A missing secret, or a missing `npx` or `uvx` for a stdio server, fails the run before it starts.
 - **`HOME`, `CLAUDE_CONFIG_DIR` and the temp folder are scratch directories,** created for the run and removed after it.
 - **The SDK loads no settings files** (`settingSources: []`) and only the card's MCP servers (`strictMcpConfig`). Claude Code's auto memory, `CLAUDE.md` loading, claude.ai connectors and nonessential traffic are off.
 

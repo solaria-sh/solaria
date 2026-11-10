@@ -55,6 +55,8 @@ What the digest input includes and excludes:
   - kept where it does: instructions, `model.fallback`.
 - **MCP servers:** the referenced McpServer spec, keyed by name.
 - **Values:** `limits.timeout` is normalized (`90m` and `1h30m` are equal). Empty lists encode as `[]`.
+- **Vaults:** each referenced Vault keyed by name, its credentials sorted by name, each with its secret's name and its target. Never a value.
+- **Fields added later:** a field added to the format after it shipped is left out of the input when it's empty, so agents that don't use it keep their digests and the format keeps its name. `vaults` (ADR 0016) and `output` (ADR 0019) are such fields. Changing what an existing field holds, or how it's normalized, still needs a new format.
 - **Overrides:**
   - `model` and `limits` replace field by field;
   - `providers` merges as an [RFC 7386](https://www.rfc-editor.org/rfc/rfc7386) JSON Merge Patch, where `null` removes a field.
@@ -131,3 +133,4 @@ The golden files pin the digests themselves, so an accidental format change fail
 - [OTel GenAI attributes](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/registry/attributes/gen-ai.md)
 - Revised in M5: how providers track environment changes the digests leave out.
 - Revised 2026-11-10 (Fidelity and polish): annotations, identity inside the run, `service.version` and `telemetry.resourceAttributes`, and why there's no git-commit attribute. A project namespace in the logical ID was considered and deferred: `service.namespace` covers the telemetry collision without migrating state. The agent's output schema joins the digest input under [ADR 0019](0019-agent-output-schema.md).
+- Revised for ADR 0016: fields added later are left out when empty, and vaults join the input.

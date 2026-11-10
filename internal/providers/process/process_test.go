@@ -406,6 +406,68 @@ func TestPreludeIsolates(t *testing.T) {
 	}
 }
 
+// TestPreludeRenamesVaultSecret checks that a Vault credential for a
+// variable sets only that variable, from the secret it names, and that the
+// secret doesn't also reach the run under its own name.
+func TestPreludeRenamesVaultSecret(t *testing.T) {
+	work := t.TempDir()
+	a := agent(work)
+	a.Definition.Vaults = map[string]resolve.Vault{"tracker": {Credentials: []resolve.Credential{
+		{Name: "gh", SecretRef: "GITHUB_PAT", Env: "GH_TOKEN"},
+		{Name: "tracker", SecretRef: "MCP_TOKEN", MCPServer: "tracker"},
+	}}}
+	iso := For(a, Needs{})
+	if !slices.Equal(iso.Secrets, []string{"MCP_TOKEN"}) || !reflect.DeepEqual(iso.SecretEnv, map[string]string{"GH_TOKEN": "GITHUB_PAT"}) {
+		t.Fatalf("For: Secrets %v, SecretEnv %v", iso.Secrets, iso.SecretEnv)
+	}
+	specPath := filepath.Join(work, "isolation.json")
+	if err := os.WriteFile(specPath, iso.JSON(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dotenv := filepath.Join(work, "secrets.env")
+	if err := os.WriteFile(dotenv, []byte("MCP_TOKEN=m\nGITHUB_PAT=g\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	caller := []string{"PATH=" + os.Getenv("PATH"), "TMPDIR=" + t.TempDir(), "GITHUB_PAT=from-caller"}
+	for _, name := range []string{"SYSTEMROOT", "PATHEXT", "TEMP", "TMP"} {
+		if v := os.Getenv(name); v != "" {
+			caller = append(caller, name+"="+v)
+		}
+	}
+	cache := filepath.Join(work, "cache")
+	for _, r := range runtimes(t) {
+		t.Run(r.name, func(t *testing.T) {
+			res := r.run(t, caller, "isolate", specPath, cache)
+			if msg, ok := res["error"]; ok {
+				t.Fatalf("isolate failed: %v", msg)
+			}
+			env := map[string]string{}
+			for k, v := range res["env"].(map[string]any) {
+				env[strings.ToUpper(k)] = v.(string)
+			}
+			if env["GH_TOKEN"] != "g" || env["MCP_TOKEN"] != "m" {
+				t.Errorf("GH_TOKEN = %q, MCP_TOKEN = %q; want g and m", env["GH_TOKEN"], env["MCP_TOKEN"])
+			}
+			if v, ok := env["GITHUB_PAT"]; ok {
+				t.Errorf("GITHUB_PAT reached the run as %q; only GH_TOKEN should", v)
+			}
+		})
+	}
+
+	// A renamed credential's secret must be set like any other.
+	if err := os.WriteFile(dotenv, []byte("MCP_TOKEN=m\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range runtimes(t) {
+		t.Run(r.name+"/missing", func(t *testing.T) {
+			res := r.run(t, caller, "isolate", specPath, cache)
+			if want := "secrets not set in " + iso.Dotenv + ": GITHUB_PAT"; res["error"] != want {
+				t.Errorf("got %v, want error %q", res, want)
+			}
+		})
+	}
+}
+
 func samePath(a, b string) bool {
 	if a == b {
 		return true
