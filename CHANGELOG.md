@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.4.0](https://github.com/solaria-sh/solaria/compare/v0.3.0...v0.4.0) (2026-11-10)
+
+
+### Added
+
+* **claude-agent-sdk:** add the docker placement ([18ba778](https://github.com/solaria-sh/solaria/commit/18ba778bf6aeb1330962180f25ad5233bc3569ec))
+
 ## [0.3.0](https://github.com/solaria-sh/solaria/compare/v0.2.0...v0.3.0) (2026-11-10)
 
 
