@@ -93,7 +93,15 @@ A successful apply removes the previous bundle, as `gitagent` removes the previo
 - MCP servers go into the strict MCP config: stdio packages run through `npx` or `uvx`, remotes over streamable HTTP or SSE.
 - Model providers other than `anthropic` fail at plan time.
 
-**Run command:** apply records it as the `run` output and prints it, as `gitagent` does. On `process` it's `node <bundle>/launch.mjs` or `python <bundle>/launch.py`, with the secret names it expects. On `docker` it's a `docker run` of an image built on the shared sandbox base (ADR 0007), with the same launcher and bundle inside and the workspace mounted at `/workspace`. `solaria status -e <env> -a <agent>` shows the same command, and `-o json` gives it as a documented `invocation` block, so callers never depend on the state format.
+**Run command:** apply records it as the `run` output and prints it, as `gitagent` does. On `process` it's `node <bundle>/launch.mjs`, or the bundle's own `venv` Python running `<bundle>/launch.py`, and the `secrets` output names the secrets it expects. On `docker` it's a `docker run` of an image built on the shared sandbox base (ADR 0007), with the same launcher and bundle inside and the workspace mounted at `/workspace`. `solaria status -e <env> -a <agent>` shows the same command, and `-o json` gives it as a documented `invocation` block, so callers never depend on the state format.
+
+**On `docker`:**
+
+- The bundle's directory is the build context, with a generated `Dockerfile`: the sandbox stages, then the SDK installed at its exact version in `/opt/solaria/agent`, then the bundle, so a card change rebuilds only the last layer. The image is `solaria/<env>/<agent>:<id>`, labeled with the logical ID, both digests, the runtime and the SDK version. `providers.claude-agent-sdk.platform` picks `linux/amd64` (the default, as in the cloud sandbox) or `linux/arm64`, and is part of the build digest.
+- `docker run` puts the secrets in the container's environment, with `--env-file` for the dotenv source and `--env NAME` otherwise, so `isolation.json` names no dotenv file there.
+- The prelude would otherwise reduce `PATH` to the system folders and hide what `sandbox.packages` installed, so `isolation.json` gains a `path` list, which a placement that knows the machine fills: on `docker`, the sandbox base's `PATH`.
+- Plan checks neither the runtime nor managed settings: the image brings its own runtime, and the container doesn't see the host's files. A `sandbox.image` must bring the runtime itself, and plan warns about what it needs.
+- Refresh inspects the image, so its ID is the remote hash, as on `gitagent`.
 
 **ADR 0002 still holds:** Solaria writes the bundle and the launcher, and records how to start them. The caller starts them, and the loop runs inside the SDK.
 

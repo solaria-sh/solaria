@@ -72,6 +72,7 @@ def isolate(spec, cache_dir):
             missing.append(b)
     if missing:
         raise RuntimeError("not found on PATH: " + ", ".join(missing))
+    dirs += spec.get("path", [])
     if WIN:
         root = _lookup(caller, "SYSTEMROOT") or "C:\\Windows"
         dirs += [os.path.join(root, "System32"), root]

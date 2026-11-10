@@ -309,6 +309,8 @@ func TestPreludeIsolates(t *testing.T) {
 		t.Fatal(err)
 	}
 	iso := For(agent(work), needs)
+	extra := filepath.Join(work, "image-bin")
+	iso.Path = []string{extra}
 	specPath := filepath.Join(work, "isolation.json")
 	if err := os.WriteFile(specPath, iso.JSON(), 0o644); err != nil {
 		t.Fatal(err)
@@ -371,8 +373,8 @@ func TestPreludeIsolates(t *testing.T) {
 				t.Errorf("scratch %s isn't under the caller's temp directory %s", root, tmp)
 			}
 			path := filepath.SplitList(env["PATH"])
-			if !slices.Contains(path, bin) || slices.Contains(path, other) {
-				t.Errorf("PATH = %q: want npx's folder and not the caller's other folders", env["PATH"])
+			if !slices.Contains(path, bin) || !slices.Contains(path, extra) || slices.Contains(path, other) {
+				t.Errorf("PATH = %q: want npx's folder and the spec's path, and not the caller's other folders", env["PATH"])
 			}
 			if res["existed"] != true || res["removed"] != true {
 				t.Errorf("scratch directory: existed %v, removed after cleanup %v", res["existed"], res["removed"])

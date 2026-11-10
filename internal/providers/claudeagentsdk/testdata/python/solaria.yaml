@@ -27,3 +27,15 @@ spec:
     resources: {memory: 2Gi}
   providers:
     claude-agent-sdk: {runtime: python, version: 0.2.170}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  sandbox:
+    image: ./sandbox.Dockerfile
+    network: {mode: unrestricted}
+  providers:
+    claude-agent-sdk: {runtime: python}

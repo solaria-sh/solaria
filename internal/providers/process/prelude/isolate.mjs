@@ -86,6 +86,7 @@ export function isolate(spec, { cacheDir }) {
     else missing.push(bin);
   }
   if (missing.length > 0) throw new Error(`not found on PATH: ${missing.join(", ")}`);
+  dirs.push(...(spec.path ?? []));
   if (win) {
     const root = lookup(caller, "SYSTEMROOT") || "C:\\Windows";
     dirs.push(path.join(root, "System32"), root);

@@ -54,14 +54,15 @@ const (
 	outSecrets     = "secrets"
 )
 
-// New returns the provider, using this machine's runtimes.
+// New returns the provider, using this machine's runtimes and the docker
+// CLI.
 func New(opts provider.Options) (provider.Provider, error) {
-	return NewWithHost(opts, localHost{}, process.ManagedSettings), nil
+	return NewWithHost(opts, localHost{}, container.CLI{}, process.ManagedSettings), nil
 }
 
-// NewWithHost returns the provider with a given host and managed settings
-// finder, for tests.
-func NewWithHost(opts provider.Options, h Host, managed func() []string) *Provider {
+// NewWithHost returns the provider with a given host, Docker and managed
+// settings finder, for tests.
+func NewWithHost(opts provider.Options, h Host, d container.Docker, managed func() []string) *Provider {
 	log := opts.Log
 	if log == nil {
 		log = io.Discard
@@ -72,7 +73,7 @@ func NewWithHost(opts provider.Options, h Host, managed func() []string) *Provid
 	if abs, err := filepath.Abs(workDir); err == nil {
 		workDir = abs
 	}
-	return &Provider{env: opts.Environment, workDir: workDir, log: log, host: h, managed: managed}
+	return &Provider{env: opts.Environment, workDir: workDir, log: log, host: h, docker: d, managed: managed}
 }
 
 // Provider is the claude-agent-sdk provider.
@@ -80,6 +81,7 @@ type Provider struct {
 	env, workDir string
 	log          io.Writer
 	host         Host
+	docker       container.Docker
 	managed      func() []string
 }
 
@@ -90,24 +92,28 @@ func (p *Provider) Name() string { return Name }
 // outputs.
 func (p *Provider) Version() string { return version.Version }
 
-// Placements returns process.
-func (p *Provider) Placements() []string { return []string{process.Placement} }
+// Placements returns process and docker.
+func (p *Provider) Placements() []string { return []string{process.Placement, PlacementDocker} }
 
-// Capabilities of the SDK in a local process. It runs Anthropic models
-// only, falls back between them, and connects over every MCP transport.
-// Nobody can answer an approval in an unattended run, so permissions.ask
-// means deny. Destroy removes the bundle.
-func (p *Provider) Capabilities(string) provider.Capabilities {
+// Capabilities of the SDK, in a local process or a container. It runs
+// Anthropic models only, falls back between them, and connects over every
+// MCP transport. Nobody can answer an approval in an unattended run, so
+// permissions.ask means deny. Only docker takes a sandbox image. Destroy
+// removes the bundle, and the images on docker.
+func (p *Provider) Capabilities(placement string) provider.Capabilities {
 	return provider.Capabilities{
 		ModelProviders: []string{"anthropic"},
 		Fallback:       true,
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
+		SandboxImage:   placement == PlacementDocker,
 		Destroy:        provider.DestroyDelete,
 	}
 }
 
-// Validate renders the agent, checks that this machine has the runtime,
-// and warns about what the process placement can't isolate or enforce.
+// Validate renders the agent. On the process placement it also checks
+// that this machine has the runtime, and warns about what a local process
+// can't isolate or enforce; a container has its own runtime and doesn't
+// see the machine's managed settings.
 func (p *Provider) Validate(ctx context.Context, a *resolve.Agent) []diag.Diagnostic {
 	where := fmt.Sprintf("%s on %s/%s", a.ID(), Name, a.Placement)
 	b, err := render(a)
@@ -115,6 +121,9 @@ func (p *Provider) Validate(ctx context.Context, a *resolve.Agent) []diag.Diagno
 		return []diag.Diagnostic{diag.Errorf("", diag.Pos{}, "%s: %v", where, err)}
 	}
 	diags := b.Diags
+	if a.Placement == PlacementDocker {
+		return diags
+	}
 	if !diags.HasErrors() {
 		rt, err := p.host.Runtime(ctx, b.Runtime)
 		why := ""
@@ -145,6 +154,11 @@ func (p *Provider) Plan(_ context.Context, desired *resolve.Agent, prior *state.
 	}
 	switch pl.Action {
 	case provider.Create:
+		if d := b.Docker; d != nil {
+			pl.Notes = append(pl.Notes, fmt.Sprintf("builds %s for %s with %s@%s; the first build installs the sandbox base and the SDK, which takes several minutes",
+				d.Image, d.Platform, sdkPackage(b.Runtime), b.SDKVersion))
+			break
+		}
 		pl.Notes = append(pl.Notes, fmt.Sprintf("writes a bundle to %s and installs %s@%s into it with %s, which needs network access",
 			p.rel(p.bundleDir(desired.Name, b)), sdkPackage(b.Runtime), b.SDKVersion, installer(b.Runtime)))
 	case provider.NoOp:
@@ -172,8 +186,8 @@ func installer(runtime string) string {
 	return "npm"
 }
 
-// Apply writes the bundle, installs the SDK into it, and removes the
-// agent's other bundles.
+// Apply writes the bundle, then installs the SDK into it, or on docker
+// builds the image from it, and removes the agent's other bundles.
 func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Applied, error) {
 	a := pl.Desired
 	b, err := render(a)
@@ -183,6 +197,9 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 	dir := p.bundleDir(a.Name, b)
 	if err := writeBundle(dir, b.Files); err != nil {
 		return nil, fmt.Errorf("%s: write bundle: %w", Name, err)
+	}
+	if b.Docker != nil {
+		return p.applyDocker(ctx, pl, b, dir)
 	}
 	rt, err := p.host.Runtime(ctx, b.Runtime)
 	if err != nil {
@@ -194,21 +211,25 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		return nil, fmt.Errorf("%s: install the SDK: %w", Name, err)
 	}
 	p.removeOthers(a.Name, b.ID())
+	return &provider.Applied{
+		Binding:    state.Binding{HostID: p.rel(p.agentDir(a.Name)), Version: b.ID(), Outputs: p.outputs(b, dir, p.run(dir, b))},
+		RemoteHash: b.BuildDigest,
+	}, nil
+}
 
-	outputs := map[string]string{
-		outRun:         p.run(dir, b),
+// outputs are the binding outputs both placements record.
+func (p *Provider) outputs(b *bundle, dir, run string) map[string]string {
+	out := map[string]string{
+		outRun:         run,
 		outBundle:      p.rel(dir),
 		outRuntime:     b.Runtime,
 		outSDKVersion:  b.SDKVersion,
 		outBuildDigest: b.BuildDigest,
 	}
 	if len(b.Secrets) > 0 {
-		outputs[outSecrets] = strings.Join(b.Secrets, ",")
+		out[outSecrets] = strings.Join(b.Secrets, ",")
 	}
-	return &provider.Applied{
-		Binding:    state.Binding{HostID: p.rel(p.agentDir(a.Name)), Version: b.ID(), Outputs: outputs},
-		RemoteHash: b.BuildDigest,
-	}, nil
+	return out
 }
 
 // run is the command that starts the launcher. It runs in the workspace
@@ -243,7 +264,10 @@ func (p *Provider) removeOthers(agent, keep string) {
 // Read checks the entry's bundle. Its remote hash is the digest of the
 // bundle's files as they are on disk, so editing one shows up as drift. A
 // bundle whose SDK isn't installed doesn't exist.
-func (p *Provider) Read(_ context.Context, e *state.Entry) (*provider.Observed, error) {
+func (p *Provider) Read(ctx context.Context, e *state.Entry) (*provider.Observed, error) {
+	if e.Placement == PlacementDocker {
+		return p.readDocker(ctx, e)
+	}
 	dir := filepath.Join(p.workDir, filepath.FromSlash(e.Binding.Outputs[outBundle]))
 	installed := filepath.Join(dir, "node_modules", filepath.FromSlash(NodePackage), "package.json")
 	if e.Binding.Outputs[outRuntime] == RuntimePython {
@@ -296,8 +320,13 @@ func bundleDigest(dir string) (string, error) {
 	return digest.Of(files)
 }
 
-// Destroy removes the agent's bundles.
-func (p *Provider) Destroy(_ context.Context, e *state.Entry) error {
+// Destroy removes the agent's bundles, and its images on docker.
+func (p *Provider) Destroy(ctx context.Context, e *state.Entry) error {
+	if e.Placement == PlacementDocker {
+		if err := p.destroyDocker(ctx, e); err != nil {
+			return err
+		}
+	}
 	_, name, _ := strings.Cut(e.ID, "/")
 	if err := os.RemoveAll(p.agentDir(name)); err != nil {
 		return fmt.Errorf("%s: remove bundle: %w", Name, err)
