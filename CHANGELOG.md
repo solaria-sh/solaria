@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.2.0](https://github.com/solaria-sh/solaria/compare/v0.1.0...v0.2.0) (2026-11-10)
+
+
+### Added
+
+* **cli:** add solaria digest ([472c7f6](https://github.com/solaria-sh/solaria/commit/472c7f6c98433eb2a360b12a3d8e4462ed24bf77))
+* pin environments' digests with solaria.lock ([17278ed](https://github.com/solaria-sh/solaria/commit/17278ed281ead822708be1aa7c36d3f0cbdae271))
+
 ## [0.1.0] - 2026-11-08
 
 ### Added
