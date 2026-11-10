@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.7.0](https://github.com/solaria-sh/solaria/compare/v0.6.0...v0.7.0) (2026-11-10)
+
+
+### Added
+
+* **environment:** let overrides narrow an agent's tools and permissions ([7c67c50](https://github.com/solaria-sh/solaria/commit/7c67c50f58aceb8a6839d7d057f395e121b7f04a))
+
 ## [0.6.0](https://github.com/solaria-sh/solaria/compare/v0.5.1...v0.6.0) (2026-11-10)
 
 
