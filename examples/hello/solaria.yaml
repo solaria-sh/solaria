@@ -1,4 +1,4 @@
-# The smallest Solaria project: one agent and two environments.
+# The smallest Solaria project: one agent and five environments.
 #
 # local uses the stub provider, which writes "host objects" to files under
 # .solaria/stub/. It needs no credentials, so it's the place to try plan

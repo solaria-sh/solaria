@@ -11,7 +11,7 @@
           <a class="btn btn-gold" href="#install">Install Solaria</a>
           <a class="btn btn-line" href="/docs/concepts/">Read the concepts</a>
         </div>
-        <p class="status">Pre-alpha. Works today with gitagent in a local container, and with Claude Managed Agents in the cloud or self-hosted.</p>
+        <p class="status">Pre-alpha. Works today with gitagent in a local container, the Claude Agent SDK as a local process or in a container, and Claude Managed Agents in the cloud or self-hosted.</p>
       </div>
       <div class="hero-run">
         <pre class="console" id="console" aria-label="solaria plan and apply for the reviewer agent"><code></code></pre>
@@ -73,7 +73,7 @@
         <li class="law">
           <span class="ord">Second law</span>
           <h3>An agent keeps one identity on every host.</h3>
-          <p class="proof"><svg class="chk" viewBox="0 0 18 18" aria-hidden="true"><rect x=".5" y=".5" width="17" height="17" rx="2"/><path d="M4 9.5l3.2 3L14 5.5"/></svg><span>State records which agent, with which content digest, runs where. The digest moves only when the card, or an environment's override, changes.</span></p>
+          <p class="proof"><svg class="chk" viewBox="0 0 18 18" aria-hidden="true"><rect x=".5" y=".5" width="17" height="17" rx="2"/><path d="M4 9.5l3.2 3L14 5.5"/></svg><span>State records which agent, with which content digest, runs where. The digest moves only when the card, or an environment's override, changes. <code>solaria.lock</code> pins it per environment, for review in git.</span></p>
         </li>
         <li class="law">
           <span class="ord">Third law</span>
@@ -96,6 +96,7 @@
           <thead><tr><th scope="col">Provider</th><th scope="col">Placements</th><th scope="col">Agent loop</th><th scope="col">Tools run in</th></tr></thead>
           <tbody>
             <tr><th scope="row"><code>gitagent</code></th><td data-l="Placements">docker</td><td data-l="Agent loop">gitagent, in a container image</td><td data-l="Tools run in">The same container</td></tr>
+            <tr><th scope="row"><code>claude-agent-sdk</code></th><td data-l="Placements">process, docker</td><td data-l="Agent loop">The Claude Agent SDK, as a Node or Python process</td><td data-l="Tools run in">The same process, on the machine that starts it or in a container image</td></tr>
             <tr><th scope="row"><code>managed-agents</code></th><td data-l="Placements">cloud, self-hosted</td><td data-l="Agent loop">Claude Managed Agents</td><td data-l="Tools run in">Anthropic's sandbox, or a worker container on your machine</td></tr>
             <tr><th scope="row"><code>stub</code></th><td data-l="Placements">file</td><td data-l="Agent loop">Nowhere: it writes files</td><td data-l="Tools run in">Nowhere. For tests and examples</td></tr>
           </tbody>
