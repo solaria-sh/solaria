@@ -46,6 +46,14 @@ Chosen option: "Local, gitignored state per environment, behind a backend interf
 - **No secrets:** state holds only reference names, so it's safe to read and share, unlike Terraform's state.
 - **`StateBackend` interface from day one:** the local backend is the only implementation in v0. Remote backends with real locking (Azure Blob leases, S3, HTTP) come later.
 
+**The first remote backend is Azure Blob Storage** (decided 2026-11-10, Scoped access and hosting):
+- One blob per environment, holding the same JSON as the local file.
+- The lock is a lease on that blob, held while a command writes and renewed until it finishes. `force-unlock` breaks the lease. Lineage and serial checks work as for local state.
+- Credentials come from the standard Azure credential chain, never from project files, and never reach state or logs.
+- Where a project chooses its backend is decided when the backend is built.
+- An opt-in integration test, `SOLARIA_IT_AZURE_BLOB=1`, runs against a real storage account.
+- An S3-compatible backend, locking with conditional writes, is planned next.
+
 **Working practice:** every developer has personal environments (`local-<name>`), with name-prefixed host objects so nobody collides. Shared environments are applied from one place only: CI once it exists, one agreed person until then.
 
 **Rollback:** check out an earlier commit and apply it. How that lands depends on the host:
@@ -75,3 +83,4 @@ End-to-end tests cover a lock conflict, a stale serial and a lineage mismatch.
 
 - [Terraform state locking](https://developer.hashicorp.com/terraform/language/state/locking)
 - [Managed Agents: pinning a session to an agent version](https://platform.claude.com/docs/en/managed-agents/sessions)
+- Revised on 2026-11-10: Azure Blob Storage is the first remote backend.
