@@ -16,9 +16,9 @@ Each significant design decision is recorded here using [MADR](https://adr.githu
 | [0010](0010-promotion-policy-out-of-scope.md) | Promotion and autonomy policy are out of scope | accepted |
 | [0011](0011-managed-agents-provider-calls-the-api.md) | The `managed-agents` provider calls the API directly | accepted |
 | [0012](0012-environment-level-host-objects.md) | Environment-level host objects | accepted |
-| [0013](0013-lock-file-pins-digests.md) | A committed lock file pins each environment's digests | proposed |
-| [0014](0014-process-placement-and-claude-agent-sdk.md) | Local agent loops: a hermetic `process` placement and the `claude-agent-sdk` provider | proposed |
-| [0015](0015-project-scaffolding-and-editor-support.md) | Project scaffolding and editor support | proposed |
+| [0013](0013-lock-file-pins-digests.md) | A committed lock file pins each environment's digests | accepted |
+| [0014](0014-process-placement-and-claude-agent-sdk.md) | Local agent loops: a hermetic `process` placement and the `claude-agent-sdk` provider | accepted |
+| [0015](0015-project-scaffolding-and-editor-support.md) | Project scaffolding and editor support | accepted |
 | [0016](0016-vault-scoped-credentials.md) | A Vault resource scopes credentials to the agents that reference it | proposed |
 | [0017](0017-run-inputs.md) | Run inputs: agents declare a workspace and repositories, environments bind them | proposed |
 | [0018](0018-plan-json-and-saved-plans.md) | A documented plan JSON, and saved plans that apply only what was reviewed | proposed |

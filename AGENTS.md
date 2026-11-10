@@ -23,6 +23,7 @@ To update expected output after an intended change, run `go test ./... -update` 
 - `cmd/solaria/`: the entry point only. No logic here.
 - `internal/cli/`: cobra commands. Keep them thin; they call into the engine.
 - `internal/api/v1alpha1/`: resource types (Agent, Environment, McpServer). These are the source of truth for the JSON Schema in `schemas/`. Field doc comments become schema descriptions, so write them for people editing agent definitions.
+- `internal/scaffold/`: the templates `solaria init` writes, embedded from `internal/scaffold/templates/<name>/`, and fetching git templates. `internal/cli/testdata/script/init*.txtar` validates and plans each embedded template, so a template can't fall behind the schema (ADR 0015).
 - `internal/schemagen/`: generates `schemas/v1alpha1/*.json` from the types. A test fails when the committed files are stale.
 - `internal/config/`: finds YAML files, checks each document against its schema, and decodes it. Errors carry file, line and column.
 - `internal/validate/`: checks across resources (references, files on disk, skills, portability warnings).

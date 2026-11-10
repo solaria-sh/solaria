@@ -1,0 +1,77 @@
+# init with no template writes the minimal one into a new directory.
+exec solaria init hello
+cmp stdout want-init.txt
+! stderr .
+exists hello/solaria.yaml hello/instructions.md
+cmp hello/.gitignore want-gitignore
+
+# The project validates and plans with nothing installed.
+cd hello
+exec solaria validate
+stdout '^valid: 1 Agent, 2 Environments$'
+exec solaria plan -e local
+stdout '\+ Agent/hello'
+stdout 'Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.'
+cd ..
+
+# A second init would overwrite files, so it writes nothing.
+cp want-gitignore hello/instructions.md
+! exec solaria init hello
+! stdout .
+cmp stderr want-conflict.txt
+cmp hello/instructions.md want-gitignore
+
+# In a directory that already has other files, init adds its own and merges
+# .gitignore, keeping what's there.
+mkdir repo
+cp existing-gitignore repo/.gitignore
+cp README.md repo/README.md
+cd repo
+exec solaria init --template minimal
+cmp stdout ../want-repo.txt
+cmp .gitignore ../want-merged
+cmp README.md ../README.md
+cd ..
+
+# Unknown names aren't fetched from anywhere.
+! exec solaria init --template reviewer other
+stderr 'unknown template "reviewer": the embedded templates are minimal'
+! exists other
+
+-- want-init.txt --
+Created 3 files in hello from template minimal:
+  instructions.md
+  solaria.yaml
+  .gitignore
+
+Next:
+  cd hello
+  solaria validate
+  solaria plan -e local
+  solaria apply -e local
+-- want-gitignore --
+# Solaria state, locks and rendered files
+.solaria/
+-- want-conflict.txt --
+Error: init would overwrite 2 files in hello; nothing was written:
+  instructions.md
+  solaria.yaml
+-- existing-gitignore --
+bin/
+-- README.md --
+An existing repository.
+-- want-repo.txt --
+Created 2 files in . from template minimal:
+  instructions.md
+  solaria.yaml
+Updated .gitignore.
+
+Next:
+  solaria validate
+  solaria plan -e local
+  solaria apply -e local
+-- want-merged --
+bin/
+
+# Added by solaria init
+.solaria/
