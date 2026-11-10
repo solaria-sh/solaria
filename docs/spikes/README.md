@@ -6,3 +6,4 @@ Time-boxed investigations that feed the [architecture decisions](../adr/). Each 
 |---|---|---|
 | 2026-11-04 | [gitagent v3 as the first container runtime](2026-11-gitagent-v3.md) | ADRs 0005, 0006, 0007, 0008 |
 | 2026-11-04 | [Claude Managed Agents API](2026-11-managed-agents-api.md) | ADRs 0005, 0007, 0008, 0009; new ADR 0011 |
+| 2026-11-10 | [Herdr and OpenBot as Solaria hosts](2026-11-herdr-and-openbot.md) | Nothing yet; proposes an ADR 0014 amendment and two ADRs |
