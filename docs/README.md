@@ -1,6 +1,6 @@
 # Solaria documentation
 
-- [Concepts](concepts.md): resources, providers and placements, the sandbox, identity, state and the workflow.
+- [Concepts](concepts.md): resources, providers and placements, the sandbox, identity, state, the workflow, starting an agent, and pinning environments with `solaria.lock`.
 - [Getting started](getting-started.md): install Solaria and take one agent through validate, plan, apply and destroy, with no credentials.
 - Resources, every field of each kind, generated from the schema:
   - [`Agent`](resources/agent.md): what the agent is, independently of any host;

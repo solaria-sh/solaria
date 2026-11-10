@@ -28,7 +28,7 @@ The warnings are each host saying what it can't do: Managed Agents doesn't enfor
 
 ## Apply
 
-**`local-gitagent`** builds an image. The first build takes several minutes. `apply` prints the `docker run` command, and the task goes after it:
+**`local-gitagent`** builds an image. The first build takes several minutes. `apply` prints the `docker run` command, and `solaria status -e local-gitagent -a reviewer` shows it again later with the variables it needs. The task goes after it:
 
 ```console
 $ solaria apply -e local-gitagent

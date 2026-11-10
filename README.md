@@ -4,7 +4,7 @@
 
 Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 
-> **Status: pre-alpha.** The full workflow (`validate`, `plan`, `apply`, `status`, `destroy`) works with four providers: `stub` for tests, `gitagent` in a local container, the Claude Agent SDK as a local process or in a container, and Claude Managed Agents in the cloud or with a self-hosted sandbox. The format may still change before 1.0. Start with the [concepts](docs/concepts.md) and [getting started](docs/getting-started.md), and see the [roadmap](#roadmap).
+> **Status: pre-alpha.** The full workflow (`validate`, `digest`, `lock`, `plan`, `apply`, `status`, `destroy`) works with four providers: `stub` for tests, `gitagent` in a local container, the Claude Agent SDK as a local process or in a container, and Claude Managed Agents in the cloud or with a self-hosted sandbox. The format may still change before 1.0. Start with the [concepts](docs/concepts.md) and [getting started](docs/getting-started.md), and see the [roadmap](#roadmap).
 
 ## Why
 
@@ -104,6 +104,15 @@ $ docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace 
     --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158 -p "Say hello."
 ```
 
+In `local-sdk`, the same agent runs on the [Claude Agent SDK](docs/providers/claude-agent-sdk.md) as a local Node process. This needs Node 18.14 or later. `apply` installs the SDK into a bundle under `.solaria/claude-agent-sdk/` and prints the command that starts it, and `status -a` shows that command again with the variables it needs. The run gets `ANTHROPIC_API_KEY` and nothing else from your shell or home folder:
+
+```console
+$ solaria apply -e local-sdk
+$ solaria status -e local-sdk -a hello
+$ export ANTHROPIC_API_KEY=...
+$ node .solaria/claude-agent-sdk/local-sdk/hello/<id>/launch.mjs -p "Say hello."
+```
+
 In `ma-cloud`, the same agent goes to [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview), which runs it on Anthropic's side. Again only the environment differs. `apply` creates real objects in your Anthropic organization, named `hello-example-*`, and `destroy` archives the agent, which can't be undone:
 
 ```console
@@ -123,6 +132,8 @@ $ solaria apply -e ma-cloud
 `ma-self-hosted` keeps the agent loop on Anthropic's side but runs its tools in a worker container on your machine. Its first `apply` creates the environment and stops, saying how to get the environment's key from the Claude Console. Store the key as `ANTHROPIC_ENVIRONMENT_KEY` and apply again to start the worker.
 
 [`examples/reviewer`](examples/reviewer) takes one agent through all three hosts.
+
+To control what an environment may run, pin it. `solaria lock -e <environment>` writes each agent's digests to `solaria.lock`, which you commit. `plan` and `apply` then refuse anything else for that environment until the lock is updated and reviewed. `solaria digest` prints the same digests without state or a host, for CI. See [pinning environments](docs/concepts.md#pinning-environments).
 
 For completion and checks in your editor, save the schema and point the YAML language server at it:
 
@@ -151,6 +162,7 @@ The [documentation](docs/README.md) covers the concepts, every resource field, e
 | M5 | `gitagent` provider (Docker placement) |
 | M6 | `managed-agents` provider (cloud and self-hosted placements) |
 | M7 | Examples, docs, first release |
+| Local runners and pinning | `solaria digest`, `solaria.lock`, the `claude-agent-sdk` provider (`process` and `docker` placements), and how to start an agent in `solaria status` |
 
 ## The name
 
