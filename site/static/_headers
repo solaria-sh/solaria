@@ -16,6 +16,14 @@
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
 
+# The JSON Schemas, served at their $id URLs for editors (ADR 0015). Editors
+# that run in a browser fetch them from another origin, so allow any. A short
+# cache means a schema change on main reaches editors within minutes.
+/schemas/*
+  Content-Type: application/json; charset=utf-8
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=300
+
 # Keep the pages.dev copies and branch previews out of search results, so
 # only solaria.sh is indexed.
 https://:project.pages.dev/*

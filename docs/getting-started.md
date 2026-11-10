@@ -199,5 +199,5 @@ You declared an agent once, without naming a host. You put it in an environment,
 - **Pin what an environment runs.** `solaria lock -e <environment>` writes each agent's digests to `solaria.lock`. Commit it, and `plan` and `apply` refuse anything else for that environment until the lock is updated. [Pinning environments](concepts.md#pinning-environments) explains the workflow.
 - **Understand the model.** [Concepts](concepts.md) covers environments, providers, identity, state, drift, starting an agent and pinning.
 - **Look up a field.** The resource pages list every field of [Agent](resources/agent.md), [Environment](resources/environment.md) and [McpServer](resources/mcp-server.md).
-- **Get completion in your editor.** `solaria schema > solaria.schema.json` saves the JSON Schema; point the YAML language server at it with `# yaml-language-server: $schema=./solaria.schema.json` at the top of each file.
+- **Get completion in your editor.** Put `# yaml-language-server: $schema=https://solaria.sh/schemas/v1alpha1/solaria.json` at the top of each file. [Editors and coding agents](editors.md) covers the setup, and how to run `solaria validate` from an editor or a coding agent.
 - **See a larger project.** [`examples/reviewer`](../examples/reviewer) takes one agent with an MCP server and a skill through three hosts.

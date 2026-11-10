@@ -135,14 +135,10 @@ $ solaria apply -e ma-cloud
 
 To control what an environment may run, pin it. `solaria lock -e <environment>` writes each agent's digests to `solaria.lock`, which you commit. `plan` and `apply` then refuse anything else for that environment until the lock is updated and reviewed. `solaria digest` prints the same digests without state or a host, for CI. See [pinning environments](docs/concepts.md#pinning-environments).
 
-For completion and checks in your editor, save the schema and point the YAML language server at it:
-
-```console
-$ solaria schema > solaria.schema.json
-```
+For completion and checks in your editor, point the YAML language server at the published schema (see [editors and coding agents](docs/editors.md)):
 
 ```yaml
-# yaml-language-server: $schema=./solaria.schema.json
+# yaml-language-server: $schema=https://solaria.sh/schemas/v1alpha1/solaria.json
 apiVersion: solaria.sh/v1alpha1
 ```
 

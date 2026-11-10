@@ -104,6 +104,7 @@ func (b *builder) collect() error {
 		{"docs/README.md", "/docs/", "Overview", "Docs"},
 		{"docs/concepts.md", "/docs/concepts/", "Concepts", "Docs"},
 		{"docs/getting-started.md", "/docs/getting-started/", "Getting started", "Docs"},
+		{"docs/editors.md", "/docs/editors/", "Editors and coding agents", "Docs"},
 		{"docs/resources/agent.md", "/docs/resources/agent/", "Agent", "Resources"},
 		{"docs/resources/environment.md", "/docs/resources/environment/", "Environment", "Resources"},
 		{"docs/resources/mcp-server.md", "/docs/resources/mcp-server/", "McpServer", "Resources"},
@@ -132,8 +133,15 @@ func (b *builder) build() error {
 	if err := os.RemoveAll(b.out); err != nil {
 		return err
 	}
-	if err := copyDir(filepath.Join(b.site, "static"), b.out); err != nil {
+	if err := copyDir(filepath.Join(b.site, "static"), b.out, nil); err != nil {
 		return fmt.Errorf("copy static: %w", err)
+	}
+	// The JSON Schemas are served at the URLs their $id names, such as
+	// https://solaria.sh/schemas/v1alpha1/agent.json, so editors can fetch
+	// them (ADR 0015).
+	isJSON := func(name string) bool { return strings.HasSuffix(name, ".json") }
+	if err := copyDir(filepath.Join(b.repo, "schemas"), filepath.Join(b.out, "schemas"), isJSON); err != nil {
+		return fmt.Errorf("copy schemas: %w", err)
 	}
 	tmpl := func(name string) (*template.Template, error) {
 		return template.ParseFiles(filepath.Join(b.site, "templates/base.html"), filepath.Join(b.site, "templates", name))
@@ -335,7 +343,9 @@ func render(t *template.Template, dst string, v view) error {
 	return os.WriteFile(dst, buf.Bytes(), 0o644)
 }
 
-func copyDir(src, dst string) error {
+// copyDir copies the files under src to dst. With a keep function, it copies
+// only the files keep accepts.
+func copyDir(src, dst string, keep func(name string) bool) error {
 	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -344,6 +354,9 @@ func copyDir(src, dst string) error {
 		target := filepath.Join(dst, rel)
 		if d.IsDir() {
 			return os.MkdirAll(target, 0o755)
+		}
+		if keep != nil && !keep(d.Name()) {
+			return nil
 		}
 		data, err := os.ReadFile(p)
 		if err != nil {
