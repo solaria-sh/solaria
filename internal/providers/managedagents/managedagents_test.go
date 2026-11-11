@@ -44,6 +44,20 @@ type fakeAPI struct {
 	agents     map[string]*fakeAgent
 	envs       map[string]*fakeEnv
 	skills     map[string][]string // skill ID → version IDs
+	vaults     map[string]*fakeVault
+}
+
+type fakeVault struct {
+	name     string
+	archived bool
+	creds    map[string]*fakeCred
+}
+
+// fakeCred keeps the value it was sent, which the transcript hides.
+type fakeCred struct {
+	auth    map[string]any
+	value   string
+	updated int
 }
 
 type fakeAgent struct {
@@ -59,7 +73,7 @@ type fakeEnv struct {
 }
 
 func newFakeAPI(t *testing.T) (*fakeAPI, anthropic.Client) {
-	f := &fakeAPI{agents: map[string]*fakeAgent{}, envs: map[string]*fakeEnv{}, skills: map[string][]string{}}
+	f := &fakeAPI{agents: map[string]*fakeAgent{}, envs: map[string]*fakeEnv{}, skills: map[string][]string{}, vaults: map[string]*fakeVault{}}
 	srv := httptest.NewServer(f)
 	t.Cleanup(srv.Close)
 	f.url = srv.URL
@@ -88,7 +102,7 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/v1/agents") || strings.HasPrefix(r.URL.Path, "/v1/environments") {
+	if strings.HasPrefix(r.URL.Path, "/v1/agents") || strings.HasPrefix(r.URL.Path, "/v1/environments") || strings.HasPrefix(r.URL.Path, "/v1/vaults") {
 		if !strings.Contains(r.Header.Get("anthropic-beta"), "managed-agents-2026-04-01") {
 			fail(w, http.StatusBadRequest, "missing the managed-agents beta header")
 			return
@@ -186,8 +200,110 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		delete(f.skills, parts[1])
 		reply(w, map[string]any{"id": parts[1], "type": "skill_deleted"})
+	case "POST vaults":
+		var req struct {
+			DisplayName string `json:"display_name"`
+		}
+		_ = json.Unmarshal(body, &req)
+		id := f.id("vlt")
+		f.vaults[id] = &fakeVault{name: req.DisplayName, creds: map[string]*fakeCred{}}
+		reply(w, vaultJSON(id, f.vaults[id]))
+	case "GET vaults/*", "POST vaults/*", "DELETE vaults/*":
+		v := f.vaults[parts[1]]
+		if v == nil {
+			fail(w, http.StatusNotFound, "no such vault")
+			return
+		}
+		switch r.Method {
+		case http.MethodDelete:
+			delete(f.vaults, parts[1])
+			reply(w, map[string]any{"id": parts[1], "type": "vault_deleted"})
+			return
+		case http.MethodPost:
+			var req struct {
+				DisplayName string `json:"display_name"`
+			}
+			_ = json.Unmarshal(body, &req)
+			v.name = req.DisplayName
+		}
+		reply(w, vaultJSON(parts[1], v))
+	case "POST vaults/*/credentials", "GET vaults/*/credentials":
+		v := f.vaults[parts[1]]
+		if v == nil {
+			fail(w, http.StatusNotFound, "no such vault")
+			return
+		}
+		if r.Method == http.MethodGet {
+			data := []map[string]any{}
+			for _, id := range slices.Sorted(maps.Keys(v.creds)) {
+				data = append(data, credJSON(id, parts[1], v.creds[id]))
+			}
+			reply(w, map[string]any{"data": data, "next_page": nil})
+			return
+		}
+		var req struct{ Auth map[string]any }
+		_ = json.Unmarshal(body, &req)
+		id := f.id("vcrd")
+		c := &fakeCred{auth: req.Auth, updated: f.seq}
+		c.value = takeValue(c.auth)
+		v.creds[id] = c
+		reply(w, credJSON(id, parts[1], c))
+	case "POST vaults/*/credentials/*", "DELETE vaults/*/credentials/*":
+		v := f.vaults[parts[1]]
+		if v == nil || v.creds[parts[3]] == nil {
+			fail(w, http.StatusNotFound, "no such credential")
+			return
+		}
+		c := v.creds[parts[3]]
+		if r.Method == http.MethodDelete {
+			delete(v.creds, parts[3])
+			reply(w, map[string]any{"id": parts[3], "type": "vault_credential_deleted"})
+			return
+		}
+		var req struct{ Auth map[string]any }
+		_ = json.Unmarshal(body, &req)
+		if req.Auth["type"] != c.auth["type"] {
+			fail(w, http.StatusBadRequest, "a credential's type can't change")
+			return
+		}
+		if val := takeValue(req.Auth); val != "" {
+			c.value = val
+		}
+		f.seq++
+		c.updated = f.seq
+		reply(w, credJSON(parts[3], parts[1], c))
 	default:
 		fail(w, http.StatusNotFound, "no route "+route)
+	}
+}
+
+// takeValue removes a credential's value from its auth, as the host never
+// returns it.
+func takeValue(auth map[string]any) string {
+	for _, k := range []string{"token", "secret_value"} {
+		if v, ok := auth[k].(string); ok {
+			delete(auth, k)
+			return v
+		}
+	}
+	return ""
+}
+
+func vaultJSON(id string, v *fakeVault) map[string]any {
+	m := map[string]any{
+		"id": id, "type": "vault", "display_name": v.name, "metadata": map[string]any{},
+		"created_at": "2026-11-05T12:00:00Z", "updated_at": "2026-11-05T12:00:00Z", "archived_at": nil,
+	}
+	if v.archived {
+		m["archived_at"] = "2026-11-05T12:59:59Z"
+	}
+	return m
+}
+
+func credJSON(id, vault string, c *fakeCred) map[string]any {
+	return map[string]any{
+		"id": id, "type": "vault_credential", "vault_id": vault, "auth": c.auth, "metadata": map[string]any{},
+		"created_at": "2026-11-05T12:00:00Z", "updated_at": fmt.Sprintf("2026-11-05T12:00:%02dZ", c.updated), "archived_at": nil,
 	}
 }
 
@@ -238,10 +354,26 @@ func (f *fakeAPI) record(r *http.Request) ([]byte, error) {
 		if err := json.Unmarshal(body, &v); err != nil {
 			return nil, err
 		}
+		hideValues(v)
 		pretty, _ := json.MarshalIndent(v, "  ", "  ")
 		fmt.Fprintf(&f.transcript, "  %s\n", pretty)
 	}
 	return body, nil
+}
+
+// hideValues replaces credential values in a request body with ***, so
+// the transcript shows that one was sent but not what it was.
+func hideValues(v any) {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return
+	}
+	for k, val := range m {
+		if s, ok := val.(string); ok && (k == "token" || k == "secret_value") && s != "" {
+			m[k] = "***"
+		}
+		hideValues(val)
+	}
 }
 
 func agentJSON(id string, a *fakeAgent) map[string]any {
@@ -589,4 +721,114 @@ func stHost(t *testing.T, r *rig) *state.EnvironmentEntry {
 		t.Fatal(err)
 	}
 	return st.Host
+}
+
+// vaultProject adds a Vault to the fixture: a bearer token for the docs
+// server and a variable for a CLI.
+func vaultProject(r *rig) {
+	r.t.Helper()
+	y := readFile(r.t, filepath.Join(r.dir, "solaria.yaml"))
+	y = strings.Replace(y, "  permissions: {ask: [shell]}\n", "  permissions: {ask: [shell]}\n  vaults: [{ref: tools}]\n", 1)
+	y = strings.Replace(y, "      url: https://docs.example.com/mcp\n", "      url: https://docs.example.com/mcp\n      headers: [{name: Authorization, secretRef: DOCS_TOKEN}]\n", 1)
+	y += `---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: tools}
+spec:
+  credentials:
+    - name: docs
+      secretRef: DOCS_TOKEN
+      for: {mcpServer: {ref: docs}}
+    - name: gh
+      secretRef: GH_PAT
+      for: {env: GH_TOKEN}
+`
+	r.edit("solaria.yaml", y)
+}
+
+// values returns the values the fake host holds, by credential display
+// order (the vault's credentials sorted by ID).
+func (r *rig) values() []string {
+	r.t.Helper()
+	var out []string
+	for _, v := range r.api.vaults {
+		for _, id := range slices.Sorted(maps.Keys(v.creds)) {
+			out = append(out, v.creds[id].value)
+		}
+	}
+	return out
+}
+
+// TestVaultLifecycle drives a host vault through its life (ADR 0016) and
+// compares every request with testdata/vault.golden. Values reach the
+// host, never the transcript, plan or state.
+func TestVaultLifecycle(t *testing.T) {
+	t.Setenv("DOCS_TOKEN", "Bearer docs-secret-1")
+	t.Setenv("GH_PAT", "gh-secret-1")
+	r := newRig(t)
+	vaultProject(r)
+	refresh := engine.PlanOptions{Refresh: true}
+	if err := r.step("create", "ma-cloud", refresh); err != nil {
+		t.Fatal(err)
+	}
+	// The host adds "Bearer " to an MCP token itself.
+	if got := r.values(); !slices.Equal(got, []string{"docs-secret-1", "gh-secret-1"}) {
+		t.Errorf("values after create: %q", got)
+	}
+	if err := r.step("unchanged", "ma-cloud", refresh); err != nil {
+		t.Fatal(err)
+	}
+
+	// State can't see a changed value; --rotate-secrets sends them again.
+	t.Setenv("DOCS_TOKEN", "docs-secret-2")
+	t.Setenv("GH_PAT", "gh-secret-2")
+	if err := r.step("rotate", "ma-cloud", engine.PlanOptions{Refresh: true, RotateSecrets: true}); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.values(); !slices.Equal(got, []string{"docs-secret-2", "gh-secret-2"}) {
+		t.Errorf("values after rotate: %q", got)
+	}
+
+	// A new secret for the same target updates the credential; a new
+	// variable needs a new credential.
+	t.Setenv("GH_PAT_2", "gh-secret-3")
+	y := readFile(t, filepath.Join(r.dir, "solaria.yaml"))
+	y = strings.Replace(y, "secretRef: GH_PAT\n      for: {env: GH_TOKEN}", "secretRef: GH_PAT_2\n      for: {env: GITHUB_TOKEN}", 1)
+	r.edit("solaria.yaml", y)
+	if err := r.step("change the variable and its secret", "ma-cloud", refresh); err != nil {
+		t.Fatal(err)
+	}
+
+	// A missing secret stops apply before any host call.
+	t.Setenv("DOCS_TOKEN", "")
+	if err := os.Unsetenv("DOCS_TOKEN"); err != nil {
+		t.Fatal(err)
+	}
+	err := r.step("rotate without a secret", "ma-cloud", engine.PlanOptions{Refresh: true, RotateSecrets: true})
+	if err == nil || !strings.Contains(err.Error(), "secrets not set in the environment variables: DOCS_TOKEN") {
+		t.Errorf("rotate without a secret: err = %v", err)
+	}
+	t.Setenv("DOCS_TOKEN", "docs-secret-2")
+
+	// Someone deletes the vault in the Console.
+	for id := range r.api.vaults {
+		delete(r.api.vaults, id)
+	}
+	if err := r.step("deleted outside Solaria", "ma-cloud", refresh); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := r.step("destroy", "ma-cloud", engine.PlanOptions{Refresh: true, Destroy: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.api.vaults) != 0 {
+		t.Errorf("vaults left on the host: %v", r.api.vaults)
+	}
+	stateFile, _ := os.ReadFile(filepath.Join(r.dir, ".solaria", "state", "ma-cloud.json"))
+	for _, secret := range []string{"docs-secret", "gh-secret"} {
+		if strings.Contains(r.golden.String(), secret) || strings.Contains(string(stateFile), secret) {
+			t.Errorf("a %s value reached the transcript or the state", secret)
+		}
+	}
+	r.check("vault")
 }

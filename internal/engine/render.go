@@ -26,17 +26,27 @@ func Render(w io.Writer, plan *Plan) error {
 		_, err := io.WriteString(w, b.String())
 		return err
 	}
-	// Steps show in the order Apply takes them: the host object comes
-	// before the agents, except a delete, which comes after.
+	// Steps show in the order Apply takes them: the host object and
+	// vaults come before the agents, except deletes, which come after.
 	h := plan.Host
 	if h != nil && h.Action != provider.NoOp && h.Action != provider.Delete {
 		renderHost(&b, h)
+	}
+	for _, v := range plan.Vaults {
+		if v.Action != provider.NoOp && v.Action != provider.Delete {
+			renderVault(&b, v)
+		}
 	}
 	for _, s := range plan.Steps {
 		if s.Action == provider.NoOp {
 			continue
 		}
 		renderStep(&b, plan, s)
+	}
+	for _, v := range plan.Vaults {
+		if v.Action == provider.Delete {
+			renderVault(&b, v)
+		}
 	}
 	if h != nil && h.Action == provider.Delete {
 		renderHost(&b, h)
@@ -97,6 +107,24 @@ func renderHost(b *strings.Builder, h *provider.EnvironmentPlan) {
 		renderChanges(b, h.Changes)
 	}
 	for _, n := range h.Notes {
+		fmt.Fprintf(b, "      note: %s\n", n)
+	}
+}
+
+// renderVault writes the step for a host vault.
+func renderVault(b *strings.Builder, v *provider.VaultPlan) {
+	fmt.Fprintf(b, "\n  %s %s", symbols[v.Action], v.ID)
+	if v.Reason != "" {
+		fmt.Fprintf(b, " (%s)", v.Reason)
+	}
+	b.WriteString("\n")
+	switch v.Action {
+	case provider.Delete:
+		fmt.Fprintf(b, "      host: %s\n", v.Prior.Binding.HostID)
+	case provider.Update, provider.Replace:
+		renderChanges(b, v.Changes)
+	}
+	for _, n := range v.Notes {
 		fmt.Fprintf(b, "      note: %s\n", n)
 	}
 }

@@ -31,7 +31,15 @@ type State struct {
 	Host *EnvironmentEntry `json:"host,omitempty"`
 	// Agents by logical ID, such as Agent/reviewer.
 	Agents map[string]*Entry `json:"agents"`
+	// Vaults are host vaults by logical ID, such as Vault/tracker, for
+	// providers whose host keeps credentials in vaults (ADR 0016). Their
+	// config names credentials and secrets, never values.
+	Vaults map[string]*VaultEntry `json:"vaults,omitempty"`
 }
+
+// VaultEntry is a host vault. It has the same shape as the environment's
+// host object: both are host objects the environment's agents share.
+type VaultEntry = EnvironmentEntry
 
 // EnvironmentEntry is an environment's own host object, such as a Managed
 // Agents environment.
@@ -61,6 +69,16 @@ func New(environment string) *State {
 func (s *State) IDs() []string {
 	ids := make([]string, 0, len(s.Agents))
 	for id := range s.Agents {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+// VaultIDs returns the logical IDs of the state's vaults, sorted.
+func (s *State) VaultIDs() []string {
+	ids := make([]string, 0, len(s.Vaults))
+	for id := range s.Vaults {
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)

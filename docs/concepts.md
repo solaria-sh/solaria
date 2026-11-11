@@ -109,7 +109,7 @@ spec:
 
 Once an agent lists a vault, it gets exactly the credentials of its vaults: a secret one of its servers needs that no vault grants for that server fails `validate`. An agent without vaults still gets every secret its servers name, and `validate` warns, so a project can move to vaults one agent at a time. A Vault never holds a value. The digest covers each credential's name, secret name and target, so granting one changes the agent's `resolvedDigest`.
 
-Where a vault's credentials reach the run depends on the provider: see [claude-agent-sdk](providers/claude-agent-sdk.md), [gitagent](providers/gitagent.md#limits) and [managed-agents](providers/managed-agents.md).
+Where a vault's credentials reach the run depends on the provider. Launchers pass only the vault's credentials into the run: see [claude-agent-sdk](providers/claude-agent-sdk.md) and [gitagent](providers/gitagent.md#limits). On [managed-agents](providers/managed-agents.md#vaults), apply keeps a host vault for each Vault, which sessions attach, and `solaria apply --rotate-secrets` sends changed values to it.
 
 ## Providers and placements
 
@@ -161,7 +161,7 @@ The **host binding** maps the logical ID to the host's own identity: an image ta
 
 ## State
 
-`.solaria/state/<environment>.json` records, for each agent: its provider and placement, both digests, the host binding, a `remoteHash` of the host object, the git commit it was applied from, when and by whom, and a history of earlier bindings. Environments whose host keeps a shared object of its own, such as a Managed Agents environment, also have a `host` entry (ADR 0012).
+`.solaria/state/<environment>.json` records, for each agent: its provider and placement, both digests, the host binding, a `remoteHash` of the host object, the git commit it was applied from, when and by whom, and a history of earlier bindings. Environments whose host keeps a shared object of its own, such as a Managed Agents environment, also have a `host` entry (ADR 0012), and host vaults have `vaults` entries (ADR 0016).
 
 State never holds secret values, only the names of secrets. It's gitignored, and a state lock (`.solaria/state/<environment>.lock`) stops two applies from running at once. Each environment has its own state, so give every developer their own environments, with a name prefix on host objects.
 
@@ -256,6 +256,7 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
 | `inConfiguration` | `false` for an environment that only has state left |
 | `locked` | `solaria.lock` pins the environment; each agent's `lockedDigest` is its pinned `resolvedDigest` |
 | `host` | The environment's shared host object, when its provider keeps one: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt` |
+| `vaults` | On the environment: host vaults, when its provider keeps them, with the same fields as `host` and `usedBy`, the agents whose sessions attach each. On an agent: the vaults to attach when starting a session, as `name` and `hostId`. |
 | `configuration` | `upToDate`, `changed`, `overridesChanged` (only the environment's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `configuration` and `lockedDigest`. |
 | `run` | The command for a POSIX shell, run from the workspace. The task goes after it. |
 | `invocation` | The same command, for programs. Absent for providers whose host runs the agent, and for agents applied before Solaria recorded it. |

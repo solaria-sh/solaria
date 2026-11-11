@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -51,6 +52,9 @@ type PlanOptions struct {
 	Refresh bool
 	// Destroy plans the removal of everything in the state.
 	Destroy bool
+	// RotateSecrets sends every host vault's credential values again,
+	// although state can't tell whether they changed (ADR 0016).
+	RotateSecrets bool
 }
 
 // Plan is what an apply would do to one environment.
@@ -66,6 +70,10 @@ type Plan struct {
 	// Host is the step for the environment's own host object, or nil when
 	// the provider has none (ADR 0012).
 	Host *provider.EnvironmentPlan
+	// Vaults are the steps for host vaults, sorted by ID, for providers
+	// whose host keeps credentials in vaults (ADR 0016). No-op steps are
+	// included.
+	Vaults []*provider.VaultPlan
 	// Diagnostics are warnings found while planning.
 	Diagnostics diag.List
 
@@ -74,11 +82,14 @@ type Plan struct {
 }
 
 // Counts returns how many steps create, update, replace and delete,
-// counting the environment's host object with the agents.
+// counting the environment's host object and vaults with the agents.
 func (p *Plan) Counts() (create, update, replace, del int) {
-	actions := make([]provider.Action, 0, len(p.Steps)+1)
+	actions := make([]provider.Action, 0, len(p.Steps)+len(p.Vaults)+1)
 	for _, s := range p.Steps {
 		actions = append(actions, s.Action)
+	}
+	for _, v := range p.Vaults {
+		actions = append(actions, v.Action)
 	}
 	if p.Host != nil {
 		actions = append(actions, p.Host.Action)
@@ -158,6 +169,9 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 		plan.Provider, plan.Placement = first.Provider, first.Placement
 	case opts.Destroy && st.Host != nil:
 		plan.Provider, plan.Placement = st.Host.Provider, st.Host.Placement
+	case opts.Destroy && len(st.Vaults) > 0:
+		first := st.Vaults[st.VaultIDs()[0]]
+		plan.Provider, plan.Placement = first.Provider, first.Placement
 	default:
 		return nil, fmt.Errorf("no Environment named %q", env)
 	}
@@ -173,6 +187,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 
 	var desired []resolve.Agent
 	var want *provider.Environment // the host's view, for providers with environment objects
+	var vaults []*provider.Vault   // host vaults, for providers that keep them
 	if !opts.Destroy {
 		desired, err = resolve.Environment(e.Set, env)
 		if err != nil {
@@ -196,6 +211,19 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 					d.File = envRes.File
 				}
 				diags = append(diags, d)
+			}
+		}
+		if vh, ok := prov.(provider.VaultHost); ok {
+			spec := envRes.Environment().Spec
+			view := &provider.Environment{Name: env, Dir: filepath.Dir(envRes.File), Spec: &spec}
+			vaults = e.desiredVaults(desired, view, plan.Placement)
+			for _, v := range vaults {
+				for _, d := range vh.ValidateVault(ctx, v) {
+					if d.File == "" {
+						d.File = e.Set.Lookup(v1alpha1.KindVault, v.Name).File
+					}
+					diags = append(diags, d)
+				}
 			}
 		}
 		for i := range desired {
@@ -264,7 +292,113 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 	if err := e.planHost(ctx, plan, prov, want, opts.Refresh); err != nil {
 		return nil, fmt.Errorf("plan %s/%s: %w", v1alpha1.KindEnvironment, env, err)
 	}
+	if err := e.planVaults(ctx, plan, prov, vaults, opts); err != nil {
+		return nil, err
+	}
 	return plan, nil
+}
+
+// desiredVaults collects the Vaults the environment's agents reference,
+// with the McpServers their credentials are for.
+func (e *Engine) desiredVaults(agents []resolve.Agent, env *provider.Environment, placement string) []*provider.Vault {
+	byName := map[string]*provider.Vault{}
+	for i := range agents {
+		a := &agents[i]
+		for name, rv := range a.Definition.Vaults {
+			v := byName[name]
+			if v == nil {
+				v = &provider.Vault{Name: name, Env: env, Placement: placement}
+				for _, c := range rv.Credentials { // sorted by resolve
+					vc := provider.VaultCredential{Credential: c}
+					if r := e.Set.Lookup(v1alpha1.KindMcpServer, c.MCPServer); c.MCPServer != "" && r != nil {
+						spec := r.McpServer().Spec
+						vc.Server = &spec
+					}
+					v.Credentials = append(v.Credentials, vc)
+				}
+				byName[name] = v
+			}
+			v.Agents = append(v.Agents, a.ID()) // agents come sorted
+		}
+	}
+	out := make([]*provider.Vault, 0, len(byName))
+	for _, name := range slices.Sorted(maps.Keys(byName)) {
+		out = append(out, byName[name])
+	}
+	return out
+}
+
+// planVaults plans the host vaults (ADR 0016): one for each Vault the
+// environment's agents reference, while its provider keeps vaults.
+func (e *Engine) planVaults(ctx context.Context, plan *Plan, prov provider.Provider, desired []*provider.Vault, opts PlanOptions) error {
+	st := plan.state
+	vh, _ := prov.(provider.VaultHost)
+	seen := map[string]bool{}
+	for _, v := range desired {
+		id := v.ID()
+		seen[id] = true
+		prior := st.Vaults[id]
+		if prior != nil && (prior.Provider != plan.Provider || prior.Placement != plan.Placement) {
+			step, err := vh.PlanVault(ctx, v, nil)
+			if err != nil {
+				return fmt.Errorf("plan %s: %w", id, err)
+			}
+			step.ID, step.Action, step.Prior = id, provider.Replace, prior
+			step.Reason = fmt.Sprintf("moves from %s/%s to %s/%s", prior.Provider, prior.Placement, plan.Provider, plan.Placement)
+			plan.Vaults = append(plan.Vaults, step)
+			continue
+		}
+		var obs *provider.Observed
+		if opts.Refresh && prior != nil {
+			var err error
+			if obs, err = vh.ReadVault(ctx, prior); err != nil {
+				return fmt.Errorf("refresh %s: %w", id, err)
+			}
+		}
+		gone := obs != nil && !obs.Exists
+		planPrior := prior
+		if gone {
+			planPrior = nil // the provider must create it again
+		}
+		step, err := vh.PlanVault(ctx, v, planPrior)
+		if err != nil {
+			return fmt.Errorf("plan %s: %w", id, err)
+		}
+		step.ID, step.Prior = id, prior
+		switch {
+		case gone:
+			step.Reason = joinReason(step.Reason, "deleted outside Solaria; it will be created again")
+		case obs != nil && obs.RemoteHash != prior.RemoteHash:
+			if step.Action == provider.NoOp {
+				step.Action = provider.Update
+			}
+			step.Reason = joinReason(step.Reason, "changed outside Solaria since the last apply")
+		}
+		if opts.RotateSecrets && step.Action != provider.Create {
+			step.Rotate = true
+			if step.Action == provider.NoOp {
+				step.Action = provider.Update
+			}
+			step.Reason = joinReason(step.Reason, "sends every credential's value again")
+		}
+		plan.Vaults = append(plan.Vaults, step)
+	}
+	for _, id := range st.VaultIDs() {
+		if seen[id] {
+			continue
+		}
+		step := &provider.VaultPlan{ID: id, Action: provider.Delete, Prior: st.Vaults[id]}
+		switch {
+		case opts.Destroy:
+		case e.Set.Lookup(v1alpha1.KindVault, name(id)) != nil:
+			step.Reason = "no agent in this environment references it"
+		default:
+			step.Reason = "no longer in the configuration"
+		}
+		plan.Vaults = append(plan.Vaults, step)
+	}
+	slices.SortFunc(plan.Vaults, func(a, b *provider.VaultPlan) int { return cmp.Compare(a.ID, b.ID) })
+	return nil
 }
 
 // planHost plans the environment's own host object (ADR 0012): it exists
@@ -357,10 +491,10 @@ func (e *Engine) planAgent(ctx context.Context, prov provider.Provider, a *resol
 }
 
 // Apply carries out a plan made under the environment's lock. It deletes
-// agents first, then creates or updates the environment's host object,
-// applies the other agent steps by ID, and deletes the host object last. It
-// writes the state once at the end, including after a failure, so
-// completed steps are recorded.
+// agents first, then creates or updates the environment's host object and
+// its vaults, applies the other agent steps by ID, and deletes vaults and
+// then the host object last. It writes the state once at the end, including
+// after a failure, so completed steps are recorded.
 func (e *Engine) Apply(ctx context.Context, plan *Plan) error {
 	if !plan.HasChanges() {
 		return nil
@@ -390,12 +524,27 @@ func (e *Engine) Apply(ctx context.Context, plan *Plan) error {
 		}
 		return nil
 	}
+	vaultSteps := func(deletes bool) {
+		for _, step := range plan.Vaults {
+			if (step.Action == provider.Delete) != deletes {
+				continue
+			}
+			order = append(order, func() error {
+				if err := e.applyVault(ctx, plan, step); err != nil {
+					return fmt.Errorf("%s %s: %w", step.Action, step.ID, err)
+				}
+				return nil
+			})
+		}
+	}
 	agentSteps(deletes)
 	hostLast := plan.Host != nil && plan.Host.Action == provider.Delete
 	if plan.Host != nil && !hostLast {
 		order = append(order, hostStep)
 	}
+	vaultSteps(false)
 	agentSteps(others)
+	vaultSteps(true)
 	if hostLast {
 		order = append(order, hostStep)
 	}
@@ -510,6 +659,71 @@ func (e *Engine) applyHost(ctx context.Context, plan *Plan, step *provider.Envir
 	return err
 }
 
+// applyVault carries out a host vault's step.
+func (e *Engine) applyVault(ctx context.Context, plan *Plan, step *provider.VaultPlan) error {
+	st := plan.state
+	switch step.Action {
+	case provider.NoOp:
+		return nil
+	case provider.Delete, provider.Replace:
+		old, err := e.vaultHost(plan, step.Prior.Provider)
+		if err != nil {
+			return err
+		}
+		if err := old.DestroyVault(ctx, step.Prior); err != nil {
+			return err
+		}
+		delete(st.Vaults, step.ID)
+		if step.Action == provider.Delete {
+			return nil
+		}
+	}
+	vh, err := e.vaultHost(plan, plan.Provider)
+	if err != nil {
+		return err
+	}
+	applied, err := vh.ApplyVault(ctx, step)
+	if applied != nil {
+		p, _ := e.provider(plan, plan.Provider) // created by vaultHost
+		entry := &state.VaultEntry{
+			ID:              step.ID,
+			Provider:        plan.Provider,
+			ProviderVersion: p.Version(),
+			Placement:       plan.Placement,
+			Digest:          step.Digest,
+			Config:          step.Config,
+			Binding:         applied.Binding,
+			RemoteHash:      applied.RemoteHash,
+			Source:          e.Source,
+			AppliedAt:       e.now(),
+			AppliedBy:       e.Who,
+		}
+		if err != nil {
+			// Part of the vault was applied. No digest matches an empty
+			// one, so the next plan updates it.
+			entry.Digest = ""
+		}
+		if st.Vaults == nil {
+			st.Vaults = map[string]*state.VaultEntry{}
+		}
+		st.Vaults[step.ID] = entry
+	}
+	return err
+}
+
+// vaultHost returns a provider that keeps vaults.
+func (e *Engine) vaultHost(plan *Plan, name string) (provider.VaultHost, error) {
+	p, err := e.provider(plan, name)
+	if err != nil {
+		return nil, err
+	}
+	vh, ok := p.(provider.VaultHost)
+	if !ok {
+		return nil, fmt.Errorf("provider %s keeps no vaults", name)
+	}
+	return vh, nil
+}
+
 // environmentHost returns a provider that keeps environment objects.
 func (e *Engine) environmentHost(plan *Plan, name string) (provider.EnvironmentHost, error) {
 	p, err := e.provider(plan, name)
@@ -555,3 +769,6 @@ func (p *Plan) Entry(id string) *state.Entry { return p.state.Agents[id] }
 // HostEntry returns the environment's host object as it stands in the
 // plan's state, or nil.
 func (p *Plan) HostEntry() *state.EnvironmentEntry { return p.state.Host }
+
+// VaultEntry returns a host vault as it stands in the plan's state, or nil.
+func (p *Plan) VaultEntry(id string) *state.VaultEntry { return p.state.Vaults[id] }

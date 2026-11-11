@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-10
+status: accepted
+date: 2026-11-11
 decision-makers: Renan Tarouco da Fonseca
 ---
 
@@ -50,9 +50,11 @@ spec:
 
 **Scoping.** An agent that references any vault gets the credentials of those vaults and nothing else. A secret one of its MCP servers uses, in a header or a package variable, that no referenced vault grants for that server fails `validate`, naming the server and the secret.
 - On `process` and `docker`, the launcher passes only those credentials into the run, and the environment's secret source still supplies the values. claude-agent-sdk's prelude drops everything else from the run's environment, whatever the source. gitagent can't rename a variable, so on gitagent an `env` target must be named after its secret, or plan fails; and `docker --env-file` hands the container the whole dotenv file, so plan warns that only `secrets.source: env` scopes credentials there.
-- On Managed Agents, apply creates one host vault per Vault and environment, shared only by the agents that reference it. It's a host-backed resource (ADR 0004) with its own state entry: host ID, version and the credential names it holds. The invocation (ADR 0014) lists the vault IDs a caller attaches when starting a session. An MCP server whose credential no referenced vault provides fails plan, where it warns today.
+- On Managed Agents, apply creates one host vault per Vault and environment, shared only by the agents that reference it. It's a host-backed resource (ADR 0004) with its own state entry, `vaults` in the environment's state: host ID, credential IDs, and a config of credential names, secret names and targets. Providers whose host keeps vaults implement `provider.VaultHost`, and the engine plans vaults like the environment's own host object (ADR 0012): created and updated before the agents, deleted after them. Managed Agents records no invocation, since the host runs the agent, so `status` lists the vault IDs a caller attaches when starting a session, per agent.
+- A Managed Agents vault holds two kinds of credential. An `mcpServer` credential becomes a static bearer token for the server's remote URL, which the host sends as `Authorization: Bearer <token>`. So the server must take the secret in its `Authorization` header, or plan fails, and a leading `Bearer ` in the value is dropped, so the same value works where a launcher sends the header as it is. A secret only an MCP package uses isn't stored, with a warning: the host runs no packages. An `env` credential becomes an environment variable credential whose value the host substitutes into requests to any host the environment's network policy allows, so `sandbox.network` bounds it as it bounds everything else.
+- An agent on Managed Agents whose MCP servers send a secret header and that lists no vaults gets a warning, as on every host; one that lists vaults is checked by `validate` like everywhere else.
 
-**Values and rotation.** State and digests can't tell whether a value changed: they never see it, not even as a hash. Apply sends values to a host vault when the vault or a credential is created, or when a credential's name or target changes. `solaria apply --rotate-secrets` sends every value again. Plans show a vault as changing only in those cases, so rotation doesn't make every plan noisy.
+**Values and rotation.** State and digests can't tell whether a value changed: they never see it, not even as a hash. Apply sends values to a host vault when the vault or a credential is created, or when a credential's secret or target changes; a target the host can't change, such as a variable's name, recreates the credential. `solaria apply --rotate-secrets` sends every value again, and `plan --rotate-secrets` shows it. Apply reads every value it will send before its first host call, so a missing secret changes nothing. Plans show a vault as changing only in those cases, so rotation doesn't make every plan noisy.
 
 **Agents without vaults** keep working as today: the launcher reads every secret their MCP servers use from the secret source, and `validate` warns for each server so its secrets can move to a Vault. Strict scoping starts with an agent's first vault reference, so a project can adopt vaults one agent at a time. A later version may make Vault references mandatory.
 
@@ -69,7 +71,7 @@ spec:
 - Validation tests cover an unresolved vault, a credential whose target doesn't match, and, for an agent with vaults, a server secret no vault grants.
 - Golden tests for each provider show the scoped credentials: the launcher's allowlist on `process` and `docker`, and the vault requests on Managed Agents.
 - A test checks that no secret value appears in state, plan output or rendered files.
-- The managed-agents fake API test covers creating a vault, a rename and `--rotate-secrets`.
+- The managed-agents fake API test covers creating a vault, an unchanged plan, `--rotate-secrets`, a changed secret and variable, a missing secret, a vault deleted outside Solaria, and destroy, and checks that no value reaches the transcript or the state.
 
 ## Pros and cons of the options
 

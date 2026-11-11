@@ -18,16 +18,36 @@ stderr 'error: Agent/reviewer on gitagent/docker: a Vault credential sets GH_TOK
 stderr 'warning: Agent/reviewer on gitagent/docker: docker passes the whole dotenv file to the container, so the agent''s vaults don''t limit which secrets it sees; use secrets.source env to scope them'
 ! stdout .
 
-# Managed Agents can't create host vaults yet.
-env ANTHROPIC_API_KEY=
-! exec solaria plan -e ma-cloud
-stderr 'error: Agent/reviewer on managed-agents/cloud: the agent references vaults \(git-host\), and managed-agents can''t create host vaults yet'
-! stdout .
-
 # The claude-agent-sdk launcher scopes them, so it plans.
 exec solaria plan -e sdk-docker
 stdout '^  \+ Agent/reviewer$'
 ! stderr 'error'
+
+# On Managed Agents, apply keeps a host vault for each Vault, which the
+# agent's sessions attach. Planning needs no API key: there's no state yet.
+env ANTHROPIC_API_KEY=
+exec solaria plan -e ma-cloud
+cmp stdout ../ma-plan.txt
+! stderr 'error|warning'
+
+# status lists host vaults, and says which ones an agent's sessions attach.
+# The state is written by hand: applying needs the API.
+mkdir .solaria/state
+cp ../ma-state.json .solaria/state/ma-cloud.json
+exec solaria status -e ma-cloud
+stdout '^  Vault/git-host +managed-agents/cloud +vlt_01 +- +sha256:1111aaaa2222 +2026-11-11 10:00 +for Agent/reviewer$'
+exec solaria status -e ma-cloud -a reviewer
+stdout '^  managed-agents runs the agent on its host; there''s no command to start it.$'
+stdout '^  vaults: attach vlt_01 \(git-host\) when starting a session$'
+! stdout 'Vault/git-host'
+exec solaria status -e ma-cloud -a reviewer -o json
+stdout '"vaults": \[\n +\{\n +"name": "git-host",\n +"hostId": "vlt_01"'
+
+# A Managed Agents vault can only fill an MCP server's Authorization header.
+replace solaria.yaml 'name: Authorization' 'name: X-Api-Key'
+! exec solaria plan -e ma-cloud
+stderr '^solaria.yaml: error: Vault/git-host on managed-agents/cloud: credential "git-host-token": McpServer "git-host" sends secret GIT_HOST_TOKEN as header X-Api-Key, and Managed Agents vaults can only fill an MCP server''s Authorization bearer token$'
+! stdout .
 
 -- invalid.txt --
 agents.yaml:18:17: warning: spec.tools.mcp[0]: McpServer "git-host" gets secret "GIT_HOST_TOKEN" straight from the secret source; grant it through a Vault in spec.vaults to scope it to this agent
@@ -40,6 +60,52 @@ bad.yaml:20:18: error: spec.credentials[1].secretRef: McpServer "git-host" doesn
 -- valid.txt --
 agents.yaml:18:17: warning: spec.tools.mcp[0]: McpServer "git-host" gets secret "GIT_HOST_TOKEN" straight from the secret source; grant it through a Vault in spec.vaults to scope it to this agent
 valid: 2 Agents, 2 McpServers, 1 Vault (1 warning)
+-- ma-plan.txt --
+Environment ma-cloud (managed-agents/cloud)
+
+  + Environment/ma-cloud
+
+  + Vault/git-host
+      note: stores 2 credentials from the environment variables
+      note: sessions of Agent/reviewer attach it when they start
+
+  + Agent/reviewer
+      resolvedDigest: sha256:df96400566f9
+
+Plan: 3 to create, 0 to update, 0 to replace, 0 to delete or archive.
+-- ma-state.json --
+{
+  "format": "solaria.sh/state/v1",
+  "lineage": "8c1e7b52-0a35-4f0e-9d7a-2b1c3d4e5f60",
+  "serial": 1,
+  "environment": "ma-cloud",
+  "agents": {
+    "Agent/reviewer": {
+      "id": "Agent/reviewer",
+      "provider": "managed-agents",
+      "providerVersion": "dev",
+      "placement": "cloud",
+      "specDigest": "sha256:3333bbbb4444",
+      "resolvedDigest": "sha256:3333bbbb4444",
+      "binding": {"hostId": "agent_01", "version": "1"},
+      "definition": {"format": "solaria.sh/definition/v1", "vaults": {"git-host": {"credentials": []}}},
+      "source": {},
+      "appliedAt": "2026-11-11T10:00:00Z"
+    }
+  },
+  "vaults": {
+    "Vault/git-host": {
+      "id": "Vault/git-host",
+      "provider": "managed-agents",
+      "providerVersion": "dev",
+      "placement": "cloud",
+      "digest": "sha256:1111aaaa2222",
+      "binding": {"hostId": "vlt_01"},
+      "source": {},
+      "appliedAt": "2026-11-11T10:00:00Z"
+    }
+  }
+}
 -- project/agents.yaml --
 apiVersion: solaria.sh/v1alpha1
 kind: Agent
