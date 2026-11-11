@@ -16,6 +16,7 @@ spec:
   skills: [skills/triage]
   permissions: {ask: [shell, github/create_issue]}
   limits: {maxTurns: 40, timeout: 15m}
+  output: {schema: review.schema.yaml}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: McpServer

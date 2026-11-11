@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-10
 decision-makers: Renan Tarouco da Fonseca
 ---
@@ -65,6 +65,14 @@ Chosen option: "Either form, normalized to the same digest input", because short
 
 - Good, because there's nothing to build.
 - Bad, because nothing enforces it, and a malformed answer reaches the consumer.
+
+### As implemented
+
+- The digest input's `output` member is `{"schema": <parsed schema>}`. The `internal/resolve` golden files didn't change, so the format stays `solaria.sh/definition/v1`.
+- Files must end in `.json`, `.yaml` or `.yml`. A schema without `$schema` is compiled as draft 2020-12.
+- `validate` also rejects a `$ref` to another document, on every provider: no host resolves one, and `validate` never fetches.
+- `stub` has the capability, so `solaria init`'s `local` environment can plan an agent with a schema.
+- On `claude-agent-sdk` the only keyword the host is known to treat differently is `format`, which the SDK accepts as an annotation without checking (Claude Code 2.1.205 and later; the pinned SDK ships 2.1.319). Plan warns about it rather than failing. A run whose answer never matches ends with `error_max_structured_output_retries`.
 
 ## More information
 

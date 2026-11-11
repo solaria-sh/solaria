@@ -97,7 +97,7 @@ ENTRYPOINT ["/opt/solaria/agent/venv/bin/python","/opt/solaria/agent/launch.py"]
   "agent": {
     "logicalId": "Agent/helper",
     "environment": "ci-docker",
-    "resolvedDigest": "sha256:f845570c2ebee00a9e5a275038b48a3513b9de9a79d25935867488735ffb3688"
+    "resolvedDigest": "sha256:22656a684ef587a9e3a43f9272d21dec1121bac0a73d2eaa3aff57cbd34cd469"
   },
   "sdk": {
     "runtime": "python",
@@ -131,6 +131,20 @@ ENTRYPOINT ["/opt/solaria/agent/venv/bin/python","/opt/solaria/agent/launch.py"]
           "notes-mcp==0.4.1"
         ]
       }
+    },
+    "outputFormat": {
+      "type": "json_schema",
+      "schema": {
+        "properties": {
+          "answer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "type": "object"
+      }
     }
   }
 }
@@ -139,9 +153,9 @@ claude-agent-sdk==0.2.178
 === system-prompt.md
 You answer questions about the docs.
 === image
-solaria/ci-docker/helper:56c62161f22a for linux/amd64
+solaria/ci-docker/helper:15e6ea097a5a for linux/amd64
 === run
-docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY solaria/ci-docker/helper:56c62161f22a
+docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY solaria/ci-docker/helper:15e6ea097a5a
 === invocation
 {
   "argv": [
@@ -157,7 +171,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
     "{workspace}:/workspace",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/ci-docker/helper:56c62161f22a"
+    "solaria/ci-docker/helper:15e6ea097a5a"
   ],
   "workspace": "mount",
   "task": {
@@ -172,10 +186,10 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
 === labels
 sh.solaria.environment=ci-docker
 sh.solaria.logical-id=Agent/helper
-sh.solaria.resolved-digest=sha256:f845570c2ebee00a9e5a275038b48a3513b9de9a79d25935867488735ffb3688
+sh.solaria.resolved-digest=sha256:22656a684ef587a9e3a43f9272d21dec1121bac0a73d2eaa3aff57cbd34cd469
 sh.solaria.sdk-runtime=python
 sh.solaria.sdk-version=0.2.178
-sh.solaria.spec-digest=sha256:f845570c2ebee00a9e5a275038b48a3513b9de9a79d25935867488735ffb3688
+sh.solaria.spec-digest=sha256:22656a684ef587a9e3a43f9272d21dec1121bac0a73d2eaa3aff57cbd34cd469
 === sandbox image
 solaria/ci-docker/helper-sandbox:a54c06c78810 from $ROOT/sandbox.Dockerfile
 === secrets

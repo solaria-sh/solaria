@@ -17,7 +17,7 @@ Each agent becomes a JSON file under `.solaria/stub/<environment>/`, holding its
 
 ## Capabilities
 
-`stub` accepts every model, MCP transport and sandbox form, and supports fallback models and approvals. Destroy deletes the files.
+`stub` accepts every model, MCP transport and sandbox form, and supports fallback models, approvals and output schemas. Destroy deletes the files.
 
 ## Settings
 

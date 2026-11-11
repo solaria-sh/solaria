@@ -193,6 +193,14 @@ func extend(s *jsonschema.Schema, kind string) {
 	if d := s.Definitions["KeyValue"]; d != nil {
 		d.OneOf = []*jsonschema.Schema{{Required: []string{"value"}}, {Required: []string{"secretRef"}}}
 	}
+	// OutputSchema decodes from a string or an object, which reflection
+	// can't see.
+	if _, ok := s.Definitions["OutputSchema"]; ok {
+		s.Definitions["OutputSchema"] = &jsonschema.Schema{OneOf: []*jsonschema.Schema{
+			{Type: "string", MinLength: ptr(uint64(1)), Description: "Path to a JSON or YAML file holding the schema."},
+			{Type: "object", Description: "The JSON Schema itself."},
+		}}
+	}
 	if d := s.Definitions["MCPArgument"]; d != nil {
 		d.If = props("type", &jsonschema.Schema{Const: string(v1alpha1.ArgumentNamed)})
 		d.Then = &jsonschema.Schema{Required: []string{"name"}}

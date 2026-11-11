@@ -1,0 +1,7 @@
+type: object
+properties:
+  verdict: {enum: [approve, request-changes]}
+  summary: {type: string}
+  issue: {type: string, format: uri}
+required: [verdict, summary]
+additionalProperties: false

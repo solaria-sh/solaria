@@ -35,6 +35,7 @@ The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspec
 | `allowTools` | `--allowed-tools` when every MCP ref lists `allowTools`, or `--disallowed-tools` for the built-ins the agent leaves out when none do. A mix can't be expressed, so plan fails. |
 | `permissions.ask` | the tool is denied: nobody can approve during an unattended run |
 | `limits` | `max_turns` and `timeout` |
+| `output.schema` | not supported; plan fails |
 | `secretRef` | `${NAME}` in `gitagent.yaml`; the run command passes the variable from the secret source |
 | `telemetry` | `OTEL_*` variables in the run command |
 

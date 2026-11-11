@@ -66,6 +66,7 @@ func (p *Provider) Capabilities(string) provider.Capabilities {
 		MCPTransports: []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:  true,
 		Approvals:     true,
+		OutputSchema:  true,
 		Destroy:       provider.DestroyDelete,
 	}
 }
