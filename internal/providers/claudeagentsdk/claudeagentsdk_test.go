@@ -18,7 +18,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
+	"github.com/solaria-sh/solaria/internal/diag"
 	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/providers/container"
 	"github.com/solaria-sh/solaria/internal/providers/process"
@@ -84,6 +86,9 @@ func golden(b *bundle, root string) string {
 	dotenv, _ := json.Marshal(filepath.Join(root, ".env"))
 	out := strings.ReplaceAll(s.String(), string(dotenv), `"$ROOT/.env"`)
 	out = strings.ReplaceAll(out, container.ShellQuote(filepath.Join(root, ".env")), "$ROOT/.env")
+	// srt's settings hold the cache folder in native form too.
+	cache, _ := json.Marshal(filepath.Join(testProviderDir, ".cache"))
+	out = strings.ReplaceAll(out, string(cache), `"/project/.solaria/claude-agent-sdk/.cache"`)
 	return strings.ReplaceAll(out, filepath.ToSlash(root), "$ROOT")
 }
 
@@ -94,13 +99,14 @@ func TestRenderGolden(t *testing.T) {
 		{"docker", "full", "dev-docker"},
 		{"python-docker", "python", "ci-docker"},
 		{"vault-docker", "vault", "ci-docker"},
+		{"srt", "full", "dev-srt"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir, err := filepath.Abs(filepath.Join("testdata", tc.fixture))
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, err := render(load(t, dir, tc.env))
+			b, err := render(load(t, dir, tc.env), testProviderDir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -125,7 +131,7 @@ func TestRenderGolden(t *testing.T) {
 func TestSettingsErrors(t *testing.T) {
 	a := load(t, filepath.Join("testdata", "python"), "ci")
 	a.Env.Providers[Name] = map[string]any{"runtime": "deno", "version": "latest"}
-	b, err := render(a)
+	b, err := render(a, testProviderDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,15 +146,33 @@ func TestSettingsErrors(t *testing.T) {
 	}
 }
 
+// testProviderDir stands for .solaria/claude-agent-sdk in render tests.
+const testProviderDir = "/project/.solaria/claude-agent-sdk"
+
 // fakeHost has a runtime of a given version, and installs by writing
 // what npm or pip would leave.
 type fakeHost struct {
 	version  string
 	missing  bool
 	installs []InstallRequest
+	// goos defaults to linux; programs are what LookPath finds.
+	goos     string
+	programs []string
 }
 
-func (h *fakeHost) GOOS() string { return "linux" }
+func (h *fakeHost) GOOS() string {
+	if h.goos == "" {
+		return "linux"
+	}
+	return h.goos
+}
+
+func (h *fakeHost) LookPath(name string) (string, error) {
+	if slices.Contains(h.programs, name) {
+		return "/usr/bin/" + name, nil
+	}
+	return "", fmt.Errorf("%s: not found", name)
+}
 
 func (h *fakeHost) Runtime(_ context.Context, name string) (Runtime, error) {
 	if h.missing {
@@ -186,7 +210,7 @@ func TestValidate(t *testing.T) {
 		{"fine", &fakeHost{version: "Python 3.12.1"}, nil, []string{
 			"warning: Agent/helper on claude-agent-sdk/process: providers.claude-agent-sdk.colour isn't a setting of this provider and is ignored; it has no per-agent settings",
 			"warning: Agent/helper on claude-agent-sdk/process: sandbox.packages aren't installed on the process placement: the run uses the tools this machine has",
-			"warning: Agent/helper on claude-agent-sdk/process: sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can",
+			"warning: Agent/helper on claude-agent-sdk/process: sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can; set sandbox.isolation: srt to enforce it",
 			"warning: Agent/helper on claude-agent-sdk/process: sandbox.resources aren't enforced on the process placement",
 		}},
 		{"missing", &fakeHost{missing: true}, nil, []string{
@@ -477,7 +501,7 @@ func (l launcher) setup(t *testing.T) (bundle, bin, dotenv string) {
 	dotenv = filepath.Join(work, ".env")
 	a.EnvDir = work // where the dotenv file is
 
-	b, err := render(a)
+	b, err := render(a, testProviderDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -818,7 +842,7 @@ func TestSDKLayerIgnoresCard(t *testing.T) {
 				t.Fatal(err)
 			}
 			a := load(t, dir, tc.env)
-			b1, err := render(a)
+			b1, err := render(a, testProviderDir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -828,7 +852,7 @@ func TestSDKLayerIgnoresCard(t *testing.T) {
 			}
 			other.ResolvedDigest = "sha256:" + strings.Repeat("0", 64)
 			other.Definition.Instructions = []string{"Something else entirely.\n"}
-			b2, err := render(&other)
+			b2, err := render(&other, testProviderDir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -864,7 +888,7 @@ func TestSDKLayerIgnoresCard(t *testing.T) {
 func TestPlatformSetting(t *testing.T) {
 	a := load(t, filepath.Join("testdata", "python"), "ci-docker")
 	a.Env.Providers[Name]["platform"] = "linux/s390x"
-	b, err := render(a)
+	b, err := render(a, testProviderDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -873,7 +897,57 @@ func TestPlatformSetting(t *testing.T) {
 	}
 	a = load(t, filepath.Join("testdata", "python"), "ci")
 	a.Env.Providers[Name]["platform"] = "linux/arm64"
-	if b, _ = render(a); !strings.Contains(b.Diags.String(), "platform only applies to the docker placement") {
+	if b, _ = render(a, testProviderDir); !strings.Contains(b.Diags.String(), "platform only applies to the docker placement") {
 		t.Errorf("diagnostics = %s", b.Diags)
+	}
+}
+
+// TestSRT applies an agent whose environment sets sandbox.isolation: srt:
+// the invocation wraps the launcher in srt with the bundle's settings,
+// which name the real cache folder, and the bundle doesn't drift.
+func TestSRT(t *testing.T) {
+	work := t.TempDir()
+	h := &fakeHost{version: "v22.3.0", goos: "darwin", programs: []string{"srt", "rg"}}
+	p := NewWithHost(provider.Options{Environment: "dev-srt", WorkDir: work}, h, nil, func() []string { return nil })
+	a := load(t, filepath.Join("testdata", "full"), "dev-srt")
+	ctx := context.Background()
+	if diags := diag.List(p.Validate(ctx, a)); diags.HasErrors() || strings.Contains(diags.String(), "sandbox.network is limited") {
+		t.Errorf("validate:\n%s", diags)
+	}
+	if caps := p.Capabilities(process.Placement); !slices.Contains(caps.Isolation, v1alpha1.IsolationSRT) {
+		t.Errorf("process capabilities lack srt: %+v", caps)
+	}
+	if caps := p.Capabilities(PlacementDocker); len(caps.Isolation) > 0 {
+		t.Errorf("docker offers isolation %v", caps.Isolation)
+	}
+
+	_, entry := cycle(t, p, a, nil)
+	bundle := filepath.Join(work, filepath.FromSlash(entry.Binding.Outputs[outBundle]))
+	settings := filepath.Join(bundle, process.SRTSettingsFile)
+	if want := []string{"srt", "--settings", settings, "--", "node", filepath.Join(bundle, "launch.mjs")}; !slices.Equal(entry.Binding.Invocation.Argv, want) {
+		t.Errorf("argv = %q, want %q", entry.Binding.Invocation.Argv, want)
+	}
+	content, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s process.SRTSettings
+	if err := json.Unmarshal(content, &s); err != nil {
+		t.Fatal(err)
+	}
+	if cache := filepath.Join(work, ".solaria", Name, ".cache"); !slices.Contains(s.Filesystem.AllowWrite, cache) {
+		t.Errorf("allowWrite %v lacks the cache %s", s.Filesystem.AllowWrite, cache)
+	}
+	if obs, err := p.Read(ctx, entry); err != nil || obs.RemoteHash != entry.RemoteHash {
+		t.Errorf("Read = %+v, %v; want the build digest %s", obs, err, entry.RemoteHash)
+	}
+	if pl, _ := cycle(t, p, a, entry); pl.Action != provider.NoOp {
+		t.Errorf("unchanged agent plans %s", pl.Action)
+	}
+
+	// A machine without srt fails plan.
+	h.programs = []string{"rg"}
+	if diags := diag.List(p.Validate(ctx, a)); !strings.Contains(diags.String(), "srt isn't on PATH") {
+		t.Errorf("validate without srt:\n%s", diags)
 	}
 }

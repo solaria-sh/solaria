@@ -107,7 +107,7 @@ def isolate(spec, cache_dir):
     root = tempfile.mkdtemp(prefix="solaria-run-")
     for name, rel in spec["scratch"].items():
         d = os.path.join(root, *rel.split("/"))
-        os.makedirs(d, exist_ok=True)
+        os.makedirs(d, mode=0o700, exist_ok=True)
         env[name] = d
     for name, rel in spec["cache"].items():
         d = os.path.join(cache_dir, *rel.split("/"))

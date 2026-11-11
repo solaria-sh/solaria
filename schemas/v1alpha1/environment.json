@@ -402,6 +402,13 @@
           "type": "string",
           "minLength": 1,
           "description": "Replaces the generated sandbox image: a container image reference, or a path to a Dockerfile relative to this file. Only container placements accept it."
+        },
+        "isolation": {
+          "type": "string",
+          "enum": [
+            "srt"
+          ],
+          "description": "Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only."
         }
       },
       "additionalProperties": false,

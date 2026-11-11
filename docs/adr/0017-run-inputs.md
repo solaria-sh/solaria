@@ -80,10 +80,11 @@ spec:
     isolation: srt
 ```
 
-- The launcher command becomes `srt --settings <run>.json -- node launch.mjs`, or the same around `launch.py`. Solaria generates the settings per run:
-  - writes are allowed only to the run's scratch HOME and temp folder, plus the workspace and repositories the agent declares writable;
-  - the domain allow-list is the model API plus `sandbox.network`, so `process` enforces the network too.
-- srt is installed outside every writable path. The SDK's own `sandbox` option stays off, since sandboxes don't nest. The launcher's allowlist passes srt's proxy variables through.
+- The launcher command becomes `srt --settings <bundle>/srt-settings.json -- node launch.mjs`, or the same around `launch.py`. Apply writes the settings into the bundle, so the bundle's digest covers them and editing them shows as drift:
+  - writes are allowed only to srt's temp folder, which holds the run's scratch HOME and temp folder, the provider's package cache, and the workspace and repositories the agent declares writable;
+  - the domain allow-list is the hosts the agent needs (the model API, its remote MCP servers, the registries its stdio MCP packages come from, the telemetry endpoint) plus `sandbox.network`, so `process` enforces the network too. A loopback endpoint, such as a local telemetry collector, is reached through srt's local binding rather than the list.
+- srt has no way to allow every host, so `isolation: srt` with `network.mode: unrestricted` fails plan.
+- srt is installed outside every writable path. The SDK's own `sandbox` option stays off, since sandboxes don't nest. The launcher's allowlist passes srt's proxy variables through, and tells Node's own `fetch` to use them.
 - It works on macOS and on Linux with bubblewrap and socat. On Windows, and wherever srt is missing, plan fails when `isolation: srt` is set.
 - It's opt-in because srt is a beta research preview whose configuration may change. Without it, `process` behaves as ADR 0014 describes, and plan warns as before.
 - A read-only workspace also adds deny rules for the file-editing tools, as defense in depth.

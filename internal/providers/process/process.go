@@ -161,26 +161,49 @@ func (iso Isolation) JSON() []byte {
 	return b.Bytes()
 }
 
-// Validate returns the warnings every process placement gives about an
-// agent's environment: what a local process can't enforce, and managed
-// settings that reach every Claude Code process on this machine.
-func Validate(a *resolve.Agent, managed []string) diag.List {
+// Machine is what Validate needs to know about the machine runs start on.
+type Machine struct {
+	// GOOS is its operating system.
+	GOOS string
+	// Managed lists the Claude Code managed settings files found on it.
+	Managed []string
+	// LookPath finds a program on its PATH, as exec.LookPath does.
+	LookPath func(string) (string, error)
+}
+
+// Validate returns what every process placement says about an agent's
+// environment: what a local process can't enforce, managed settings that
+// reach every Claude Code process on this machine, and, with
+// sandbox.isolation: srt, why srt can't isolate runs here.
+func Validate(a *resolve.Agent, m Machine) diag.List {
 	var diags diag.List
 	warn := func(format string, args ...any) {
 		diags = append(diags, diag.Warnf("", diag.Pos{}, format, args...))
 	}
 	sb := a.Env.Sandbox
+	limited := sb == nil || sb.Network == nil || sb.Network.Mode != v1alpha1.NetworkUnrestricted
 	if sb != nil && sb.Packages != nil {
 		warn("sandbox.packages aren't installed on the process placement: the run uses the tools this machine has")
 	}
-	if sb == nil || sb.Network == nil || sb.Network.Mode != v1alpha1.NetworkUnrestricted {
-		warn("sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can")
+	switch {
+	case Isolated(a):
+		if !limited {
+			diags = append(diags, diag.Errorf("", diag.Pos{}, "sandbox.isolation srt limits the network to the hosts the agent needs, so it can't be combined with sandbox.network.mode unrestricted; list the extra hosts in sandbox.network.allow"))
+		}
+		if why := checkSRT(m.GOOS, m.LookPath); why != "" {
+			diags = append(diags, diag.Errorf("", diag.Pos{}, "sandbox.isolation srt can't isolate runs on this machine: %s", why))
+		}
+		if _, loopback := NeededHosts(a, nil); loopback && m.GOOS == "linux" {
+			warn("srt runs the agent in its own network namespace on Linux, so hosts on this machine's loopback, such as a telemetry collector on localhost, may be unreachable")
+		}
+	case limited:
+		warn("sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can; set sandbox.isolation: srt to enforce it")
 	}
 	if sb != nil && sb.Resources != nil && (sb.Resources.Memory != "" || sb.Resources.Disk != "") {
 		warn("sandbox.resources aren't enforced on the process placement")
 	}
-	for _, m := range managed {
-		warn("managed settings in %s apply to every Claude Code process on this machine and can't be turned off on the process placement; use the docker placement to keep them out", m)
+	for _, f := range m.Managed {
+		warn("managed settings in %s apply to every Claude Code process on this machine and can't be turned off on the process placement; use the docker placement to keep them out", f)
 	}
 	return diags
 }

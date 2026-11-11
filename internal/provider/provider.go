@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/diag"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/state"
@@ -65,6 +66,9 @@ type Capabilities struct {
 	MCPTransports []string
 	// SandboxImage means the placement accepts sandbox.image.
 	SandboxImage bool
+	// Isolation lists the sandbox.isolation values the placement accepts,
+	// such as srt on the process placement (ADR 0017).
+	Isolation []v1alpha1.Isolation
 	// Approvals means permissions.ask is honored in unattended runs. When
 	// false, those tools are denied instead, and plan warns.
 	Approvals bool

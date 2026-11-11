@@ -31,6 +31,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/diag"
 	"github.com/solaria-sh/solaria/internal/digest"
 	"github.com/solaria-sh/solaria/internal/provider"
@@ -107,9 +108,19 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		Fallback:       true,
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   placement == PlacementDocker,
+		Isolation:      isolation(placement),
 		OutputSchema:   true,
 		Destroy:        provider.DestroyDelete,
 	}
+}
+
+// isolation is what sandbox.isolation can be on a placement: srt on
+// process; a container is its own sandbox.
+func isolation(placement string) []v1alpha1.Isolation {
+	if placement == process.Placement {
+		return []v1alpha1.Isolation{v1alpha1.IsolationSRT}
+	}
+	return nil
 }
 
 // Validate renders the agent. On the process placement it also checks
@@ -118,7 +129,7 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 // see the machine's managed settings.
 func (p *Provider) Validate(ctx context.Context, a *resolve.Agent) []diag.Diagnostic {
 	where := fmt.Sprintf("%s on %s/%s", a.ID(), Name, a.Placement)
-	b, err := render(a)
+	b, err := render(a, p.providerDir())
 	if err != nil {
 		return []diag.Diagnostic{diag.Errorf("", diag.Pos{}, "%s: %v", where, err)}
 	}
@@ -138,7 +149,7 @@ func (p *Provider) Validate(ctx context.Context, a *resolve.Agent) []diag.Diagno
 			diags = append(diags, diag.Errorf("", diag.Pos{}, "%s: the %s launcher can't run on this machine: %s", where, b.Runtime, why))
 		}
 	}
-	for _, d := range process.Validate(a, p.managed()) {
+	for _, d := range process.Validate(a, process.Machine{GOOS: p.host.GOOS(), Managed: p.managed(), LookPath: p.host.LookPath}) {
 		d.Message = where + ": " + d.Message
 		diags = append(diags, d)
 	}
@@ -150,7 +161,7 @@ func (p *Provider) Validate(ctx context.Context, a *resolve.Agent) []diag.Diagno
 // while the agent's definition stays the same.
 func (p *Provider) Plan(_ context.Context, desired *resolve.Agent, prior *state.Entry) (*provider.Plan, error) {
 	pl := provider.DefaultPlan(desired, prior)
-	b, err := render(desired)
+	b, err := render(desired, p.providerDir())
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +203,7 @@ func installer(runtime string) string {
 // builds the image from it, and removes the agent's other bundles.
 func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Applied, error) {
 	a := pl.Desired
-	b, err := render(a)
+	b, err := render(a, p.providerDir())
 	if err != nil {
 		return nil, err
 	}
@@ -239,10 +250,14 @@ func (p *Provider) outputs(b *bundle, dir string, inv *state.Invocation) map[str
 // the agent works on, which is the current directory, so the bundle's
 // paths are absolute.
 func (p *Provider) argv(dir string, b *bundle) []string {
+	argv := []string{"node", filepath.Join(dir, "launch.mjs")}
 	if b.Runtime == RuntimePython {
-		return []string{venvPython(p.host.GOOS(), dir), filepath.Join(dir, "launch.py")}
+		argv = []string{venvPython(p.host.GOOS(), dir), filepath.Join(dir, "launch.py")}
 	}
-	return []string{"node", filepath.Join(dir, "launch.mjs")}
+	if b.SRT {
+		argv = process.SRTArgv(filepath.Join(dir, process.SRTSettingsFile), argv)
+	}
+	return argv
 }
 
 // ResultFormat names what the launcher prints: one JSON object with the

@@ -1,0 +1,245 @@
+=== isolate.mjs (shared)
+=== isolation.json
+{
+  "binaries": [
+    "npx"
+  ],
+  "pass": [
+    "ALL_PROXY",
+    "ANTHROPIC_API_KEY",
+    "COMSPEC",
+    "GIT_SSH_COMMAND",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "NODE_EXTRA_CA_CERTS",
+    "NO_PROXY",
+    "NUMBER_OF_PROCESSORS",
+    "OS",
+    "PATHEXT",
+    "PROCESSOR_ARCHITECTURE",
+    "PROGRAMFILES",
+    "REQUESTS_CA_BUNDLE",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "SYSTEMDRIVE",
+    "SYSTEMROOT",
+    "TZ",
+    "WINDIR",
+    "all_proxy",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy"
+  ],
+  "secrets": [
+    "DOCS_TOKEN",
+    "GITHUB_TOKEN"
+  ],
+  "dotenv": "$ROOT/.env",
+  "set": {
+    "CLAUDE_AGENT_SDK_CLIENT_APP": "solaria",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "NODE_USE_ENV_PROXY": "1",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,service.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.agent.spec_digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.environment=dev-srt",
+    "OTEL_SERVICE_NAME": "reviewer",
+    "SOLARIA_ENVIRONMENT": "dev-srt",
+    "SOLARIA_LOGICAL_ID": "Agent/reviewer",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
+    "SOLARIA_SPEC_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614"
+  },
+  "scratch": {
+    "APPDATA": "home/AppData/Roaming",
+    "CLAUDE_CODE_TMPDIR": "claude-tmp",
+    "CLAUDE_CONFIG_DIR": "home/.claude",
+    "HOME": "home",
+    "LOCALAPPDATA": "home/AppData/Local",
+    "TEMP": "tmp",
+    "TMP": "tmp",
+    "TMPDIR": "tmp",
+    "USERPROFILE": "home",
+    "XDG_CACHE_HOME": "home/.cache",
+    "XDG_CONFIG_HOME": "home/.config",
+    "XDG_DATA_HOME": "home/.local/share",
+    "XDG_STATE_HOME": "home/.local/state"
+  },
+  "cache": {
+    "PIP_CACHE_DIR": "pip",
+    "UV_CACHE_DIR": "uv",
+    "npm_config_cache": "npm"
+  }
+}
+=== launch.mjs (shared)
+=== options.json
+{
+  "agent": {
+    "logicalId": "Agent/reviewer",
+    "environment": "dev-srt",
+    "resolvedDigest": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614"
+  },
+  "sdk": {
+    "runtime": "node",
+    "package": "@anthropic-ai/claude-agent-sdk",
+    "version": "0.3.319"
+  },
+  "cacheDir": "../../../.cache",
+  "timeout": "15m0s",
+  "timeoutMs": 900000,
+  "systemPromptFile": "system-prompt.md",
+  "options": {
+    "model": "claude-sonnet-5-5",
+    "fallbackModel": "claude-haiku-5-5",
+    "effort": "high",
+    "maxTurns": 40,
+    "tools": [
+      "Edit",
+      "Grep",
+      "Read",
+      "Skill"
+    ],
+    "allowedTools": [
+      "Edit",
+      "Grep",
+      "Read",
+      "Skill",
+      "mcp__docs__*",
+      "mcp__github__get_pull_request"
+    ],
+    "disallowedTools": [
+      "Bash",
+      "mcp__github__create_issue"
+    ],
+    "permissionMode": "dontAsk",
+    "settingSources": [],
+    "strictMcpConfig": true,
+    "mcpServers": {
+      "docs": {
+        "type": "http",
+        "url": "https://docs.example.com/mcp",
+        "headers": {
+          "Authorization": {
+            "secretRef": "DOCS_TOKEN"
+          },
+          "X-Team": "platform"
+        }
+      },
+      "github": {
+        "type": "stdio",
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-github@2025.4.8",
+          "--toolsets",
+          "issues"
+        ],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": {
+            "secretRef": "GITHUB_TOKEN"
+          }
+        }
+      }
+    },
+    "skills": [
+      "reviewer:triage"
+    ],
+    "plugins": [
+      {
+        "type": "local",
+        "path": "plugin"
+      }
+    ],
+    "outputFormat": {
+      "type": "json_schema",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue": {
+            "format": "uri",
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "approve",
+              "request-changes"
+            ]
+          }
+        },
+        "required": [
+          "verdict",
+          "summary"
+        ],
+        "type": "object"
+      }
+    }
+  }
+}
+=== package.json
+{
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.319"
+  },
+  "description": "Rendered by Solaria. Run solaria apply instead of editing this bundle.",
+  "name": "solaria-agent",
+  "private": true,
+  "type": "module"
+}
+=== plugin/.claude-plugin/plugin.json
+{
+  "description": "Reviews pull requests.",
+  "name": "reviewer"
+}
+=== plugin/skills/triage/SKILL.md
+---
+name: triage
+description: Sorts issues. Use when asked to triage.
+---
+
+Label each issue.
+=== plugin/skills/triage/labels.txt
+one
+two
+=== srt-settings.json
+{
+  "network": {
+    "allowedDomains": [
+      "api.anthropic.com",
+      "docs.example.com",
+      "files.pythonhosted.org",
+      "git.example.com",
+      "pypi.org",
+      "registry.npmjs.org"
+    ],
+    "deniedDomains": [],
+    "allowLocalBinding": true
+  },
+  "filesystem": {
+    "denyRead": [],
+    "allowWrite": [
+      "/project/.solaria/claude-agent-sdk/.cache",
+      "."
+    ],
+    "denyWrite": []
+  }
+}
+=== system-prompt.md
+# Reviewer
+
+You review pull requests.
+
+Never push.
+=== secrets
+DOCS_TOKEN,GITHUB_TOKEN
+=== diagnostics
+warning: Agent/reviewer on claude-agent-sdk/process: the SDK treats format in spec.output.schema as an annotation and doesn't check it
+warning: Agent/reviewer on claude-agent-sdk/process: allowTools on github: the other tools of these servers are denied when called, but the agent still sees them

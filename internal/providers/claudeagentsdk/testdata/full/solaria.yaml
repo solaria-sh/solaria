@@ -70,3 +70,15 @@ spec:
   telemetry: {endpoint: "http://localhost:4318"}
   providers:
     claude-agent-sdk: {platform: linux/arm64}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev-srt}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox:
+    isolation: srt
+    network: {allow: [git.example.com]}
+  secrets: {source: dotenv}
+  telemetry: {endpoint: "http://localhost:4318"}

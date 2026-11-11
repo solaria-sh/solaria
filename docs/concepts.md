@@ -145,6 +145,7 @@ Fields that only one host understands go under `providers.<name>`: on an Environ
 - `network`: `limited` (the default) or `unrestricted`, extra hosts to `allow`, and whether `packageManagers` may reach their registries.
 - `resources`: memory and disk.
 - `image`: a container image, or a Dockerfile, to start from instead of the Solaria sandbox base. Only container placements take it.
+- `isolation`: `srt` wraps each run on the `process` placement in Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime), so a local process gets a boundary too. Containers have their own, so they refuse it.
 
 Container placements build images on the **Solaria sandbox base**, which follows the Managed Agents cloud sandbox: Ubuntu 24.04 with Node, Python, Go, Rust, Java, Ruby and PHP. An agent that works in a local container finds the same tools in the cloud. Docker can't enforce network host lists or disk limits, so plan warns about them.
 

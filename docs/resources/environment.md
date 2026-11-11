@@ -38,6 +38,7 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.sandbox.resources.memory` | string |  | Memory cap, such as 8Gi. Matches `^[0-9]+(Ki\|Mi\|Gi\|Ti)?$`. |
 | `spec.sandbox.resources.disk` | string |  | Disk cap, such as 10Gi. Matches `^[0-9]+(Ki\|Mi\|Gi\|Ti)?$`. |
 | `spec.sandbox.image` | string |  | Replaces the generated sandbox image: a container image reference, or a path to a Dockerfile relative to this file. Only container placements accept it. |
+| `spec.sandbox.isolation` | `srt` |  | Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only. |
 | `spec.secrets` | object |  | Where secret values are read from when applying. |
 | `spec.secrets.source` | `env` or `dotenv` | yes | env (the process environment) or dotenv (a .env file). |
 | `spec.secrets.path` | string |  | Path of the dotenv file, relative to this file. Defaults to .env. |

@@ -38,6 +38,9 @@ type bundle struct {
 	// Dotenv is the absolute path of the dotenv file the secrets come
 	// from, when the environment has one.
 	Dotenv string
+	// SRT means runs start inside srt, with the bundle's srt-settings.json
+	// (sandbox.isolation: srt, ADR 0017).
+	SRT bool
 	// Docker is set on the docker placement.
 	Docker *dockerParts
 	// Diags are the problems and degradations found while rendering.
@@ -73,16 +76,22 @@ const (
 	cacheDir = "../../../.cache"
 )
 
+// modelHosts are the hosts the SDK reaches for the model: Anthropic's API.
+var modelHosts = []string{"api.anthropic.com"}
+
 // render turns a resolved agent into a bundle. It reads skill files from
-// disk but runs nothing.
-func render(a *resolve.Agent) (*bundle, error) {
-	r := &renderer{a: a, b: &bundle{Files: map[string][]byte{}}}
+// disk but runs nothing. providerDir is the absolute path of
+// .solaria/claude-agent-sdk, which srt's settings name.
+func render(a *resolve.Agent, providerDir string) (*bundle, error) {
+	r := &renderer{a: a, b: &bundle{Files: map[string][]byte{}}, providerDir: providerDir}
 	return r.b, r.render()
 }
 
 type renderer struct {
 	a *resolve.Agent
 	b *bundle
+	// providerDir is the absolute path of .solaria/claude-agent-sdk.
+	providerDir string
 	// platform is the docker placement's image platform.
 	platform string
 	// binaries are the programs the run needs on PATH.
@@ -222,6 +231,20 @@ func (r *renderer) render() error {
 	}
 	if r.docker() {
 		needs.Path = imagePath
+	}
+	if !r.docker() && process.Isolated(a) {
+		// srt's proxy reaches the run through the proxy variables, which
+		// every run may see. Node's own fetch reads them only when told
+		// to, and git over SSH needs srt's proxy command.
+		b.SRT = true
+		needs.Set["NODE_USE_ENV_PROXY"] = "1"
+		needs.Pass = append(needs.Pass, "GIT_SSH_COMMAND")
+		// Claude Code keeps its shell's working files in /tmp/claude-<uid>,
+		// which srt doesn't let it write; the run's scratch is shorter and
+		// private. Without srt the default stays: the macOS temp folder's
+		// long path can exceed the length of a socket path.
+		needs.Scratch["CLAUDE_CODE_TMPDIR"] = "claude-tmp"
+		b.Files[process.SRTSettingsFile] = process.SRTFor(a, filepath.Join(r.providerDir, ".cache"), modelHosts).JSON()
 	}
 	iso := process.For(a, needs)
 	r.binaries = iso.Binaries
