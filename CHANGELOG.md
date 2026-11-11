@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.11.0](https://github.com/solaria-sh/solaria/compare/v0.10.0...v0.11.0) (2026-11-11)
+
+
+### Added
+
+* **telemetry:** expose the agent's identity in the run and its telemetry ([#33](https://github.com/solaria-sh/solaria/issues/33)) ([b5737dd](https://github.com/solaria-sh/solaria/commit/b5737dd40214e76b0698121e9492df46eee0c972))
+
 ## [0.10.0](https://github.com/solaria-sh/solaria/compare/v0.9.0...v0.10.0) (2026-11-11)
 
 
