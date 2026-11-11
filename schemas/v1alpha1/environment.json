@@ -277,6 +277,17 @@
           },
           "type": "object",
           "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 253,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Notes about how the resource is operated rather than what it is, such as an agent's owner, trigger or target autonomy. Keys are like label keys; values are any text. They're never part of a digest or sent to a host, so changing one changes nothing deployed. solaria status -o json shows an agent's."
         }
       },
       "additionalProperties": false,

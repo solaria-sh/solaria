@@ -103,6 +103,8 @@ Added 2026-11-10. `metadata.annotations` is a map of strings for facts about how
 
 Solaria stores them and never interprets them (ADR 0010).
 
+As built, every kind's `metadata` takes annotations, though only an agent's are shown. Keys have the form of label keys; values are any text, unlike labels, whose values are short and restricted.
+
 ### Host metadata
 
 Providers write the logical ID and both digests onto host objects where possible (for example, Managed Agents' agent `metadata`). That enables drift detection, import later, and finding orphaned objects.
