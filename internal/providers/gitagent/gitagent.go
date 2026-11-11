@@ -97,10 +97,11 @@ func (p *Provider) Placements() []string { return []string{PlacementDocker} }
 // so permissions.ask means deny.
 func (p *Provider) Capabilities(string) provider.Capabilities {
 	return provider.Capabilities{
-		Fallback:      true,
-		MCPTransports: []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
-		SandboxImage:  true,
-		Destroy:       provider.DestroyDelete,
+		Fallback:       true,
+		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
+		SandboxImage:   true,
+		LocalWorkspace: true,
+		Destroy:        provider.DestroyDelete,
 	}
 }
 

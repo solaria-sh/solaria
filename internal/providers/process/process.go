@@ -199,6 +199,9 @@ func Validate(a *resolve.Agent, m Machine) diag.List {
 	case limited:
 		warn("sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can; set sandbox.isolation: srt to enforce it")
 	}
+	if a.Definition.ReadOnlyWorkspace() && !Isolated(a) {
+		diags = append(diags, diag.Errorf("", diag.Pos{}, "workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only"))
+	}
 	if sb != nil && sb.Resources != nil && (sb.Resources.Memory != "" || sb.Resources.Disk != "") {
 		warn("sandbox.resources aren't enforced on the process placement")
 	}

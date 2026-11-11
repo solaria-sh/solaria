@@ -66,6 +66,10 @@ type Capabilities struct {
 	MCPTransports []string
 	// SandboxImage means the placement accepts sandbox.image.
 	SandboxImage bool
+	// LocalWorkspace means runs work on a folder of the machine that starts
+	// them, so the placement can take spec.inputs.workspace.path and keep a
+	// read-only workspace from being written (ADR 0017).
+	LocalWorkspace bool
 	// Isolation lists the sandbox.isolation values the placement accepts,
 	// such as srt on the process placement (ADR 0017).
 	Isolation []v1alpha1.Isolation

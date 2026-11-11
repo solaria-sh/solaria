@@ -20,6 +20,10 @@
           "$ref": "#/$defs/LimitsSpec",
           "description": "Limits to replace."
         },
+        "workspace": {
+          "$ref": "#/$defs/WorkspaceSpec",
+          "description": "Workspace access to narrow in this environment: an override can make a read-write workspace read-only, never the reverse."
+        },
         "providers": {
           "additionalProperties": {
             "type": "object"
@@ -77,6 +81,10 @@
           "$ref": "#/$defs/TelemetrySpec",
           "description": "Where agents send OpenTelemetry data."
         },
+        "inputs": {
+          "$ref": "#/$defs/InputsSpec",
+          "description": "Where agents' inputs come from in this environment."
+        },
         "overrides": {
           "additionalProperties": {
             "$ref": "#/$defs/AgentOverride"
@@ -102,6 +110,17 @@
         "placement"
       ],
       "description": "Describes where and how agents run."
+    },
+    "InputsSpec": {
+      "properties": {
+        "workspace": {
+          "$ref": "#/$defs/WorkspaceInput",
+          "description": "The folder agents work on."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Binds the inputs agents declare to sources in one environment. It describes the place, so it isn't part of any digest."
     },
     "KeyValue": {
       "oneOf": [
@@ -506,6 +525,33 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Narrows an agent's tools in one environment, for example so a shadow stage only reads."
+    },
+    "WorkspaceInput": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A folder on the machine that runs the agent, relative to this file or absolute. When omitted, it's the folder the run starts in. Only placements that run on this machine take it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Says which folder is the workspace."
+    },
+    "WorkspaceSpec": {
+      "properties": {
+        "access": {
+          "type": "string",
+          "enum": [
+            "read-write",
+            "read-only"
+          ],
+          "description": "read-write (the default) or read-only. A placement that can't keep the workspace read-only fails plan rather than ignore it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "What an agent may do to its workspace."
     }
   },
   "properties": {

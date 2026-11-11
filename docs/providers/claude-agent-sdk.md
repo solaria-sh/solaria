@@ -133,6 +133,12 @@ Every run uses permission mode `dontAsk`: the tools above are approved in advanc
 
 Models from providers other than `anthropic` fail at plan time; fallback models from other providers are skipped with a warning.
 
+## The workspace
+
+The [workspace](../concepts.md#the-workspace) is the launcher's working directory on `process`, and the folder mounted at `/workspace` on `docker`: the folder the run starts in, or the one the environment binds in `inputs.workspace.path`, which the recorded command then names itself.
+
+A read-only workspace is mounted `:ro` on `docker`, and left unwritable by srt on `process`; plain `process` can't keep it from being written, so plan fails there. Either way the launcher adds `Edit(./**)` to `disallowedTools`, which denies the SDK's file-editing tools inside the workspace.
+
 ## Sandbox
 
 The `process` placement runs on the machine as it is, so on its own it can't enforce the sandbox:
@@ -158,7 +164,7 @@ spec:
 
 Apply writes `srt-settings.json` into the bundle, and the recorded command becomes `srt --settings <bundle>/srt-settings.json -- node <bundle>/launch.mjs` (or the same around `launch.py`):
 
-- **Writes** go only to srt's temp folder, which holds the run's scratch `HOME` and temp folders (Claude Code's own temp folder, `CLAUDE_CODE_TMPDIR`, moves there too), the provider's package cache in `.solaria/claude-agent-sdk/.cache`, and the workspace. The bundle, the rest of your home folder and everything else are read-only.
+- **Writes** go only to srt's temp folder, which holds the run's scratch `HOME` and temp folders (Claude Code's own temp folder, `CLAUDE_CODE_TMPDIR`, moves there too), the provider's package cache in `.solaria/claude-agent-sdk/.cache`, and the workspace, unless the agent's is read-only. The bundle, the rest of your home folder and everything else are read-only.
 - **The network** is limited to the hosts the agent needs: Anthropic's API, its remote MCP servers, the registries its stdio MCP packages download from, the telemetry endpoint, `sandbox.network.allow`, and the package managers' registries with `packageManagers: true`. A telemetry endpoint on `localhost` stays reachable. `mode: unrestricted` fails plan, since srt has no way to allow every host.
 - The SDK's own `sandbox` option stays off, since sandboxes don't nest.
 

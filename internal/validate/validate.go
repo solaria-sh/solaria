@@ -303,6 +303,10 @@ func narrowing(r *config.Resource, name string, agent v1alpha1.AgentSpec, o v1al
 			}
 		}
 	}
+	if w := o.Workspace; w != nil && w.Access == v1alpha1.AccessReadWrite && agent.Workspace != nil && agent.Workspace.Access == v1alpha1.AccessReadOnly {
+		errorf(r.Pos("spec", "overrides", name, "workspace", "access"),
+			"%s.workspace.access: Agent %q's workspace is read-only, and an override can only narrow access", field, name)
+	}
 	return diags
 }
 
@@ -354,6 +358,11 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 		}
 	}
 
+	if in := spec.Inputs; in != nil && in.Workspace != nil && in.Workspace.Path != "" {
+		if err := directory(resolve.InputPath(r.Dir(), in.Workspace.Path)); err != nil {
+			errorf(r.Pos("spec", "inputs", "workspace", "path"), "spec.inputs.workspace.path: %v", err)
+		}
+	}
 	if s := spec.Secrets; s != nil && s.Source == v1alpha1.SecretsEnv && s.Path != "" {
 		errorf(r.Pos("spec", "secrets", "path"), "spec.secrets.path only applies when source is dotenv")
 	}
@@ -386,6 +395,19 @@ func passthrough(r *config.Resource, providers map[string]map[string]any, path .
 			"%s.%s: fields for one provider make %s less portable", field, name, r.ID()))
 	}
 	return diags
+}
+
+func directory(path string) error {
+	info, err := os.Stat(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("folder %s not found", path)
+	case err != nil:
+		return err
+	case !info.IsDir():
+		return fmt.Errorf("%s is a file, not a folder", path)
+	}
+	return nil
 }
 
 func regularFile(dir, rel string) error {

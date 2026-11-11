@@ -63,10 +63,29 @@ type AgentSpec struct {
 	// resources. Once an agent lists any, every secret its MCP servers need
 	// must come from one of them, and the run gets nothing else.
 	Vaults []VaultRef `json:"vaults,omitempty"`
+	// The folder the agent works on, and whether it may change it. Each
+	// environment says which folder, in spec.inputs.workspace.
+	Workspace *WorkspaceSpec `json:"workspace,omitempty"`
 	// Fields passed unchanged to one provider, keyed by provider name. Using
 	// them makes the agent less portable, and validate reports it.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
 }
+
+// WorkspaceSpec is what an agent may do to its workspace.
+type WorkspaceSpec struct {
+	// read-write (the default) or read-only. A placement that can't keep
+	// the workspace read-only fails plan rather than ignore it.
+	Access Access `json:"access,omitempty"`
+}
+
+// Access is what an agent may do to one of its inputs.
+type Access string
+
+// Access modes.
+const (
+	AccessReadWrite Access = "read-write"
+	AccessReadOnly  Access = "read-only"
+)
 
 // OutputSpec says what the agent's final answer must look like.
 type OutputSpec struct {
@@ -223,6 +242,8 @@ type EnvironmentSpec struct {
 	Secrets *SecretsSpec `json:"secrets,omitempty"`
 	// Where agents send OpenTelemetry data.
 	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
+	// Where agents' inputs come from in this environment.
+	Inputs *InputsSpec `json:"inputs,omitempty"`
 	// Changes to agents in this environment only, keyed by agent name.
 	Overrides map[string]AgentOverride `json:"overrides,omitempty"`
 	// Settings for the environment's provider, keyed by provider name, such
@@ -253,6 +274,21 @@ type AgentSelection struct {
 type LabelSelector struct {
 	// Selects resources that have all these labels.
 	MatchLabels map[string]string `json:"matchLabels" jsonschema:"required,minProperties=1"`
+}
+
+// InputsSpec binds the inputs agents declare to sources in one
+// environment. It describes the place, so it isn't part of any digest.
+type InputsSpec struct {
+	// The folder agents work on.
+	Workspace *WorkspaceInput `json:"workspace,omitempty"`
+}
+
+// WorkspaceInput says which folder is the workspace.
+type WorkspaceInput struct {
+	// A folder on the machine that runs the agent, relative to this file or
+	// absolute. When omitted, it's the folder the run starts in. Only
+	// placements that run on this machine take it.
+	Path string `json:"path,omitempty" jsonschema:"minLength=1"`
 }
 
 // SandboxSpec describes a sandbox in a form every placement understands.
@@ -381,6 +417,9 @@ type AgentOverride struct {
 	Permissions *PermissionsOverride `json:"permissions,omitempty"`
 	// Limits to replace.
 	Limits *LimitsSpec `json:"limits,omitempty"`
+	// Workspace access to narrow in this environment: an override can make
+	// a read-write workspace read-only, never the reverse.
+	Workspace *WorkspaceSpec `json:"workspace,omitempty"`
 	// Providers fields to merge over the agent's own.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
 }

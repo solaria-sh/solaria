@@ -1,0 +1,119 @@
+# An agent says whether it may change its workspace, and an environment
+# binds which folder it is (ADR 0017).
+cd project
+
+# An override can make the workspace read-only, never writable again, and a
+# bound folder must exist.
+! exec solaria validate
+stdout '^widen.yaml:11:27: error: spec.overrides.reader.workspace.access: Agent "reader"''s workspace is read-only, and an override can only narrow access$'
+stdout '^widen.yaml:8:23: error: spec.inputs.workspace.path: folder .*missing not found$'
+rm widen.yaml
+
+# Docker mounts the bound folder read-only.
+exec solaria plan -e local-gitagent
+stdout '^  \+ Agent/reader$'
+! stderr 'error'
+
+# Managed Agents' workspace belongs to the session: it can't be bound to a
+# folder here or kept read-only, so plan fails rather than ignore either.
+! exec solaria plan -e ma-cloud
+stderr '^solaria.yaml: error: Agent/reader on managed-agents/cloud: workspace.access is read-only, and this host can''t keep the workspace from being written: it belongs to the host''s session \(ADR 0017\)$'
+stderr '^solaria.yaml: error: Agent/reader on managed-agents/cloud: spec.inputs.workspace.path names a folder on this machine, and this host''s runs don''t work on one \(ADR 0017\)$'
+! stdout .
+
+# status -a says which folder the agent works on, and that it's read-only.
+# The state is written by hand: applying needs Docker.
+mkdir .solaria/state
+cp ../local-gitagent.json .solaria/state/local-gitagent.json
+exec solaria status -e local-gitagent -a reader
+stdout '^  workspace: /work/product, wherever it runs \(read-only\)$'
+exec solaria status -e local-gitagent -a reader -o json
+stdout '"workspace": "path",\n +"workspacePath": "/work/product",\n +"workspaceAccess": "read-only"'
+
+# A process run can write anywhere its user can, so without srt a read-only
+# workspace fails plan.
+[!exec:node] skip 'the process placement checks for node'
+! exec solaria plan -e local-sdk
+stderr '^solaria.yaml: error: Agent/reader on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only$'
+
+-- project/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reader}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-haiku-5-5"}
+  tools: {builtin: [read, grep]}
+  workspace: {access: read-only}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec:
+  provider: gitagent
+  placement: docker
+  inputs:
+    workspace: {path: product}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec:
+  provider: managed-agents
+  placement: cloud
+  inputs:
+    workspace: {path: product}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-sdk}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+-- project/widen.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: widen}
+spec:
+  provider: gitagent
+  placement: docker
+  inputs:
+    workspace: {path: missing}
+  overrides:
+    reader:
+      workspace: {access: read-write}
+-- project/role.md --
+You read the product's code.
+-- project/product/README.md --
+The product.
+-- local-gitagent.json --
+{
+  "format": "solaria.sh/state/v1",
+  "lineage": "5d0b2c7e-1f3a-4c6b-9e8d-7a6f5e4d3c2b",
+  "serial": 1,
+  "environment": "local-gitagent",
+  "agents": {
+    "Agent/reader": {
+      "id": "Agent/reader",
+      "provider": "gitagent",
+      "providerVersion": "dev",
+      "placement": "docker",
+      "specDigest": "sha256:1111aaaa2222",
+      "resolvedDigest": "sha256:1111aaaa2222",
+      "binding": {
+        "hostId": "solaria/local-gitagent/reader",
+        "version": "sha256:3333bbbb4444",
+        "invocation": {
+          "argv": ["docker", "run", "--rm", "--volume", "/work/product:/workspace:ro", "solaria/local-gitagent/reader:1111aaaa2222"],
+          "workspace": "path",
+          "workspacePath": "/work/product",
+          "workspaceAccess": "read-only",
+          "task": {"flag": "-p", "stdin": false}
+        }
+      },
+      "definition": {"format": "solaria.sh/definition/v1"},
+      "source": {},
+      "appliedAt": "2026-11-11T10:00:00Z"
+    }
+  }
+}

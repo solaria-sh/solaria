@@ -38,4 +38,6 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.output.schema` | string or object | yes | The JSON Schema (draft 2020-12) the agent's final answer must match: either a path to a JSON or YAML file, relative to this file, or the schema itself, written in YAML. Its root must be an object schema, since the answer is one JSON object. Plan fails on a host that can't enforce it. |
 | `spec.vaults` | list of objects |  | Vaults whose credentials the agent may use, by reference to Vault resources. Once an agent lists any, every secret its MCP servers need must come from one of them, and the run gets nothing else. |
 | `spec.vaults[].ref` | string | yes | Name of a Vault resource. |
+| `spec.workspace` | object |  | The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace. |
+| `spec.workspace.access` | `read-write` or `read-only` |  | read-write (the default) or read-only. A placement that can't keep the workspace read-only fails plan rather than ignore it. |
 | `spec.providers` | map of objects |  | Fields passed unchanged to one provider, keyed by provider name. Using them makes the agent less portable, and validate reports it. |

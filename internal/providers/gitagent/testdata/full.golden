@@ -136,6 +136,7 @@ docker run --rm --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --
     "solaria/local-gitagent/reviewer:041f835f4aa3"
   ],
   "workspace": "mount",
+  "workspaceAccess": "read-write",
   "task": {
     "flag": "-p",
     "stdin": false

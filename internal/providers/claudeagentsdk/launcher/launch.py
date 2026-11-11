@@ -98,7 +98,8 @@ def options(bundle, env):
         with open(os.path.join(HERE, bundle["systemPromptFile"]), encoding="utf-8") as f:
             out["system_prompt"] = f.read()
     out["env"] = env
-    out["cwd"] = os.getcwd()
+    # The environment's bound workspace, or the folder the run starts in.
+    out["cwd"] = bundle.get("workspace") or os.getcwd()
     return out
 
 

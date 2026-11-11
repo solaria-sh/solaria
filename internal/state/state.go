@@ -136,8 +136,14 @@ type Invocation struct {
 	Argv []string `json:"argv"`
 	// Workspace says how the agent finds the folder it works on: "cwd" when
 	// the command runs in it, "mount" when Argv mounts it through
-	// WorkspacePlaceholder.
+	// WorkspacePlaceholder, "path" when the environment binds a folder,
+	// WorkspacePath, which the command works on wherever it starts.
 	Workspace string `json:"workspace"`
+	// WorkspacePath is the folder the environment binds as the workspace.
+	WorkspacePath string `json:"workspacePath,omitempty"`
+	// WorkspaceAccess is read-only or read-write: what the agent may do to
+	// its workspace, which the host enforces.
+	WorkspaceAccess string `json:"workspaceAccess,omitempty"`
 	// Task is how the command takes the task.
 	Task TaskInput `json:"task"`
 	// Env names the variables the command reads from the caller's
@@ -154,6 +160,7 @@ type Invocation struct {
 const (
 	WorkspaceCwd   = "cwd"
 	WorkspaceMount = "mount"
+	WorkspaceBound = "path"
 )
 
 // TaskInput is how a command takes its task.

@@ -66,7 +66,8 @@ function options(bundle, env) {
   }
   if (o.plugins) o.plugins = o.plugins.map((p) => ({ ...p, path: path.join(here, p.path) }));
   o.env = env;
-  o.cwd = process.cwd();
+  // The environment's bound workspace, or the folder the run starts in.
+  o.cwd = bundle.workspace ?? process.cwd();
   return o;
 }
 

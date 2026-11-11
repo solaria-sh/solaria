@@ -406,3 +406,40 @@ func TestOutputSchemaDigest(t *testing.T) {
 		t.Errorf("changing the schema kept the digest %s", inline)
 	}
 }
+
+// TestWorkspaceDigest checks ADR 0017: a read-write workspace, the default,
+// hashes as before whether it's written or not; a read-only one, in the
+// agent or from an override, changes resolvedDigest. Binding a folder
+// describes the environment, so it changes neither digest.
+func TestWorkspaceDigest(t *testing.T) {
+	const anchor = "  limits: {maxTurns: 40, timeout: 90m}\n"
+	resolveWith := func(agent, env string) resolve.Agent {
+		t.Helper()
+		files := maps.Clone(project)
+		if !strings.Contains(files["agents.yaml"], anchor) {
+			t.Fatal("fixture has no limits line")
+		}
+		files["agents.yaml"] = strings.Replace(files["agents.yaml"], anchor, anchor+agent, 1)
+		files["environments.yaml"] += env
+		return find(t, resolveAll(t, files)["cloud"], "reviewer")
+	}
+	base := resolveWith("", "")
+	if a := resolveWith("  workspace: {access: read-write}\n", ""); a.SpecDigest != base.SpecDigest || a.Definition.Workspace != nil {
+		t.Errorf("an explicit read-write workspace changed the digest: %s, want %s", a.SpecDigest, base.SpecDigest)
+	}
+	readOnly := resolveWith("  workspace: {access: read-only}\n", "")
+	if readOnly.SpecDigest == base.SpecDigest || !readOnly.Definition.ReadOnlyWorkspace() {
+		t.Errorf("a read-only workspace kept the digest %s", base.SpecDigest)
+	}
+	narrowed := resolveWith("", "  overrides:\n    reviewer:\n      workspace: {access: read-only}\n")
+	if narrowed.SpecDigest != base.SpecDigest || narrowed.ResolvedDigest != readOnly.ResolvedDigest {
+		t.Errorf("override: spec %s (want %s), resolved %s (want %s)", narrowed.SpecDigest, base.SpecDigest, narrowed.ResolvedDigest, readOnly.ResolvedDigest)
+	}
+	bound := resolveWith("", "  inputs:\n    workspace: {path: .}\n")
+	if bound.ResolvedDigest != base.ResolvedDigest {
+		t.Errorf("binding a folder changed resolvedDigest")
+	}
+	if p := bound.WorkspacePath(); p != bound.EnvDir && p != filepath.Clean(bound.EnvDir) {
+		t.Errorf("WorkspacePath = %q, want the environment's folder %q", p, bound.EnvDir)
+	}
+}

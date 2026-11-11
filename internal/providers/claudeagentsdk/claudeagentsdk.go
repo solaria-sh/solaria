@@ -108,6 +108,7 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		Fallback:       true,
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   placement == PlacementDocker,
+		LocalWorkspace: true,
 		Isolation:      isolation(placement),
 		OutputSchema:   true,
 		Destroy:        provider.DestroyDelete,
@@ -224,7 +225,7 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		return nil, fmt.Errorf("%s: install the SDK: %w", Name, err)
 	}
 	p.removeOthers(a.Name, b.ID())
-	inv := b.invocation(p.argv(dir, b), state.WorkspaceCwd)
+	inv := b.invocation(a, p.argv(dir, b), state.WorkspaceCwd)
 	return &provider.Applied{
 		Binding: state.Binding{
 			HostID: p.rel(p.agentDir(a.Name)), Version: b.ID(), Outputs: p.outputs(b, dir, inv), Invocation: inv,
@@ -276,19 +277,20 @@ const ResultFormat = "solaria.sh/result/v1"
 // invocation records how to start the launcher: the task goes after argv
 // with -p, or on stdin; the API key and the secrets come from the caller's
 // environment, or the secrets from the dotenv file.
-func (b *bundle) invocation(argv []string, workspace string) *state.Invocation {
+func (b *bundle) invocation(a *resolve.Agent, argv []string, workspace string) *state.Invocation {
 	env := []string{"ANTHROPIC_API_KEY"}
 	if b.Dotenv == "" {
 		env = append(env, b.Secrets...)
 	}
-	return &state.Invocation{
-		Argv:      argv,
-		Workspace: workspace,
-		Task:      state.TaskInput{Flag: "-p", Stdin: true},
-		Env:       env,
-		EnvFile:   b.Dotenv,
-		Result:    ResultFormat,
+	inv := &state.Invocation{
+		Argv:    argv,
+		Task:    state.TaskInput{Flag: "-p", Stdin: true},
+		Env:     env,
+		EnvFile: b.Dotenv,
+		Result:  ResultFormat,
 	}
+	provider.SetWorkspace(inv, a, workspace)
+	return inv
 }
 
 // removeOthers removes the agent's bundles other than keep: the one this

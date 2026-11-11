@@ -85,6 +85,7 @@ docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --
     "solaria/dev/helper:3a4668755f9c"
   ],
   "workspace": "mount",
+  "workspaceAccess": "read-write",
   "task": {
     "flag": "-p",
     "stdin": false

@@ -37,6 +37,29 @@ type Definition struct {
 	// Output is the contract for the agent's final answer. Left out when the
 	// agent has none, so other agents keep their digests (ADR 0019).
 	Output *Output `json:"output,omitempty"`
+	// Workspace is set only when the agent may not write to its workspace,
+	// so read-write agents, the default, keep their digests (ADR 0017).
+	Workspace *Workspace `json:"workspace,omitempty"`
+}
+
+// Workspace is what the agent may do to the folder it works on.
+type Workspace struct {
+	Access v1alpha1.Access `json:"access"`
+}
+
+// ReadOnlyWorkspace reports whether the agent may not change its
+// workspace.
+func (d Definition) ReadOnlyWorkspace() bool {
+	return d.Workspace != nil && d.Workspace.Access == v1alpha1.AccessReadOnly
+}
+
+// workspace normalizes an access mode: read-write, the default, is left
+// out.
+func workspace(w *v1alpha1.WorkspaceSpec) *Workspace {
+	if w == nil || w.Access != v1alpha1.AccessReadOnly {
+		return nil
+	}
+	return &Workspace{Access: v1alpha1.AccessReadOnly}
 }
 
 // Vault is a referenced Vault: what each credential unlocks, never a value.

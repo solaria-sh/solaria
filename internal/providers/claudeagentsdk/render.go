@@ -125,8 +125,12 @@ type bundleFile struct {
 	Timeout   string `json:"timeout,omitempty"`
 	TimeoutMS int64  `json:"timeoutMs,omitempty"`
 	// SystemPromptFile is relative to the bundle.
-	SystemPromptFile string     `json:"systemPromptFile,omitempty"`
-	Options          sdkOptions `json:"options"`
+	SystemPromptFile string `json:"systemPromptFile,omitempty"`
+	// Workspace is the absolute path of the folder the environment binds
+	// as the workspace, on process; the run works on it wherever it
+	// starts.
+	Workspace string     `json:"workspace,omitempty"`
+	Options   sdkOptions `json:"options"`
 }
 
 type agentInfo struct {
@@ -202,6 +206,8 @@ func (r *renderer) render() error {
 	}
 	if r.docker() {
 		bf.CacheDir = imageCache
+	} else {
+		bf.Workspace = a.WorkspacePath()
 	}
 	if t := a.Definition.Limits.Timeout; t != "" {
 		d, err := time.ParseDuration(t)
@@ -413,6 +419,12 @@ func (r *renderer) options() sdkOptions {
 		}
 	}
 
+	if d.ReadOnlyWorkspace() {
+		// The placement keeps the workspace read-only; denying the file
+		// tools there too makes the agent's attempts fail plainly. The run
+		// works in its workspace, so ./** is the workspace.
+		o.DisallowedTools = append(o.DisallowedTools, "Edit(./**)")
+	}
 	asked := map[string]bool{}
 	for _, t := range d.Permissions.Ask {
 		if server, tool, ok := strings.Cut(t, "/"); ok {

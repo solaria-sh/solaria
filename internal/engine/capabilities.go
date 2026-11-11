@@ -51,6 +51,14 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string
 	if a.Env.Sandbox != nil && a.Env.Sandbox.Image != "" && !caps.SandboxImage {
 		errorf("sandbox.image isn't supported here; describe the sandbox with packages instead (ADR 0007)")
 	}
+	if !caps.LocalWorkspace {
+		if d.ReadOnlyWorkspace() {
+			errorf("workspace.access is read-only, and this host can't keep the workspace from being written: it belongs to the host's session (ADR 0017)")
+		}
+		if a.WorkspacePath() != "" {
+			errorf("spec.inputs.workspace.path names a folder on this machine, and this host's runs don't work on one (ADR 0017)")
+		}
+	}
 	if sb := a.Env.Sandbox; sb != nil && sb.Isolation != "" && !slices.Contains(caps.Isolation, sb.Isolation) {
 		errorf("sandbox.isolation %s isn't supported here; it wraps runs on the process placement, and other placements run in a sandbox of their own (ADR 0017)", sb.Isolation)
 	}
