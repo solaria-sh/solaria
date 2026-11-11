@@ -83,7 +83,11 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
     "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-    "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "SOLARIA_ENVIRONMENT": "ci-docker",
+    "SOLARIA_LOGICAL_ID": "Agent/reviewer",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:d79af956d632c8cc410a0da92fc44ec735e30604beb3322ee0c733694f5e079e",
+    "SOLARIA_SPEC_DIGEST": "sha256:d79af956d632c8cc410a0da92fc44ec735e30604beb3322ee0c733694f5e079e"
   },
   "scratch": {
     "APPDATA": "home/AppData/Roaming",
@@ -161,9 +165,9 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
 === system-prompt.md
 You review pull requests.
 === image
-solaria/ci-docker/reviewer:a0bfd5447d79 for linux/amd64
+solaria/ci-docker/reviewer:e9ac7ea6abd3 for linux/amd64
 === run
-docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env GITHUB_PAT --env GIT_HOST_TOKEN --env ANTHROPIC_API_KEY solaria/ci-docker/reviewer:a0bfd5447d79
+docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env GITHUB_PAT --env GIT_HOST_TOKEN --env ANTHROPIC_API_KEY solaria/ci-docker/reviewer:e9ac7ea6abd3
 === invocation
 {
   "argv": [
@@ -183,7 +187,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
     "GIT_HOST_TOKEN",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/ci-docker/reviewer:a0bfd5447d79"
+    "solaria/ci-docker/reviewer:e9ac7ea6abd3"
   ],
   "workspace": "mount",
   "task": {

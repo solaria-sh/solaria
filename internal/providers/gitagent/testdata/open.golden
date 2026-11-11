@@ -53,7 +53,7 @@ Help.
 === image
 solaria/dev/helper:3a4668755f9c
 === run
-docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY --env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 --env OTEL_SERVICE_NAME=helper --env OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.name=helper,gen_ai.agent.id=solaria/dev/helper,gen_ai.agent.version=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,solaria.environment=dev solaria/dev/helper:3a4668755f9c
+docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY --env SOLARIA_ENVIRONMENT=dev --env SOLARIA_LOGICAL_ID=Agent/helper --env SOLARIA_RESOLVED_DIGEST=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435 --env SOLARIA_SPEC_DIGEST=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435 --env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 --env OTEL_SERVICE_NAME=helper --env OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.id=solaria/dev/helper,gen_ai.agent.name=helper,gen_ai.agent.version=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,service.version=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,solaria.agent.spec_digest=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,solaria.environment=dev solaria/dev/helper:3a4668755f9c
 === invocation
 {
   "argv": [
@@ -69,11 +69,19 @@ docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --
     "--env",
     "ANTHROPIC_API_KEY",
     "--env",
+    "SOLARIA_ENVIRONMENT=dev",
+    "--env",
+    "SOLARIA_LOGICAL_ID=Agent/helper",
+    "--env",
+    "SOLARIA_RESOLVED_DIGEST=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435",
+    "--env",
+    "SOLARIA_SPEC_DIGEST=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435",
+    "--env",
     "OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318",
     "--env",
     "OTEL_SERVICE_NAME=helper",
     "--env",
-    "OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.name=helper,gen_ai.agent.id=solaria/dev/helper,gen_ai.agent.version=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,solaria.environment=dev",
+    "OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.id=solaria/dev/helper,gen_ai.agent.name=helper,gen_ai.agent.version=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,service.version=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,solaria.agent.spec_digest=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435,solaria.environment=dev",
     "solaria/dev/helper:3a4668755f9c"
   ],
   "workspace": "mount",

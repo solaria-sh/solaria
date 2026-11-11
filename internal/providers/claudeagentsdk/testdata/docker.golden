@@ -91,8 +91,12 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
     "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.environment=dev-docker",
-    "OTEL_SERVICE_NAME": "reviewer"
+    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,service.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.agent.spec_digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.environment=dev-docker",
+    "OTEL_SERVICE_NAME": "reviewer",
+    "SOLARIA_ENVIRONMENT": "dev-docker",
+    "SOLARIA_LOGICAL_ID": "Agent/reviewer",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
+    "SOLARIA_SPEC_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614"
   },
   "scratch": {
     "APPDATA": "home/AppData/Roaming",
@@ -253,9 +257,9 @@ You review pull requests.
 
 Never push.
 === image
-solaria/dev-docker/reviewer:1493de507e6b for linux/arm64
+solaria/dev-docker/reviewer:51ad2218f014 for linux/arm64
 === run
-docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY solaria/dev-docker/reviewer:1493de507e6b
+docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY solaria/dev-docker/reviewer:51ad2218f014
 === invocation
 {
   "argv": [
@@ -273,7 +277,7 @@ docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace
     "$ROOT/.env",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/dev-docker/reviewer:1493de507e6b"
+    "solaria/dev-docker/reviewer:51ad2218f014"
   ],
   "workspace": "mount",
   "task": {

@@ -125,7 +125,9 @@ When the agent has `output.schema`, `structured_output` holds the answer: a JSON
 | `limits.timeout` | The launcher aborts the run |
 | `output.schema` | `outputFormat` (`output_format` in Python) of type `json_schema` |
 | `secretRef` | A reference in `options.json`; the launcher reads the value from the secret source when the run starts |
-| `telemetry` | Claude Code's OpenTelemetry variables: metrics and logs over OTLP |
+| `telemetry` | Claude Code's OpenTelemetry variables: metrics and logs over OTLP, with the agent's identity and `resourceAttributes` in `OTEL_RESOURCE_ATTRIBUTES` |
+
+Every run also gets the agent's identity in `SOLARIA_LOGICAL_ID`, `SOLARIA_ENVIRONMENT`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` ([Identity](../concepts.md#identity)).
 
 Every run uses permission mode `dontAsk`: the tools above are approved in advance, and any other call is denied instead of waiting for an answer.
 

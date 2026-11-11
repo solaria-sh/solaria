@@ -1,0 +1,37 @@
+# telemetry.resourceAttributes adds a team's own attributes (ADR 0008). It
+# can't replace the ones Solaria or the runtime sets, and keys must survive
+# OTEL_RESOURCE_ATTRIBUTES unencoded.
+! exec solaria validate
+cmp stdout want.txt
+
+-- want.txt --
+solaria.yaml:18:7: error: spec.telemetry.resourceAttributes: service.version is set by Solaria or the runtime and can't be replaced
+solaria.yaml:19:7: error: spec.telemetry.resourceAttributes: service.name is set by Solaria or the runtime and can't be replaced
+solaria.yaml:20:7: error: spec.telemetry.resourceAttributes: gen_ai.agent.name is set by Solaria or the runtime and can't be replaced
+solaria.yaml:21:7: error: spec.telemetry.resourceAttributes: solaria.environment is set by Solaria or the runtime and can't be replaced
+solaria.yaml:22:7: error: spec.telemetry.resourceAttributes: "team name" is not a valid key: use letters, digits, '.', '_' and '-', starting with a letter or digit
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: triage}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec:
+  provider: stub
+  placement: file
+  telemetry:
+    endpoint: http://localhost:4318
+    resourceAttributes:
+      service.namespace: platform
+      service.version: "1.2"
+      service.name: triage-bot
+      gen_ai.agent.name: other
+      solaria.environment: prod
+      "team name": core
+-- role.md --
+Triage.

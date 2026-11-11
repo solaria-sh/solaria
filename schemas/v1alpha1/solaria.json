@@ -945,6 +945,13 @@
           },
           "type": "array",
           "description": "Headers sent with every export."
+        },
+        "resourceAttributes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Resource attributes added to everything the agents export, such as service.namespace to tell projects apart. They can't replace the attributes Solaria sets: gen_ai.agent.*, service.name, service.version and solaria.* keys fail validation."
         }
       },
       "additionalProperties": false,

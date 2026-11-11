@@ -37,7 +37,8 @@ The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspec
 | `limits` | `max_turns` and `timeout` |
 | `output.schema` | not supported; plan fails |
 | `secretRef` | `${NAME}` in `gitagent.yaml`; the run command passes the variable from the secret source |
-| `telemetry` | `OTEL_*` variables in the run command |
+| `telemetry` | `OTEL_*` variables in the run command. gitagent doesn't read `OTEL_RESOURCE_ATTRIBUTES` yet, so the identity and `resourceAttributes` set there don't reach its traces. |
+| identity | `SOLARIA_LOGICAL_ID`, `SOLARIA_ENVIRONMENT`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` in the run command |
 
 ## Sandbox
 

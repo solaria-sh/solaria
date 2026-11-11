@@ -427,6 +427,10 @@ func (r *renderer) invocation() *state.Invocation {
 		parts = append(parts, "--env", k)
 		inv.Env = append(inv.Env, k)
 	}
+	id := provider.IdentityEnv(a)
+	for _, k := range slices.Sorted(maps.Keys(id)) {
+		parts = append(parts, "--env", k+"="+id[k])
+	}
 
 	if t := a.Env.Telemetry; t != nil {
 		env := []string{"OTEL_EXPORTER_OTLP_ENDPOINT=" + t.Endpoint, "OTEL_SERVICE_NAME=" + a.Name}
@@ -446,12 +450,7 @@ func (r *renderer) invocation() *state.Invocation {
 		}
 		// gitagent doesn't read these yet (see the gitagent spike); they
 		// are set so traces carry Solaria's identity once it does.
-		env = append(env, "OTEL_RESOURCE_ATTRIBUTES="+strings.Join([]string{
-			"gen_ai.agent.name=" + a.Name,
-			"gen_ai.agent.id=" + r.b.Repository,
-			"gen_ai.agent.version=" + a.ResolvedDigest,
-			"solaria.environment=" + a.Environment,
-		}, ","))
+		env = append(env, "OTEL_RESOURCE_ATTRIBUTES="+provider.ResourceAttributes(a, r.b.Repository))
 		for _, e := range env {
 			parts = append(parts, "--env", e)
 		}

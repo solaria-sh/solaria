@@ -55,6 +55,7 @@ spec:
     endpoint: http://localhost:4318
     protocol: http/protobuf
     headers: [{name: x-tenant, value: acme}]
+    resourceAttributes: {service.namespace: platform, team: "code review, core"}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Environment

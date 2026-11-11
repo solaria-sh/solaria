@@ -74,6 +74,7 @@ State and plans hold credential names, secret names and targets, never values, s
 | `resources` | The cloud sandbox has fixed limits, 8 GiB memory and 10 GiB disk. A larger value fails plan; others are ignored with a warning. |
 | `image` | not supported; plan fails |
 | `telemetry` | ignored with a warning: sessions are traced in the Claude Console |
+| identity | in the agent's metadata only. Managed Agents environments don't take variables, so runs don't get `SOLARIA_*`. |
 
 ## `self-hosted`
 

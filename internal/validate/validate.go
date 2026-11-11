@@ -24,6 +24,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/diag"
+	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
@@ -339,6 +340,18 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 			diags = append(diags, narrowing(r, name, a.Agent().Spec, spec.Overrides[name])...)
 		}
 		diags = append(diags, passthrough(r, spec.Overrides[name].Providers, "spec", "overrides", name, "providers")...)
+	}
+
+	if t := spec.Telemetry; t != nil {
+		for _, k := range sortedKeys(t.ResourceAttributes) {
+			p := r.KeyPos("spec", "telemetry", "resourceAttributes", k)
+			switch {
+			case provider.ReservedAttribute(k):
+				errorf(p, "spec.telemetry.resourceAttributes: %s is set by Solaria or the runtime and can't be replaced", k)
+			case !provider.AttributeKey.MatchString(k):
+				errorf(p, "spec.telemetry.resourceAttributes: %q is not a valid key: use letters, digits, '.', '_' and '-', starting with a letter or digit", k)
+			}
+		}
 	}
 
 	if s := spec.Secrets; s != nil && s.Source == v1alpha1.SecretsEnv && s.Path != "" {
