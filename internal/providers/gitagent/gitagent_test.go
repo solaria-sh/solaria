@@ -110,6 +110,21 @@ func TestMixedAllowToolsIsAnError(t *testing.T) {
 	}
 }
 
+func TestCommitMustBeAFullHash(t *testing.T) {
+	a := load(t, filepath.Join("testdata", "full"), "local-gitagent")
+	a.Env.Providers[Name]["commit"] = "main"
+	b, err := render(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.Diags.String(), "providers.gitagent.commit must be a full 40-character commit hash of gitagent, such as "+GitagentCommit+", not main") {
+		t.Errorf("diagnostics = %s", b.Diags)
+	}
+	if b.Commit != GitagentCommit {
+		t.Errorf("commit = %s, want the default", b.Commit)
+	}
+}
+
 func TestPackageThatLooksLikeAnOption(t *testing.T) {
 	a := load(t, filepath.Join("testdata", "full"), "local-gitagent")
 	a.Env.Sandbox.Packages.APT = []string{"--allow-unauthenticated"}
@@ -204,6 +219,10 @@ func TestLifecycle(t *testing.T) {
 	if got := d.builds[0].Labels["sh.solaria.resolved-digest"]; got != a.ResolvedDigest {
 		t.Errorf("resolved-digest label = %q", got)
 	}
+	const fixtureCommit = "0123456789abcdef0123456789abcdef01234567"
+	if out[outCommit] != fixtureCommit || entry.Binding.Runtime != "gitagent@"+fixtureCommit {
+		t.Errorf("commit output %q, runtime %q", out[outCommit], entry.Binding.Runtime)
+	}
 
 	if pl, _ := cycle(t, p, a, entry); pl.Action != provider.NoOp {
 		t.Errorf("unchanged agent plans %s", pl.Action)
@@ -220,6 +239,29 @@ func TestLifecycle(t *testing.T) {
 	}
 	if entry2.Binding.Version == entry.Binding.Version {
 		t.Error("rebuild kept the image version")
+	}
+
+	// Back to the default commit: the image is rebuilt with it, and the
+	// plan says why.
+	delete(a.Env.Providers[Name], "commit")
+	pl, entry2 = cycle(t, p, a, entry2)
+	if pl.Action != provider.Update || pl.Reason != "the environment's gitagent commit changed" {
+		t.Fatalf("commit change plans %s (%s)", pl.Action, pl.Reason)
+	}
+	if paths := changePaths(pl); paths != "gitagent, image" {
+		t.Errorf("changes = %s", paths)
+	}
+	if entry2.Binding.Runtime != "gitagent@"+GitagentCommit {
+		t.Errorf("runtime = %q", entry2.Binding.Runtime)
+	}
+
+	// A binding from before Solaria recorded the commit only rebuilds
+	// when the image changes.
+	old := *entry2
+	old.Binding.Outputs = maps.Clone(entry2.Binding.Outputs)
+	delete(old.Binding.Outputs, outCommit)
+	if pl, _ := cycle(t, p, a, &old); pl.Action != provider.NoOp {
+		t.Errorf("binding without a commit plans %s (%v)", pl.Action, pl.Changes)
 	}
 
 	// Drift: the image is gone.

@@ -52,6 +52,9 @@ The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspec
 | Setting | Default | |
 |---|---|---|
 | `providers.gitagent.platform` | `linux/amd64` | The image platform. `linux/arm64` builds natively on Arm machines. gitagent cross-compiles on the build machine either way. |
+| `providers.gitagent.commit` | `f4a309cd600b877177c17ac789e83bd7355d0383` | The gitagent commit to build, as a full 40-character hash. The default is the commit Solaria was tested with. |
+
+The binding records the commit (output `gitagentCommit`, and runtime `gitagent@<commit>`, which `status -a` shows), since a model's results depend on the harness it runs in. Changing it plans an update although the agent's digests stay the same.
 
 ## Drift and destroy
 

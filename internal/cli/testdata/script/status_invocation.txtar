@@ -17,9 +17,10 @@ cmp stdout status-sdk.txt
 exec solaria status -e local-sdk -a hello -o json
 cmp stdout status-sdk.json
 
-# An entry applied before Solaria recorded invocations still has its run
-# command.
+# An entry applied before Solaria recorded invocations, or the runtime,
+# still has its run command.
 exec solaria status -e local-gitagent -a hello
+! stdout 'runtime:'
 stdout '^  run: docker run --rm --platform linux/amd64 --memory 8g --volume "\$PWD":/workspace --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158$'
 stdout '^  Applied before Solaria recorded what the command needs; apply again to see it.$'
 
@@ -33,6 +34,7 @@ Environment local-sdk (state serial 2)
   OBJECT       PROVIDER                  HOST ID                                    VERSION       DIGEST               APPLIED           CONFIGURATION
   Agent/hello  claude-agent-sdk/process  .solaria/claude-agent-sdk/local-sdk/hello  3f9c1a0d2b7e  sha256:08ffaed7b158  2026-11-01 10:00  up to date
 
+  runtime: @anthropic-ai/claude-agent-sdk@0.3.319
   run: node '/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs'
   task: after the command with -p, or on stdin
   workspace: the directory it runs in
@@ -53,6 +55,7 @@ Environment local-sdk (state serial 2)
           "placement": "process",
           "hostId": ".solaria/claude-agent-sdk/local-sdk/hello",
           "version": "3f9c1a0d2b7e",
+          "runtime": "@anthropic-ai/claude-agent-sdk@0.3.319",
           "specDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
           "resolvedDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
           "appliedAt": "2026-11-01T10:00:00Z",
@@ -100,6 +103,7 @@ Environment local-sdk (state serial 2)
           "run": "node '/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs'",
           "secrets": "GITHUB_TOKEN"
         },
+        "runtime": "@anthropic-ai/claude-agent-sdk@0.3.319",
         "invocation": {
           "argv": ["node", "/work/my project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs"],
           "workspace": "cwd",

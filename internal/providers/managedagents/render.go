@@ -32,6 +32,11 @@ const (
 	metaResolvedDigest = "solaria_resolved_digest"
 )
 
+// toolsetVersion is the built-in toolset agents get. Managed Agents runs
+// the agent loop itself and can't be pinned to a version; the toolset is
+// the part of its harness an agent's definition names.
+const toolsetVersion = "agent_toolset_20260401"
+
 // builtinTools maps Solaria's built-in tool names to agent_toolset_20260401.
 var builtinTools = map[string]string{
 	"shell":      "bash",

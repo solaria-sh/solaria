@@ -17,7 +17,9 @@
 // docker run command as the run output; the task goes after it as -p.
 //
 // Environments can set providers.gitagent.platform to linux/amd64 (the
-// default, as in the cloud sandbox) or linux/arm64.
+// default, as in the cloud sandbox) or linux/arm64, and
+// providers.gitagent.commit to build another gitagent commit than the one
+// Solaria was tested with. The binding records the commit.
 package gitagent
 
 import (
@@ -55,6 +57,7 @@ const (
 	outSandboxDigest = "sandboxDigest"
 	outBuildDigest   = "buildDigest"
 	outRunDigest     = "runDigest"
+	outCommit        = "gitagentCommit"
 )
 
 // New returns the provider, using the docker CLI.
@@ -81,8 +84,8 @@ type Provider struct {
 // Name returns gitagent.
 func (p *Provider) Name() string { return Name }
 
-// Version is the Solaria version; the gitagent commit is in each image's
-// labels and digest.
+// Version is the Solaria version; the gitagent commit is in each binding's
+// runtime, and in each image's labels and digest.
 func (p *Provider) Version() string { return version.Version }
 
 // Placements returns docker.
@@ -121,21 +124,24 @@ func (p *Provider) Plan(_ context.Context, desired *resolve.Agent, prior *state.
 	}
 	switch pl.Action {
 	case provider.Create:
-		pl.Notes = append(pl.Notes, fmt.Sprintf("builds %s for %s; the first build compiles gitagent and the sandbox base, which takes several minutes", b.Image, b.Platform))
+		pl.Notes = append(pl.Notes, fmt.Sprintf("builds %s for %s with gitagent %s; the first build compiles gitagent and the sandbox base, which takes several minutes", b.Image, b.Platform, shortCommit(b.Commit)))
 	case provider.NoOp:
 		if changes := componentChanges(prior.Binding.Outputs, b); len(changes) > 0 {
 			pl.Action = provider.Update
 			pl.Changes = changes
 			pl.Reason = "the image's inputs changed although the agent didn't"
-			if changes[0].Path == "sandbox" {
+			switch changes[0].Path {
+			case "gitagent":
+				pl.Reason = "the environment's gitagent commit changed"
+			case "sandbox":
 				pl.Reason = "the environment's sandbox changed"
 			}
 		}
 	case provider.Update:
 		// The image and run command always change with the agent; only a
-		// sandbox change is news.
+		// gitagent or sandbox change is news.
 		for _, c := range componentChanges(prior.Binding.Outputs, b) {
-			if c.Path == "sandbox" {
+			if c.Path == "gitagent" || c.Path == "sandbox" {
 				pl.Changes = append(pl.Changes, c)
 			}
 		}
@@ -195,12 +201,16 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		outSandboxDigest: b.SandboxDigest,
 		outBuildDigest:   b.BuildDigest,
 		outRunDigest:     b.RunDigest,
+		outCommit:        b.Commit,
 	}
 	if b.BaseImage != "" {
 		outputs[outSandboxImage] = b.BaseImage
 	}
 	return &provider.Applied{
-		Binding:    state.Binding{HostID: b.Repository, Version: shortID(img.ID), Outputs: outputs, Invocation: b.Invocation},
+		Binding: state.Binding{
+			HostID: b.Repository, Version: shortID(img.ID), Outputs: outputs, Invocation: b.Invocation,
+			Runtime: Name + "@" + b.Commit,
+		},
 		RemoteHash: img.ID,
 	}, nil
 }
@@ -274,6 +284,14 @@ func writeContext(dir string, files map[string][]byte) error {
 		}
 	}
 	return nil
+}
+
+// shortCommit shortens a commit hash the way git log --oneline shows it.
+func shortCommit(c string) string {
+	if len(c) > 12 {
+		return c[:12]
+	}
+	return c
 }
 
 // shortID shortens an image ID the way docker images shows it.

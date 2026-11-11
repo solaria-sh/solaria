@@ -287,6 +287,9 @@ func TestLifecycle(t *testing.T) {
 	if out[outRuntime] != "node" || out[outSDKVersion] != DefaultNodeVersion || out[outSecrets] != "DOCS_TOKEN,GITHUB_TOKEN" {
 		t.Errorf("outputs = %v", out)
 	}
+	if entry.Binding.Runtime != NodePackage+"@"+DefaultNodeVersion {
+		t.Errorf("runtime = %q", entry.Binding.Runtime)
+	}
 	// The secrets come from the dotenv file, so only the API key is read
 	// from the caller's environment.
 	wantInv := &state.Invocation{
@@ -370,7 +373,7 @@ func TestPythonRun(t *testing.T) {
 	if got := entry.Binding.Outputs[outRun]; got != want && !strings.Contains(got, "'") {
 		t.Errorf("run = %q, want %q", got, want)
 	}
-	if h.installs[0].Exe != "/usr/bin/python" || entry.Binding.Outputs[outSDKVersion] != "0.2.170" {
+	if h.installs[0].Exe != "/usr/bin/python" || entry.Binding.Outputs[outSDKVersion] != "0.2.170" || entry.Binding.Runtime != PythonPackage+"@0.2.170" {
 		t.Errorf("install = %+v, outputs %v", h.installs[0], entry.Binding.Outputs)
 	}
 	if obs, err := p.Read(context.Background(), entry); err != nil || obs.RemoteHash != entry.RemoteHash {

@@ -95,6 +95,8 @@ A plan that finds the worker container stopped plans an update, which starts it 
 | `providers.managed-agents.environmentKeySecret` | `ANTHROPIC_ENVIRONMENT_KEY` | `self-hosted` only: the secret holding the environment's key. |
 | `providers.managed-agents.platform` | `linux/amd64` | `self-hosted` only: the worker image's platform, `linux/amd64` or `linux/arm64`. |
 
+Managed Agents runs the agent loop itself, and its runtime can't be pinned to a version: two runs of the same agent version months apart may use different harnesses. The binding records the toolset an agent uses, `agent_toolset_20260401`, as its runtime, which `status -a` shows. An agent without built-in tools records none.
+
 ## Drift, rollback and destroy
 
 - **Drift:** the host increases an agent's version on every change, and an environment's `updated_at`. Refresh compares them with the state, so any change made in the Console shows in the plan, and apply puts the definition's version back. For a vault, refresh compares its credentials' IDs and update times: a credential added, removed or changed in the Console makes the vault update, and a deleted vault is created again.

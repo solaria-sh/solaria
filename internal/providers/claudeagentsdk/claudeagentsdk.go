@@ -215,7 +215,10 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 	p.removeOthers(a.Name, b.ID())
 	inv := b.invocation(p.argv(dir, b), state.WorkspaceCwd)
 	return &provider.Applied{
-		Binding:    state.Binding{HostID: p.rel(p.agentDir(a.Name)), Version: b.ID(), Outputs: p.outputs(b, dir, inv), Invocation: inv},
+		Binding: state.Binding{
+			HostID: p.rel(p.agentDir(a.Name)), Version: b.ID(), Outputs: p.outputs(b, dir, inv), Invocation: inv,
+			Runtime: b.runtime(),
+		},
 		RemoteHash: b.BuildDigest,
 	}, nil
 }
@@ -233,6 +236,12 @@ func (p *Provider) outputs(b *bundle, dir string, inv *state.Invocation) map[str
 		out[outSecrets] = strings.Join(b.Secrets, ",")
 	}
 	return out
+}
+
+// runtime names the SDK package at the version the bundle installs, for
+// the binding.
+func (b *bundle) runtime() string {
+	return sdkPackage(b.Runtime) + "@" + b.SDKVersion
 }
 
 // argv is the command that starts the launcher. It runs in the workspace

@@ -100,7 +100,7 @@ sh.solaria.logical-id=Agent/helper
 sh.solaria.resolved-digest=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435
 sh.solaria.spec-digest=sha256:3a4668755f9cf6ab54919402ddf25e6e9b5e5f0cf8da345aef677d6a684d7435
 === diagnostics
-warning: Agent/helper on gitagent/docker: Environment providers.gitagent.colour isn't a gitagent setting and is ignored; the settings are: platform
+warning: Agent/helper on gitagent/docker: Environment providers.gitagent.colour isn't a gitagent setting and is ignored; the settings are: platform, commit
 warning: Agent/helper on gitagent/docker: model.effort is ignored; gitagent sets reasoning through its model profile
 warning: Agent/helper on gitagent/docker: glob has no gitagent tool, and without shell this agent can't search files
 warning: Agent/helper on gitagent/docker: web_fetch isn't available on gitagent; the agent runs without it

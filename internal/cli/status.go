@@ -152,14 +152,16 @@ type agentState struct {
 	LogicalID string `json:"logicalId"`
 	// Annotations are the agent's metadata.annotations, read from the
 	// configuration: they're never applied, so state doesn't hold them.
-	Annotations    map[string]string `json:"annotations,omitempty"`
-	Provider       string            `json:"provider,omitempty"`
-	Placement      string            `json:"placement,omitempty"`
-	HostID         string            `json:"hostId,omitempty"`
-	Version        string            `json:"version,omitempty"`
-	SpecDigest     string            `json:"specDigest,omitempty"`
-	ResolvedDigest string            `json:"resolvedDigest,omitempty"`
-	AppliedAt      *time.Time        `json:"appliedAt,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Provider    string            `json:"provider,omitempty"`
+	Placement   string            `json:"placement,omitempty"`
+	HostID      string            `json:"hostId,omitempty"`
+	Version     string            `json:"version,omitempty"`
+	// Runtime is what runs the agent loop, at the version applied.
+	Runtime        string     `json:"runtime,omitempty"`
+	SpecDigest     string     `json:"specDigest,omitempty"`
+	ResolvedDigest string     `json:"resolvedDigest,omitempty"`
+	AppliedAt      *time.Time `json:"appliedAt,omitempty"`
 	// Configuration compares what was applied with the configuration.
 	Configuration configStatus `json:"configuration"`
 	// LockedDigest is the resolvedDigest solaria.lock pins the agent to.
@@ -278,7 +280,7 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 		}
 		applied := e.AppliedAt
 		as.Provider, as.Placement = e.Provider, e.Placement
-		as.HostID, as.Version = e.Binding.HostID, e.Binding.Version
+		as.HostID, as.Version, as.Runtime = e.Binding.HostID, e.Binding.Version, e.Binding.Runtime
 		as.SpecDigest, as.ResolvedDigest = e.SpecDigest, e.ResolvedDigest
 		as.AppliedAt = &applied
 		as.Configuration = compareConfig(e, d)
@@ -384,14 +386,17 @@ func writeStatus(w io.Writer, es envStatus, lockPath string, detail bool) error 
 	return err
 }
 
-// writeInvocation says how to start an agent.
+// writeInvocation says what runs an agent and how to start it.
 func writeInvocation(b *strings.Builder, env string, as agentState) {
 	inv := as.Invocation
-	switch {
-	case as.AppliedAt == nil:
+	if as.AppliedAt == nil {
 		fmt.Fprintf(b, "  Not applied; run solaria apply -e %s first.\n", env)
 		return
-	case as.Run == "" && inv == nil:
+	}
+	if as.Runtime != "" {
+		fmt.Fprintf(b, "  runtime: %s\n", as.Runtime)
+	}
+	if as.Run == "" && inv == nil {
 		fmt.Fprintf(b, "  %s runs the agent on its host; there's no command to start it.\n", as.Provider)
 		if len(as.Vaults) > 0 {
 			refs := make([]string, len(as.Vaults))

@@ -56,4 +56,4 @@ spec:
     headers: [{name: x-tenant, value: acme}]
     resourceAttributes: {service.namespace: platform}
   providers:
-    gitagent: {platform: linux/arm64}
+    gitagent: {platform: linux/arm64, commit: 0123456789abcdef0123456789abcdef01234567}

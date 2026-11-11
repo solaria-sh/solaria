@@ -223,8 +223,12 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		return nil, err
 	}
 	outputs[outRequestDigest] = reqDigest
+	binding := state.Binding{HostID: agent.ID, Version: strconv.FormatInt(agent.Version, 10), Outputs: outputs}
+	if body.Toolset != nil {
+		binding.Runtime = toolsetVersion
+	}
 	return &provider.Applied{
-		Binding:    state.Binding{HostID: agent.ID, Version: strconv.FormatInt(agent.Version, 10), Outputs: outputs},
+		Binding:    binding,
 		RemoteHash: remoteHash(agent),
 	}, nil
 }

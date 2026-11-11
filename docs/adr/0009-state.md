@@ -31,6 +31,7 @@ Chosen option: "Local, gitignored state per environment, behind a backend interf
   - the provider and its version;
   - `specDigest` and `resolvedDigest`;
   - the host binding and outputs, and, for agents the caller starts, an `invocation` that says how (ADR 0014);
+  - the binding's `runtime`: what runs the agent loop, at the version applied, such as `gitagent@<commit>`. An eval measures a model inside a harness, so `status` shows it next to the run command;
   - the source commit, and whether the worktree was dirty;
   - when it was applied and by whom;
   - a `history` of earlier bindings.
@@ -84,3 +85,4 @@ End-to-end tests cover a lock conflict, a stale serial and a lineage mismatch.
 - [Terraform state locking](https://developer.hashicorp.com/terraform/language/state/locking)
 - [Managed Agents: pinning a session to an agent version](https://platform.claude.com/docs/en/managed-agents/sessions)
 - Revised on 2026-11-10: Azure Blob Storage is the first remote backend.
+- Revised on 2026-11-11: the binding records the agent's runtime.

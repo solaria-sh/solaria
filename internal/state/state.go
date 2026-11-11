@@ -112,6 +112,11 @@ type Binding struct {
 	HostID  string            `json:"hostId"`
 	Version string            `json:"version,omitempty"`
 	Outputs map[string]string `json:"outputs,omitempty"`
+	// Runtime is what runs the agent loop, at the version the provider
+	// installed or targeted, such as gitagent@<commit>. A model's results
+	// depend on its harness, so evals need it. Providers that don't pin
+	// one, and entries applied before Solaria recorded it, have none.
+	Runtime string `json:"runtime,omitempty"`
 	// Invocation is how to start the agent, for providers whose agents run
 	// where the caller starts them. Hosts that run agents themselves, and
 	// entries applied before Solaria recorded it, have none.
