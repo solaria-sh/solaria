@@ -1,0 +1,445 @@
+### create
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  + Environment/ma-cloud
+
+  + Vault/tools
+      note: stores 2 credentials from the environment variables
+      note: sessions of Agent/reviewer attach it when they start
+
+  + Agent/reviewer
+      resolvedDigest: sha256:7b4060c52b2c
+
+Plan: 3 to create, 0 to update, 0 to replace, 0 to delete or archive.
+--- apply requests
+POST /v1/environments
+  {
+    "config": {
+      "networking": {
+        "allow_mcp_servers": true,
+        "allow_package_managers": true,
+        "allowed_hosts": [
+          "pypi.org"
+        ],
+        "type": "limited"
+      },
+      "packages": {
+        "apt": [],
+        "cargo": [],
+        "gem": [],
+        "go": [],
+        "npm": [],
+        "pip": [
+          "ruff==0.9.0"
+        ],
+        "type": "packages"
+      },
+      "type": "cloud"
+    },
+    "description": "Solaria environment ma-cloud",
+    "metadata": {
+      "solaria_environment": "ma-cloud"
+    },
+    "name": "solaria-test-ma-cloud"
+  }
+POST /v1/vaults
+  {
+    "display_name": "solaria-test-ma-cloud/tools",
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Vault/tools"
+    }
+  }
+POST /v1/vaults/vlt_02/credentials
+  {
+    "auth": {
+      "mcp_server_url": "https://docs.example.com/mcp",
+      "token": "***",
+      "type": "static_bearer"
+    },
+    "display_name": "docs",
+    "metadata": {
+      "solaria_credential": "docs",
+      "solaria_logical_id": "Vault/tools"
+    }
+  }
+POST /v1/vaults/vlt_02/credentials
+  {
+    "auth": {
+      "networking": {
+        "type": "unrestricted"
+      },
+      "secret_name": "GH_TOKEN",
+      "secret_value": "***",
+      "type": "environment_variable"
+    },
+    "display_name": "gh",
+    "metadata": {
+      "solaria_credential": "gh",
+      "solaria_logical_id": "Vault/tools"
+    }
+  }
+GET /v1/vaults/vlt_02/credentials
+POST /v1/skills
+  field display_name: solaria-test-triage
+  file files[] triage/SKILL.md (text/plain):
+    | ---
+    | name: triage
+    | description: Sort review findings by severity.
+    | ---
+    | 
+    | Sort findings: blocking, then important, then nits.
+POST /v1/agents
+  {
+    "description": "Reviews pull requests.",
+    "mcp_servers": [
+      {
+        "name": "docs",
+        "type": "url",
+        "url": "https://docs.example.com/mcp"
+      }
+    ],
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Agent/reviewer",
+      "solaria_resolved_digest": "sha256:7b4060c52b2c5a4e1501e661a68a5539afa87f456b4ead9e47407397ea11e7ce",
+      "solaria_spec_digest": "sha256:7b4060c52b2c5a4e1501e661a68a5539afa87f456b4ead9e47407397ea11e7ce"
+    },
+    "model": {
+      "effort": "high",
+      "id": "claude-sonnet-5-5"
+    },
+    "name": "solaria-test-reviewer",
+    "skills": [
+      {
+        "skill_id": "skill_05",
+        "type": "custom",
+        "version": "skillver_06"
+      }
+    ],
+    "system": "You review pull requests for correctness.",
+    "tools": [
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "grep",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "read",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "bash",
+            "permission_policy": {
+              "type": "always_ask"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "web_fetch",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false
+        },
+        "type": "agent_toolset_20260401"
+      },
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "search",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false,
+          "permission_policy": {
+            "type": "always_allow"
+          }
+        },
+        "mcp_server_name": "docs",
+        "type": "mcp_toolset"
+      }
+    ]
+  }
+
+### unchanged
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+No changes. The environment matches the configuration.
+--- refresh requests
+GET /v1/agents/agent_07
+GET /v1/environments/env_01
+GET /v1/vaults/vlt_02
+GET /v1/vaults/vlt_02/credentials
+--- apply requests
+
+### rotate
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  ~ Vault/tools (sends every credential's value again)
+      note: sessions of Agent/reviewer attach it when they start
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_07
+GET /v1/environments/env_01
+GET /v1/vaults/vlt_02
+GET /v1/vaults/vlt_02/credentials
+--- apply requests
+POST /v1/vaults/vlt_02/credentials/vcrd_03
+  {
+    "auth": {
+      "token": "***",
+      "type": "static_bearer"
+    }
+  }
+POST /v1/vaults/vlt_02/credentials/vcrd_04
+  {
+    "auth": {
+      "secret_value": "***",
+      "type": "environment_variable"
+    }
+  }
+GET /v1/vaults/vlt_02/credentials
+
+### change the variable and its secret
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  ~ Vault/tools
+      ~ credentials.gh.secretRef: "GH_PAT" -> "GH_PAT_2"
+      ~ credentials.gh.variable: "GH_TOKEN" -> "GITHUB_TOKEN"
+      note: sessions of Agent/reviewer attach it when they start
+
+  ~ Agent/reviewer
+      ~ vaults.tools.credentials: (113 bytes) -> (119 bytes)
+      resolvedDigest: sha256:7b4060c52b2c -> sha256:85ed76a9cbdf
+      note: creates a new agent version; sessions pinned to an earlier one keep it
+
+Plan: 0 to create, 2 to update, 0 to replace, 0 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_07
+GET /v1/environments/env_01
+GET /v1/vaults/vlt_02
+GET /v1/vaults/vlt_02/credentials
+--- apply requests
+DELETE /v1/vaults/vlt_02/credentials/vcrd_04
+POST /v1/vaults/vlt_02/credentials
+  {
+    "auth": {
+      "networking": {
+        "type": "unrestricted"
+      },
+      "secret_name": "GITHUB_TOKEN",
+      "secret_value": "***",
+      "type": "environment_variable"
+    },
+    "display_name": "gh",
+    "metadata": {
+      "solaria_credential": "gh",
+      "solaria_logical_id": "Vault/tools"
+    }
+  }
+GET /v1/vaults/vlt_02/credentials
+POST /v1/agents/agent_07
+  {
+    "description": "Reviews pull requests.",
+    "mcp_servers": [
+      {
+        "name": "docs",
+        "type": "url",
+        "url": "https://docs.example.com/mcp"
+      }
+    ],
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Agent/reviewer",
+      "solaria_resolved_digest": "sha256:85ed76a9cbdfc651ddfc6e583ab0ee0a4f9a5cf08ab8a14440f6da8aab9a4c0a",
+      "solaria_spec_digest": "sha256:85ed76a9cbdfc651ddfc6e583ab0ee0a4f9a5cf08ab8a14440f6da8aab9a4c0a"
+    },
+    "model": {
+      "effort": "high",
+      "id": "claude-sonnet-5-5"
+    },
+    "name": "solaria-test-reviewer",
+    "skills": [
+      {
+        "skill_id": "skill_05",
+        "type": "custom",
+        "version": "skillver_06"
+      }
+    ],
+    "system": "You review pull requests for correctness.",
+    "tools": [
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "grep",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "read",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "bash",
+            "permission_policy": {
+              "type": "always_ask"
+            }
+          },
+          {
+            "enabled": true,
+            "name": "web_fetch",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false
+        },
+        "type": "agent_toolset_20260401"
+      },
+      {
+        "configs": [
+          {
+            "enabled": true,
+            "name": "search",
+            "permission_policy": {
+              "type": "always_allow"
+            }
+          }
+        ],
+        "default_config": {
+          "enabled": false,
+          "permission_policy": {
+            "type": "always_allow"
+          }
+        },
+        "mcp_server_name": "docs",
+        "type": "mcp_toolset"
+      }
+    ],
+    "version": 1
+  }
+
+### rotate without a secret
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  ~ Vault/tools (sends every credential's value again)
+      note: sessions of Agent/reviewer attach it when they start
+
+Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_07
+GET /v1/environments/env_01
+GET /v1/vaults/vlt_02
+GET /v1/vaults/vlt_02/credentials
+--- apply requests
+--- error
+update Vault/tools: secrets not set in the environment variables: DOCS_TOKEN
+
+### deleted outside Solaria
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  + Vault/tools (deleted outside Solaria; it will be created again)
+      note: stores 2 credentials from the environment variables
+      note: sessions of Agent/reviewer attach it when they start
+
+Plan: 1 to create, 0 to update, 0 to replace, 0 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_07
+GET /v1/environments/env_01
+GET /v1/vaults/vlt_02
+--- apply requests
+POST /v1/vaults
+  {
+    "display_name": "solaria-test-ma-cloud/tools",
+    "metadata": {
+      "solaria_environment": "ma-cloud",
+      "solaria_logical_id": "Vault/tools"
+    }
+  }
+POST /v1/vaults/vlt_11/credentials
+  {
+    "auth": {
+      "mcp_server_url": "https://docs.example.com/mcp",
+      "token": "***",
+      "type": "static_bearer"
+    },
+    "display_name": "docs",
+    "metadata": {
+      "solaria_credential": "docs",
+      "solaria_logical_id": "Vault/tools"
+    }
+  }
+POST /v1/vaults/vlt_11/credentials
+  {
+    "auth": {
+      "networking": {
+        "type": "unrestricted"
+      },
+      "secret_name": "GITHUB_TOKEN",
+      "secret_value": "***",
+      "type": "environment_variable"
+    },
+    "display_name": "gh",
+    "metadata": {
+      "solaria_credential": "gh",
+      "solaria_logical_id": "Vault/tools"
+    }
+  }
+GET /v1/vaults/vlt_11/credentials
+
+### destroy
+--- plan
+Environment ma-cloud (managed-agents/cloud)
+
+  -/archive Agent/reviewer
+      host: agent_07 version 2
+
+  - Vault/tools
+      host: vlt_11
+
+  - Environment/ma-cloud
+      host: env_01
+
+Plan: 0 to create, 0 to update, 0 to replace, 3 to delete or archive.
+--- refresh requests
+GET /v1/agents/agent_07
+GET /v1/environments/env_01
+--- apply requests
+POST /v1/agents/agent_07/archive
+GET /v1/skills/skill_05/versions
+DELETE /v1/skills/skill_05/versions/skillver_06
+DELETE /v1/skills/skill_05
+DELETE /v1/vaults/vlt_11
+DELETE /v1/environments/env_01
+

@@ -19,7 +19,7 @@ Each significant design decision is recorded here using [MADR](https://adr.githu
 | [0013](0013-lock-file-pins-digests.md) | A committed lock file pins each environment's digests | accepted |
 | [0014](0014-process-placement-and-claude-agent-sdk.md) | Local agent loops: a hermetic `process` placement and the `claude-agent-sdk` provider | accepted |
 | [0015](0015-project-scaffolding-and-editor-support.md) | Project scaffolding and editor support | accepted |
-| [0016](0016-vault-scoped-credentials.md) | A Vault resource scopes credentials to the agents that reference it | proposed |
+| [0016](0016-vault-scoped-credentials.md) | A Vault resource scopes credentials to the agents that reference it | accepted |
 | [0017](0017-run-inputs.md) | Run inputs: agents declare a workspace and repositories, environments bind them | proposed |
 | [0018](0018-plan-json-and-saved-plans.md) | A documented plan JSON, and saved plans that apply only what was reviewed | proposed |
 | [0019](0019-agent-output-schema.md) | An agent can declare the JSON its answer must match | proposed |

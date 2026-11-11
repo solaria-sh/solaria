@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -122,8 +123,10 @@ type envStatus struct {
 	// InConfiguration is false for an environment that only has state.
 	InConfiguration bool `json:"inConfiguration"`
 	// Locked means solaria.lock pins the environment.
-	Locked bool         `json:"locked"`
-	Host   *hostStatus  `json:"host,omitempty"`
+	Locked bool        `json:"locked"`
+	Host   *hostStatus `json:"host,omitempty"`
+	// Vaults are host vaults, for providers that keep them (ADR 0016).
+	Vaults []hostStatus `json:"vaults,omitempty"`
 	Agents []agentState `json:"agents"`
 }
 
@@ -135,6 +138,14 @@ type hostStatus struct {
 	Version   string    `json:"version,omitempty"`
 	Digest    string    `json:"digest"`
 	AppliedAt time.Time `json:"appliedAt"`
+	// UsedBy lists the agents whose sessions attach a vault.
+	UsedBy []string `json:"usedBy,omitempty"`
+}
+
+// vaultRef is a host vault an agent's sessions attach.
+type vaultRef struct {
+	Name   string `json:"name"`
+	HostID string `json:"hostId"`
 }
 
 type agentState struct {
@@ -153,6 +164,9 @@ type agentState struct {
 	// Run is the command that starts the agent, ready for a shell.
 	Run        string            `json:"run,omitempty"`
 	Invocation *state.Invocation `json:"invocation,omitempty"`
+	// Vaults are the host vaults to attach when starting a session, on
+	// hosts that keep credentials in vaults.
+	Vaults []vaultRef `json:"vaults,omitempty"`
 }
 
 // configStatus compares an agent's state with the configuration.
@@ -221,6 +235,20 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 		}
 	}
 
+	for _, id := range st.VaultIDs() {
+		v := st.Vaults[id]
+		vs := hostStatus{
+			ID: v.ID, Provider: v.Provider, Placement: v.Placement, HostID: v.Binding.HostID,
+			Version: v.Binding.Version, Digest: v.Digest, AppliedAt: v.AppliedAt,
+		}
+		for _, aid := range st.IDs() {
+			if _, ok := st.Agents[aid].Definition.Vaults[strings.TrimPrefix(id, v1alpha1.KindVault+"/")]; ok {
+				vs.UsedBy = append(vs.UsedBy, aid)
+			}
+		}
+		es.Vaults = append(es.Vaults, vs)
+	}
+
 	ids := st.IDs()
 	for id := range desired {
 		if st.Agents[id] == nil {
@@ -250,6 +278,11 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 		as.Configuration = compareConfig(e, d)
 		as.Run = e.Binding.Outputs["run"]
 		as.Invocation = e.Binding.Invocation
+		for _, name := range slices.Sorted(maps.Keys(e.Definition.Vaults)) {
+			if v := st.Vaults[v1alpha1.KindVault+"/"+name]; v != nil {
+				as.Vaults = append(as.Vaults, vaultRef{Name: name, HostID: v.Binding.HostID})
+			}
+		}
 		es.Agents = append(es.Agents, as)
 	}
 	return es, nil
@@ -261,7 +294,7 @@ func (es envStatus) only(name string) (envStatus, error) {
 	id := v1alpha1.KindAgent + "/" + name
 	for _, as := range es.Agents {
 		if as.LogicalID == id {
-			es.Host = nil
+			es.Host, es.Vaults = nil, nil
 			es.Agents = []agentState{as}
 			return es, nil
 		}
@@ -315,6 +348,14 @@ func writeStatus(w io.Writer, es envStatus, lockPath string, detail bool) error 
 		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s%s\n", h.ID, h.Provider, h.Placement, h.HostID,
 			orDash(h.Version), provider.ShortDigest(h.Digest), h.AppliedAt.Format("2006-01-02 15:04"), "shared by the agents", lockCol(""))
 	}
+	for _, v := range es.Vaults {
+		used := "unused"
+		if len(v.UsedBy) > 0 {
+			used = "for " + strings.Join(v.UsedBy, ", ")
+		}
+		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s%s\n", v.ID, v.Provider, v.Placement, v.HostID,
+			orDash(v.Version), provider.ShortDigest(v.Digest), v.AppliedAt.Format("2006-01-02 15:04"), used, lockCol(""))
+	}
 	for _, as := range es.Agents {
 		if as.AppliedAt == nil {
 			_, _ = fmt.Fprintf(tw, "  %s\t-\t-\t-\t-\t-\t%s%s\n", as.LogicalID, as.Configuration.text(), lockCol(as.LockedDigest))
@@ -346,6 +387,13 @@ func writeInvocation(b *strings.Builder, env string, as agentState) {
 		return
 	case as.Run == "" && inv == nil:
 		fmt.Fprintf(b, "  %s runs the agent on its host; there's no command to start it.\n", as.Provider)
+		if len(as.Vaults) > 0 {
+			refs := make([]string, len(as.Vaults))
+			for i, v := range as.Vaults {
+				refs[i] = fmt.Sprintf("%s (%s)", v.HostID, v.Name)
+			}
+			fmt.Fprintf(b, "  vaults: attach %s when starting a session\n", strings.Join(refs, ", "))
+		}
 		return
 	}
 	run := as.Run

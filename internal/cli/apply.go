@@ -20,6 +20,7 @@ func newPlanCommand() *cobra.Command {
 		refresh  bool
 		detailed bool
 		destroy  bool
+		rotate   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "plan -e <environment> [path...]",
@@ -36,7 +37,7 @@ apply would create, update, replace or delete. It changes nothing.`,
 			if err != nil {
 				return err
 			}
-			plan, err := makePlan(cmd, e, f.env, engine.PlanOptions{Refresh: refresh, Destroy: destroy})
+			plan, err := makePlan(cmd, e, f.env, engine.PlanOptions{Refresh: refresh, Destroy: destroy, RotateSecrets: rotate})
 			if err != nil {
 				return err
 			}
@@ -54,6 +55,7 @@ apply would create, update, replace or delete. It changes nothing.`,
 	cmd.Flags().BoolVar(&refresh, "refresh", true, "ask the host for the current state of every agent first")
 	cmd.Flags().BoolVar(&detailed, "detailed-exitcode", false, "exit 0 for no changes, 2 for changes, 1 for errors")
 	cmd.Flags().BoolVar(&destroy, "destroy", false, "plan the removal of everything in the environment")
+	cmd.Flags().BoolVar(&rotate, "rotate-secrets", false, rotateUsage)
 	return cmd
 }
 
@@ -62,6 +64,7 @@ func newApplyCommand() *cobra.Command {
 		f           projectFlags
 		refresh     bool
 		autoApprove bool
+		rotate      bool
 	)
 	cmd := &cobra.Command{
 		Use:   "apply -e <environment> [path...]",
@@ -77,15 +80,20 @@ It holds the environment's lock throughout and records the result in state.`,
 			if err != nil {
 				return err
 			}
-			return run(cmd, e, f.env, "apply", engine.PlanOptions{Refresh: refresh}, autoApprove)
+			return run(cmd, e, f.env, "apply", engine.PlanOptions{Refresh: refresh, RotateSecrets: rotate}, autoApprove)
 		},
 	}
 	f.register(cmd, true)
 	registerLockFile(cmd, &f.lockFile)
 	cmd.Flags().BoolVar(&refresh, "refresh", true, "ask the host for the current state of every agent first")
 	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "apply without asking for confirmation")
+	cmd.Flags().BoolVar(&rotate, "rotate-secrets", false, rotateUsage)
 	return cmd
 }
+
+// rotateUsage explains --rotate-secrets. State never sees secret values,
+// so it can't tell when one changes (ADR 0016).
+const rotateUsage = "send every host vault's credential values again, after changing them in the secret source"
 
 func newDestroyCommand() *cobra.Command {
 	var (

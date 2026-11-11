@@ -289,17 +289,27 @@ func validateAgent(a *resolve.Agent, s settings, where string) diag.List {
 	if n := len(d.Tools.MCP); n > maxMCPServers {
 		errorf("the agent uses %d MCP servers; the host takes %d", n, maxMCPServers)
 	}
-	if len(d.Vaults) > 0 {
-		errorf("the agent references vaults (%s), and managed-agents can't create host vaults yet; until it can, run this agent where a launcher passes its credentials (claude-agent-sdk or gitagent)", strings.Join(slices.Sorted(maps.Keys(d.Vaults)), ", "))
-	}
 	for _, name := range slices.Sorted(maps.Keys(d.Tools.MCP)) {
 		_, r := remote(d.Tools.MCP[name].Spec)
-		if r != nil && len(r.Headers) > 0 {
-			var names []string
-			for _, h := range r.Headers {
-				names = append(names, h.Name)
+		if r == nil {
+			continue
+		}
+		// A secret header comes from the agent's vaults, which validate
+		// checks grant it, and ValidateVault checks the host can fill it.
+		// Without vaults, nothing gives the host the value.
+		var plain, secret []string
+		for _, h := range r.Headers {
+			if h.SecretRef == "" {
+				plain = append(plain, h.Name)
+			} else {
+				secret = append(secret, h.Name)
 			}
-			warnf("McpServer %q sends %s, but Managed Agents agents hold no credentials: give sessions a vault with a credential for %s", name, strings.Join(names, ", "), r.URL)
+		}
+		if len(plain) > 0 {
+			warnf("McpServer %q sends %s, but Managed Agents connects to MCP servers without custom headers; it's left out", name, strings.Join(plain, ", "))
+		}
+		if len(secret) > 0 && len(d.Vaults) == 0 {
+			warnf("McpServer %q sends %s from a secret, but Managed Agents agents hold no credentials: grant it through a Vault in spec.vaults, so sessions can attach it", name, strings.Join(secret, ", "))
 		}
 	}
 	for _, t := range d.Permissions.Ask {
