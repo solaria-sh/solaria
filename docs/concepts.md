@@ -230,6 +230,7 @@ Environment local-sdk (state serial 2)
   OBJECT       PROVIDER                  HOST ID                                    VERSION       DIGEST               APPLIED           CONFIGURATION
   Agent/hello  claude-agent-sdk/process  .solaria/claude-agent-sdk/local-sdk/hello  3f9c1a0d2b7e  sha256:08ffaed7b158  2026-11-01 10:00  up to date
 
+  runtime: @anthropic-ai/claude-agent-sdk@0.3.319
   run: node /work/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs
   task: after the command with -p, or on stdin
   workspace: the directory it runs in
@@ -254,6 +255,7 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
           "placement": "process",
           "hostId": ".solaria/claude-agent-sdk/local-sdk/hello",
           "version": "3f9c1a0d2b7e",
+          "runtime": "@anthropic-ai/claude-agent-sdk@0.3.319",
           "specDigest": "sha256:08ffaed7b158...",
           "resolvedDigest": "sha256:08ffaed7b158...",
           "appliedAt": "2026-11-01T10:00:00Z",
@@ -280,6 +282,7 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
 | `locked` | `solaria.lock` pins the environment; each agent's `lockedDigest` is its pinned `resolvedDigest` |
 | `host` | The environment's shared host object, when its provider keeps one: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt` |
 | `vaults` | On the environment: host vaults, when its provider keeps them, with the same fields as `host` and `usedBy`, the agents whose sessions attach each. On an agent: the vaults to attach when starting a session, as `name` and `hostId`. |
+| `runtime` | What runs the agent loop, at the version applied: `gitagent@<commit>`, `@anthropic-ai/claude-agent-sdk@<version>` or `claude-agent-sdk@<version>`, or `agent_toolset_20260401` on Managed Agents, whose runtime can't be pinned. Results depend on the harness as well as the model, so compare it before comparing runs. Absent for agents applied before Solaria recorded it. |
 | `annotations` | The agent's `metadata.annotations`, read from the configuration rather than state, since they're never applied. Absent for an agent the configuration no longer has. |
 | `configuration` | `upToDate`, `changed`, `overridesChanged` (only the environment's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `annotations`, `configuration` and `lockedDigest`. |
 | `run` | The command for a POSIX shell, run from the workspace. The task goes after it. |

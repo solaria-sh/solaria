@@ -30,7 +30,9 @@ type build struct {
 	Repository string
 	Image      string
 	Platform   string
-	Labels     map[string]string
+	// Commit is the gitagent commit the image builds.
+	Commit string
+	Labels map[string]string
 	// Base is set when sandbox.image is a Dockerfile: it is built first and
 	// tagged BaseImage, and the generated Dockerfile starts from it.
 	Base      *container.BuildRequest
@@ -76,6 +78,7 @@ func (r *renderer) render() error {
 	a, b := r.a, r.b
 	settings := r.settings()
 	b.Platform = settings.platform
+	b.Commit = settings.commit
 	b.Repository = "solaria/" + a.Environment + "/" + a.Name
 	b.Image = b.Repository + ":" + strings.TrimPrefix(a.ResolvedDigest, "sha256:")[:12]
 
@@ -110,6 +113,7 @@ func (r *renderer) render() error {
 	b.Files[dockerfilePath] = dockerfile(dockerfileData{
 		LogicalID:   a.ID(),
 		Environment: a.Environment,
+		Commit:      b.Commit,
 		Base:        base,
 		Packages:    container.Packages(a.Env.Sandbox),
 		Allow:       allow,
@@ -123,7 +127,7 @@ func (r *renderer) render() error {
 		labelPrefix + "environment":     a.Environment,
 		labelPrefix + "spec-digest":     a.SpecDigest,
 		labelPrefix + "resolved-digest": a.ResolvedDigest,
-		labelPrefix + "gitagent-commit": GitagentCommit,
+		labelPrefix + "gitagent-commit": b.Commit,
 	}
 	if d := a.Definition.Description; d != "" {
 		b.Labels["org.opencontainers.image.description"] = d
@@ -148,14 +152,16 @@ func (r *renderer) render() error {
 const labelPrefix = "sh.solaria."
 
 type settings struct {
-	platform string
+	platform, commit string
 }
 
 // settings reads the environment's providers.gitagent and checks the
 // agent's own.
 func (r *renderer) settings() settings {
-	s := settings{platform: DefaultPlatform}
-	for k, v := range r.a.Env.Providers[Name] {
+	s := settings{platform: DefaultPlatform, commit: GitagentCommit}
+	set := r.a.Env.Providers[Name]
+	for _, k := range slices.Sorted(maps.Keys(set)) {
+		v := set[k]
 		switch k {
 		case "platform":
 			p, _ := v.(string)
@@ -164,8 +170,15 @@ func (r *renderer) settings() settings {
 				continue
 			}
 			s.platform = p
+		case "commit":
+			c, _ := v.(string)
+			if !commitPattern.MatchString(c) {
+				r.errorf("Environment providers.gitagent.commit must be a full 40-character commit hash of gitagent, such as %s, not %v", GitagentCommit, v)
+				continue
+			}
+			s.commit = c
 		default:
-			r.warnf("Environment providers.gitagent.%s isn't a gitagent setting and is ignored; the settings are: platform", k)
+			r.warnf("Environment providers.gitagent.%s isn't a gitagent setting and is ignored; the settings are: platform, commit", k)
 		}
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.a.Definition.Providers[Name])) {
@@ -176,6 +189,10 @@ func (r *renderer) settings() settings {
 
 // platforms the provider builds for.
 var platforms = []string{"linux/amd64", "linux/arm64"}
+
+// commitPattern is a full commit hash: a branch or a short hash could
+// build different sources tomorrow.
+var commitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 // gitagentConfig is gitagent.yaml in gitagent's config layer
 // (crates/loader/src/config.rs at the pinned commit).
@@ -490,9 +507,15 @@ func modelKeys(m resolve.Model) []string {
 	return slices.Compact(out)
 }
 
-// componentChanges compares a prior binding's digests with a new build.
+// componentChanges compares a prior binding with a new build: the gitagent
+// commit, then the digests. A binding from before Solaria recorded the
+// commit was built from the old default, and its image digest shows a
+// change of commit anyway.
 func componentChanges(outputs map[string]string, b *build) []provider.Change {
 	var out []provider.Change
+	if old := outputs[outCommit]; old != "" && old != b.Commit {
+		out = append(out, provider.Change{Path: "gitagent", Old: old, New: b.Commit})
+	}
 	for _, c := range []struct{ path, key, now string }{
 		{"sandbox", outSandboxDigest, b.SandboxDigest},
 		{"image", outBuildDigest, b.BuildDigest},

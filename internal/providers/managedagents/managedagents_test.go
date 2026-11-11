@@ -566,6 +566,13 @@ func TestCloudLifecycle(t *testing.T) {
 	if err := r.step("create", "ma-cloud", refresh); err != nil {
 		t.Fatal(err)
 	}
+	st, err := r.state.Read("ma-cloud")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := st.Agents["Agent/reviewer"].Binding.Runtime; got != "agent_toolset_20260401" {
+		t.Errorf("runtime = %q", got)
+	}
 	if err := r.step("unchanged", "ma-cloud", refresh); err != nil {
 		t.Fatal(err)
 	}

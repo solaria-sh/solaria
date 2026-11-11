@@ -157,7 +157,7 @@ The `docker` placement enforces more:
 | `providers.claude-agent-sdk.version` | `0.3.319` for Node, `0.2.178` for Python | The SDK version to install. The default is the version Solaria was tested with. |
 | `providers.claude-agent-sdk.platform` | `linux/amd64` | `docker` only: the image platform. `linux/arm64` builds natively on Arm machines. |
 
-The binding records the runtime and SDK version (outputs `runtime` and `sdkVersion`), since a model's results depend on the harness it runs in. Changing either plans an update although the agent's digests stay the same.
+The binding records the runtime and SDK version (outputs `runtime` and `sdkVersion`, and runtime `<package>@<version>`, which `status -a` shows), since a model's results depend on the harness it runs in. Changing either plans an update although the agent's digests stay the same.
 
 ## Drift and destroy
 

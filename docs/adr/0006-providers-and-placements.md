@@ -106,6 +106,7 @@ The engine checks these at plan time, before any host call. `Import` follows lat
   - The host ID is the repository and the version is the image ID, so a rebuild or retag outside Solaria is drift.
   - The previous tag is removed after a successful build.
 - **Platform:** `linux/amd64` by default, as in the cloud sandbox; `providers.gitagent.platform: linux/arm64` builds natively on Arm machines. gitagent compiles on the build machine's own architecture and cross-compiles when the target differs, so an amd64 image on an Arm Mac doesn't compile Rust under emulation.
+- **gitagent commit:** Solaria pins the commit it was tested with; `providers.gitagent.commit` picks another, as a full hash. The binding records it (output `gitagentCommit`, runtime `gitagent@<commit>`), and changing it plans an update although the digests stay, like the SDK version in ADR 0014.
 - **The image runs as root** with `HOME=/root`, as verified in the spike. A non-root user with the caller's UID comes later.
 - **Apply prints the run command:** `docker run … <image>`, followed by `-p "<task>"`. It mounts the current folder as `/workspace` and names API keys and secrets without their values. The build context stays under `.solaria/gitagent/<env>/<agent>/` for inspection.
 
@@ -143,4 +144,5 @@ Every provider has capability tests, and golden tests of what it sends to its ho
 - Revised 2026-11-04 after the M1 spikes: gitagent rendering, Go SDK worker. The `managed-agents` implementation approach is in ADR 0011.
 - Revised in M4: the interface as implemented, and the `stub` test provider.
 - Revised in M5: `gitagent` as implemented.
+- Revised on 2026-11-11: `providers.gitagent.commit`, recorded in the binding.
 - Extended by [ADR 0014](0014-process-placement-and-claude-agent-sdk.md) (proposed): the `process` placement and the `claude-agent-sdk` provider.

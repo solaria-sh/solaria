@@ -21,7 +21,7 @@ Environment local-gitagent (gitagent/docker)
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158
-      note: builds solaria/local-gitagent/hello:08ffaed7b158 for linux/amd64; the first build compiles gitagent and the sandbox base, which takes several minutes
+      note: builds solaria/local-gitagent/hello:08ffaed7b158 for linux/amd64 with gitagent f4a309cd600b; the first build compiles gitagent and the sandbox base, which takes several minutes
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.
 -- mixed/instructions.md --

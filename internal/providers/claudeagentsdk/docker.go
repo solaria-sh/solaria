@@ -243,7 +243,10 @@ func (p *Provider) applyDocker(ctx context.Context, pl *provider.Plan, b *bundle
 		outputs[outSandboxImage] = d.BaseImage
 	}
 	return &provider.Applied{
-		Binding:    state.Binding{HostID: d.Repository, Version: shortID(img.ID), Outputs: outputs, Invocation: inv},
+		Binding: state.Binding{
+			HostID: d.Repository, Version: shortID(img.ID), Outputs: outputs, Invocation: inv,
+			Runtime: b.runtime(),
+		},
 		RemoteHash: img.ID,
 	}, nil
 }

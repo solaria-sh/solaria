@@ -13,7 +13,8 @@ import (
 // are in the container package.
 const (
 	// GitagentCommit is the gitagent source the image builds, until v3 has
-	// release binaries (see the gitagent spike).
+	// release binaries (see the gitagent spike). An Environment can pick
+	// another with providers.gitagent.commit.
 	GitagentCommit = "f4a309cd600b877177c17ac789e83bd7355d0383"
 	gitagentRepo   = "https://github.com/open-gitagent/gitagent.git"
 	// rustImage matches the toolchain gitagent's rust-toolchain.toml pins.
@@ -22,6 +23,8 @@ const (
 
 type dockerfileData struct {
 	LogicalID, Environment string
+	// Commit is the gitagent commit to build.
+	Commit string
 	// Base replaces the Solaria sandbox base when set.
 	Base        string
 	Packages    *v1alpha1.PackagesSpec
@@ -42,7 +45,7 @@ func dockerfile(d dockerfileData) []byte {
 	w("# architecture and cross-compiled when the target differs.\n")
 	w("FROM --platform=$BUILDPLATFORM %s AS gitagent\n", rustImage)
 	w("ARG TARGETARCH\n")
-	w("ARG GITAGENT_COMMIT=%s\n", GitagentCommit)
+	w("ARG GITAGENT_COMMIT=%s\n", d.Commit)
 	w("RUN git init /src && cd /src \\\n")
 	w(" && git remote add origin %s \\\n", gitagentRepo)
 	w(" && git fetch --depth 1 origin \"$GITAGENT_COMMIT\" && git checkout FETCH_HEAD\n")

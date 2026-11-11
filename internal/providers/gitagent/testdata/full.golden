@@ -7,7 +7,7 @@
 # architecture and cross-compiled when the target differs.
 FROM --platform=$BUILDPLATFORM rust:1.99.0-bookworm AS gitagent
 ARG TARGETARCH
-ARG GITAGENT_COMMIT=f4a309cd600b877177c17ac789e83bd7355d0383
+ARG GITAGENT_COMMIT=0123456789abcdef0123456789abcdef01234567
 RUN git init /src && cd /src \
  && git remote add origin https://github.com/open-gitagent/gitagent.git \
  && git fetch --depth 1 origin "$GITAGENT_COMMIT" && git checkout FETCH_HEAD
@@ -149,7 +149,7 @@ docker run --rm --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --
 === labels
 org.opencontainers.image.description=Reviews pull requests.
 sh.solaria.environment=local-gitagent
-sh.solaria.gitagent-commit=f4a309cd600b877177c17ac789e83bd7355d0383
+sh.solaria.gitagent-commit=0123456789abcdef0123456789abcdef01234567
 sh.solaria.logical-id=Agent/reviewer
 sh.solaria.resolved-digest=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54
 sh.solaria.spec-digest=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54
