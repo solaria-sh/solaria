@@ -17,6 +17,12 @@ type ObjectMeta struct {
 	// Labels for selecting resources, for example from an Environment's
 	// agents.selector.
 	Labels map[string]string `json:"labels,omitempty"`
+	// Notes about how the resource is operated rather than what it is, such
+	// as an agent's owner, trigger or target autonomy. Keys are like label
+	// keys; values are any text. They're never part of a digest or sent to
+	// a host, so changing one changes nothing deployed. solaria status
+	// -o json shows an agent's.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // Agent declares what an agent is: its instructions, model, tools, skills and

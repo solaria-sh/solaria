@@ -329,6 +329,7 @@ func TestDigestStability(t *testing.T) {
 		}, true},
 		{"hidden file in skill", func(f map[string]string) { f["skills/review-rubric/.DS_Store"] = "\x00junk" }, true},
 		{"secret value set", func(f map[string]string) { f[".env"] = "GIT_HOST_TOKEN=s3cret\n" }, true},
+		{"annotation added", replace("agents.yaml", "  labels: {team: core}\n", "  labels: {team: core}\n  annotations: {owner: platform, trigger: \"on pull request\"}\n"), true},
 
 		{"skill byte changed", replace("skills/review-rubric/scripts/score.sh", "echo 5", "echo 6"), false},
 		{"skill file added", func(f map[string]string) { f["skills/review-rubric/notes.md"] = "x" }, false},

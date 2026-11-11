@@ -46,6 +46,17 @@ spec:
       model: {preferred: anthropic:claude-haiku-5-5}
 ```
 
+Besides `name`, `metadata` takes `labels`, for selectors, and `annotations`, for notes about how a resource is operated rather than what it is: an agent's owner, its trigger, the gate it passes before promotion, the metric it's judged by. Annotation values are any text. Solaria never reads them: they're left out of the digests and never sent to a host, so changing one changes nothing deployed. `solaria status -o json` shows each agent's.
+
+```yaml
+metadata:
+  name: reviewer
+  labels: {team: platform}
+  annotations:
+    owner: platform-team
+    trigger: every pull request, after CI
+```
+
 An environment receives every agent, or those matching `spec.agents.selector`. Moving an agent to another host means applying it to another environment. The Agent doesn't change.
 
 `spec.overrides.<agent>` changes an agent in one environment. It can replace model fields and limits, and merge provider fields. It can also take access away, so a stage can run the same agent with less, but never give it more:
@@ -269,7 +280,8 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
 | `locked` | `solaria.lock` pins the environment; each agent's `lockedDigest` is its pinned `resolvedDigest` |
 | `host` | The environment's shared host object, when its provider keeps one: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt` |
 | `vaults` | On the environment: host vaults, when its provider keeps them, with the same fields as `host` and `usedBy`, the agents whose sessions attach each. On an agent: the vaults to attach when starting a session, as `name` and `hostId`. |
-| `configuration` | `upToDate`, `changed`, `overridesChanged` (only the environment's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `configuration` and `lockedDigest`. |
+| `annotations` | The agent's `metadata.annotations`, read from the configuration rather than state, since they're never applied. Absent for an agent the configuration no longer has. |
+| `configuration` | `upToDate`, `changed`, `overridesChanged` (only the environment's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `annotations`, `configuration` and `lockedDigest`. |
 | `run` | The command for a POSIX shell, run from the workspace. The task goes after it. |
 | `invocation` | The same command, for programs. Absent for providers whose host runs the agent, and for agents applied before Solaria recorded it. |
 

@@ -15,6 +15,7 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `metadata` | object | yes | Identifies the agent. |
 | `metadata.name` | string | yes | Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
 | `metadata.labels` | map of strings |  | Labels for selecting resources, for example from an Environment's agents.selector. |
+| `metadata.annotations` | map of strings |  | Notes about how the resource is operated rather than what it is, such as an agent's owner, trigger or target autonomy. Keys are like label keys; values are any text. They're never part of a digest or sent to a host, so changing one changes nothing deployed. solaria status -o json shows an agent's. |
 | `spec` | object | yes | Describes the agent. |
 | `spec.description` | string |  | What the agent is for. Hosts that list agents show it. |
 | `spec.instructions` | list of strings | yes | Markdown files, relative to this file, joined in order to form the system prompt. At least 1. |

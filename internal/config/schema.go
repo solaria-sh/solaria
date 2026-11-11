@@ -100,7 +100,10 @@ func (c *compiled) schemaDiags(err error, file string, root *yaml.Node) diag.Lis
 	var out diag.List
 	var walk func(e *jsonschema.ValidationError)
 	walk = func(e *jsonschema.ValidationError) {
-		switch e.ErrorKind.(type) {
+		switch k := e.ErrorKind.(type) {
+		case *kind.PropertyNames:
+			out = append(out, c.propertyName(e, k.Property, file, root)...)
+			return
 		case *kind.OneOf, *kind.AnyOf:
 			// Report the combinator itself: its branches' failures read as
 			// contradictions ("missing value", "missing secretRef").
@@ -117,6 +120,38 @@ func (c *compiled) schemaDiags(err error, file string, root *yaml.Node) diag.Lis
 	}
 	walk(ve)
 	return out
+}
+
+// keyForms explains the propertyNames patterns in our schemas, keyed by a
+// part of the keyword's location.
+var keyForms = map[string]string{
+	"/labels/propertyNames/":      "use letters, digits, '-', '_' and '.', starting and ending with a letter or digit, optionally after a DNS prefix and '/'",
+	"/annotations/propertyNames/": "use letters, digits, '-', '_' and '.', starting and ending with a letter or digit, optionally after a DNS prefix and '/'",
+}
+
+// propertyName reports a map key that its schema's propertyNames rejects,
+// on the key itself. The validator's instance location isn't reliable for
+// this error, so a key under metadata is found from the keyword's location.
+func (c *compiled) propertyName(e *jsonschema.ValidationError, name, file string, root *yaml.Node) diag.List {
+	kwLoc := keywordLocation(e)
+	parent := e.InstanceLocation
+	const meta = "/ObjectMeta/properties/"
+	if i := strings.Index(kwLoc, meta); i >= 0 {
+		field, _, _ := strings.Cut(kwLoc[i+len(meta):], "/")
+		parent = []string{"metadata", field}
+	}
+	key, value, _ := locate(root, append(slices.Clip(parent), name))
+	if key == nil {
+		key = value
+	}
+	msg := fmt.Sprintf("%s: %q is not a valid key", fieldPath(root, parent), name)
+	for field, form := range keyForms {
+		if strings.Contains(kwLoc, field) {
+			msg += ": " + form
+			break
+		}
+	}
+	return diag.List{diag.Errorf(file, pos(key), "%s", msg)}
 }
 
 func (c *compiled) leaf(e *jsonschema.ValidationError, file string, root *yaml.Node) diag.List {

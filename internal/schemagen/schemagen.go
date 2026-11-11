@@ -166,6 +166,9 @@ func extend(s *jsonschema.Schema, kind string) {
 			labels.PropertyNames = &jsonschema.Schema{Pattern: labelKey, MaxLength: ptr(uint64(253))}
 			labels.AdditionalProperties = &jsonschema.Schema{Type: "string", MaxLength: ptr(uint64(63))}
 		}
+		if annotations, ok := d.Properties.Get("annotations"); ok {
+			annotations.PropertyNames = &jsonschema.Schema{Pattern: labelKey, MaxLength: ptr(uint64(253))}
+		}
 	}
 	for _, name := range []string{"AgentSpec", "AgentOverride"} {
 		if d := s.Definitions[name]; d != nil {

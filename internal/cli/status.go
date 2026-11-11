@@ -149,14 +149,17 @@ type vaultRef struct {
 }
 
 type agentState struct {
-	LogicalID      string     `json:"logicalId"`
-	Provider       string     `json:"provider,omitempty"`
-	Placement      string     `json:"placement,omitempty"`
-	HostID         string     `json:"hostId,omitempty"`
-	Version        string     `json:"version,omitempty"`
-	SpecDigest     string     `json:"specDigest,omitempty"`
-	ResolvedDigest string     `json:"resolvedDigest,omitempty"`
-	AppliedAt      *time.Time `json:"appliedAt,omitempty"`
+	LogicalID string `json:"logicalId"`
+	// Annotations are the agent's metadata.annotations, read from the
+	// configuration: they're never applied, so state doesn't hold them.
+	Annotations    map[string]string `json:"annotations,omitempty"`
+	Provider       string            `json:"provider,omitempty"`
+	Placement      string            `json:"placement,omitempty"`
+	HostID         string            `json:"hostId,omitempty"`
+	Version        string            `json:"version,omitempty"`
+	SpecDigest     string            `json:"specDigest,omitempty"`
+	ResolvedDigest string            `json:"resolvedDigest,omitempty"`
+	AppliedAt      *time.Time        `json:"appliedAt,omitempty"`
 	// Configuration compares what was applied with the configuration.
 	Configuration configStatus `json:"configuration"`
 	// LockedDigest is the resolvedDigest solaria.lock pins the agent to.
@@ -258,6 +261,9 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 	slices.Sort(ids)
 	for _, id := range ids {
 		as := agentState{LogicalID: id}
+		if r := set.Lookup(v1alpha1.KindAgent, strings.TrimPrefix(id, v1alpha1.KindAgent+"/")); r != nil {
+			as.Annotations = r.Agent().Metadata.Annotations
+		}
 		if p, ok := pins[id]; ok {
 			as.LockedDigest = p.ResolvedDigest
 		}
