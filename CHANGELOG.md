@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.10.0](https://github.com/solaria-sh/solaria/compare/v0.9.0...v0.10.0) (2026-11-11)
+
+
+### Added
+
+* **vault:** create host vaults on Managed Agents ([#31](https://github.com/solaria-sh/solaria/issues/31)) ([01371f4](https://github.com/solaria-sh/solaria/commit/01371f452ef3ef2efd4edc6bf5726ffb5841b8d8))
+
 ## [0.9.0](https://github.com/solaria-sh/solaria/compare/v0.8.0...v0.9.0) (2026-11-11)
 
 
