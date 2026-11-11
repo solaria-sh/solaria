@@ -43,6 +43,7 @@ Agents and the environment are named after their Solaria resources, behind the o
 | `permissions.ask` | `always_ask` on that tool; every other tool is `always_allow`, because MCP toolsets would otherwise ask by default |
 | `skills` | custom skills, pinned by version |
 | `limits` | not enforced; plan warns. Session budgets cap cost. |
+| `output.schema` | not supported; plan fails |
 | `providers.managed-agents` on the Agent | sent in the request as they are, for fields Solaria has no word for, such as `multiagent`. Fields Solaria sets itself fail validation. |
 
 MCP servers that need headers, such as an `Authorization` token, get a warning: Managed Agents agents hold no credentials. Give sessions a [vault](https://platform.claude.com/docs/en/managed-agents/vaults) with a credential for the server's URL. Solaria can't create host vaults from a [Vault](../concepts.md#credentials-and-vaults) resource yet, so an agent that lists `vaults` fails plan here; run it on claude-agent-sdk or gitagent until it can.

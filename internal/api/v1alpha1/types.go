@@ -1,6 +1,9 @@
 package v1alpha1
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 )
@@ -47,6 +50,9 @@ type AgentSpec struct {
 	Permissions *PermissionsSpec `json:"permissions,omitempty"`
 	// Bounds each run of the agent.
 	Limits *LimitsSpec `json:"limits,omitempty"`
+	// What the agent's final answer must look like. Part of the agent's
+	// identity: environments can't change it.
+	Output *OutputSpec `json:"output,omitempty"`
 	// Vaults whose credentials the agent may use, by reference to Vault
 	// resources. Once an agent lists any, every secret its MCP servers need
 	// must come from one of them, and the run gets nothing else.
@@ -54,6 +60,48 @@ type AgentSpec struct {
 	// Fields passed unchanged to one provider, keyed by provider name. Using
 	// them makes the agent less portable, and validate reports it.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
+}
+
+// OutputSpec says what the agent's final answer must look like.
+type OutputSpec struct {
+	// The JSON Schema (draft 2020-12) the agent's final answer must match:
+	// either a path to a JSON or YAML file, relative to this file, or the
+	// schema itself, written in YAML. Its root must be an object schema,
+	// since the answer is one JSON object. Plan fails on a host that can't
+	// enforce it.
+	Schema OutputSchema `json:"schema" jsonschema:"required"`
+}
+
+// OutputSchema is a JSON Schema given either as a file path or inline.
+// Exactly one of File and Inline is set.
+type OutputSchema struct {
+	// File is the schema's path, relative to the agent's file, when the
+	// schema was written as a string.
+	File string
+	// Inline is the schema, when it was written as an object.
+	Inline map[string]any
+}
+
+// UnmarshalJSON reads a string as a file path and an object as an inline
+// schema.
+func (s *OutputSchema) UnmarshalJSON(b []byte) error {
+	*s = OutputSchema{}
+	switch t := bytes.TrimSpace(b); {
+	case len(t) > 0 && t[0] == '"':
+		return json.Unmarshal(t, &s.File)
+	case len(t) > 0 && t[0] == '{':
+		return json.Unmarshal(t, &s.Inline)
+	default:
+		return errors.New("must be a file path or a JSON Schema object")
+	}
+}
+
+// MarshalJSON writes the schema back the way it was given.
+func (s OutputSchema) MarshalJSON() ([]byte, error) {
+	if s.Inline != nil {
+		return json.Marshal(s.Inline)
+	}
+	return json.Marshal(s.File)
 }
 
 // ModelSpec selects a model as provider:model strings.

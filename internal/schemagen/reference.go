@@ -135,6 +135,17 @@ func (r *refWriter) typeOf(s *jsonschema.Schema) string {
 			return "map of objects"
 		}
 		return "map of " + plural(inner)
+	case t.Type == "" && len(t.OneOf) > 0:
+		// A field that takes one of several plain types, such as a path or
+		// an inline object.
+		var ts []string
+		for _, o := range t.OneOf {
+			if o.Type == "" || o.Ref != "" {
+				return "any"
+			}
+			ts = append(ts, o.Type)
+		}
+		return strings.Join(ts, " or ")
 	case t.Type == "":
 		return "any"
 	default:

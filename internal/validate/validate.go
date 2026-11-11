@@ -105,6 +105,8 @@ func agent(set *config.Set, r *config.Resource) diag.List {
 		skillNames[name] = i
 	}
 
+	diags = append(diags, outputSchema(r)...)
+
 	builtin := map[string]bool{}
 	mcp := map[string]*v1alpha1.MCPToolRef{}
 	if t := spec.Tools; t != nil {

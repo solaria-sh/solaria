@@ -55,6 +55,7 @@ OPTION_NAMES = {
     "mcpServers": "mcp_servers",
     "skills": "skills",
     "plugins": "plugins",
+    "outputFormat": "output_format",
 }
 
 

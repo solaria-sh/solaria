@@ -195,6 +195,42 @@ func TestCapabilityWarningsDoNotStopThePlan(t *testing.T) {
 	}
 }
 
+// TestOutputSchemaCapability checks ADR 0019: plan fails for an agent with
+// an output schema on a host that can't enforce it, before any host call,
+// and passes on one that can.
+func TestOutputSchemaCapability(t *testing.T) {
+	files := project("anthropic:claude-haiku-5-5", "")
+	files["project/agent.yaml"] = strings.Replace(files["project/agent.yaml"],
+		"  permissions: {ask: [shell]}\n",
+		"  permissions: {ask: [shell]}\n  output:\n    schema: {type: object, properties: {verdict: {type: string}}}\n", 1)
+	caps := provider.Capabilities{
+		ModelProviders: []string{"anthropic"},
+		Fallback:       true,
+		Approvals:      true,
+		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP},
+		Destroy:        provider.DestroyDelete,
+	}
+
+	h := newHarness(t, caps)
+	_, err := h.engine(files).Plan(context.Background(), "dev", PlanOptions{})
+	var failed *FailedError
+	if !errors.As(err, &failed) {
+		t.Fatalf("Plan: err = %v, want a FailedError", err)
+	}
+	want := "error: Agent/a on limited/here: spec.output.schema can't be enforced here; this host doesn't support output schemas (ADR 0019)"
+	if got := failed.Diagnostics.String(); !strings.Contains(got, want) {
+		t.Errorf("diagnostics lack %q; got:\n%s", want, got)
+	}
+	if len(h.calls) > 0 {
+		t.Errorf("host was called during a failed plan: %v", h.calls)
+	}
+
+	caps.OutputSchema = true
+	if _, err := newHarness(t, caps).engine(files).Plan(context.Background(), "dev", PlanOptions{}); err != nil {
+		t.Errorf("Plan with the capability: %v", err)
+	}
+}
+
 func TestProviderChangeReplaces(t *testing.T) {
 	open := provider.Capabilities{Fallback: true, Approvals: true, MCPTransports: []string{"stdio", "streamable-http"}, Destroy: provider.DestroyDelete}
 	h := newHarness(t, open)

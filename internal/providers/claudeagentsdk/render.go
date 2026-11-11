@@ -148,6 +148,15 @@ type sdkOptions struct {
 	Skills          []string             `json:"skills,omitempty"`
 	// Plugins' paths are relative to the bundle.
 	Plugins []plugin `json:"plugins,omitempty"`
+	// OutputFormat holds spec.output.schema. The answer comes back as the
+	// result message's structured_output.
+	OutputFormat *outputFormat `json:"outputFormat,omitempty"`
+}
+
+// outputFormat is the SDK's structured output option.
+type outputFormat struct {
+	Type   string `json:"type"`
+	Schema any    `json:"schema"`
 }
 
 // mcpServer is one entry of mcpServers. A value from a secret is written
@@ -373,6 +382,13 @@ func (r *renderer) options() sdkOptions {
 	}
 	o.FallbackModel = strings.Join(fallback, ",")
 
+	if out := d.Output; out != nil {
+		o.OutputFormat = &outputFormat{Type: "json_schema", Schema: out.Schema}
+		if formatKeyword(out.Schema) {
+			r.warnf("the SDK treats format in spec.output.schema as an annotation and doesn't check it")
+		}
+	}
+
 	asked := map[string]bool{}
 	for _, t := range d.Permissions.Ask {
 		if server, tool, ok := strings.Cut(t, "/"); ok {
@@ -591,4 +607,31 @@ func marshal(v any) []byte {
 		panic(fmt.Sprintf("bundle file doesn't encode: %v", err)) // a bug, not input
 	}
 	return b.Bytes()
+}
+
+// formatKeyword reports whether a JSON Schema uses the format keyword. It
+// skips the keywords whose values are data rather than schemas.
+func formatKeyword(v any) bool {
+	switch v := v.(type) {
+	case map[string]any:
+		if f, ok := v["format"].(string); ok && f != "" {
+			return true
+		}
+		for k, sub := range v {
+			switch k {
+			case "const", "enum", "default", "examples":
+				continue
+			}
+			if formatKeyword(sub) {
+				return true
+			}
+		}
+	case []any:
+		for _, sub := range v {
+			if formatKeyword(sub) {
+				return true
+			}
+		}
+	}
+	return false
 }

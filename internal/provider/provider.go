@@ -68,6 +68,10 @@ type Capabilities struct {
 	// Approvals means permissions.ask is honored in unattended runs. When
 	// false, those tools are denied instead, and plan warns.
 	Approvals bool
+	// OutputSchema means the host makes the agent's final answer match
+	// spec.output.schema (ADR 0019). When false, plan fails for an agent
+	// that has one.
+	OutputSchema bool
 	// Destroy says what destroy does on this host.
 	Destroy DestroyKind
 }

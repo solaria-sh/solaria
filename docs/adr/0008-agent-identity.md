@@ -56,6 +56,7 @@ What the digest input includes and excludes:
 - **MCP servers:** the referenced McpServer spec, keyed by name.
 - **Values:** `limits.timeout` is normalized (`90m` and `1h30m` are equal). Empty lists encode as `[]`.
 - **Vaults:** each referenced Vault keyed by name, its credentials sorted by name, each with its secret's name and its target. Never a value.
+- **Output:** `{"schema": ...}`, the parsed output schema (ADR 0019). Inline, JSON and YAML schemas give the same value; the file's name doesn't count.
 - **Fields added later:** a field added to the format after it shipped is left out of the input when it's empty, so agents that don't use it keep their digests and the format keeps its name. `vaults` (ADR 0016) and `output` (ADR 0019) are such fields. Changing what an existing field holds, or how it's normalized, still needs a new format.
 - **Overrides:**
   - `model` and `limits` replace field by field;

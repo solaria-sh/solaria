@@ -51,6 +51,9 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string
 	if a.Env.Sandbox != nil && a.Env.Sandbox.Image != "" && !caps.SandboxImage {
 		errorf("sandbox.image isn't supported here; describe the sandbox with packages instead (ADR 0007)")
 	}
+	if d.Output != nil && !caps.OutputSchema {
+		errorf("spec.output.schema can't be enforced here; this host doesn't support output schemas (ADR 0019)")
+	}
 	if len(d.Permissions.Ask) > 0 && !caps.Approvals {
 		warnf("this host can't ask for approval in unattended runs, so %s will be denied", strings.Join(d.Permissions.Ask, ", "))
 	}

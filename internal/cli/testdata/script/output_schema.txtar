@@ -1,0 +1,157 @@
+# An agent's output schema (ADR 0019) is checked by validate: the file
+# exists and parses, the schema is valid and self-contained, and its root is
+# an object schema.
+cd invalid
+! exec solaria validate
+cmp stdout ../invalid.txt
+
+# A schema that is neither a path nor an object fails the schema check.
+cd ../shape
+! exec solaria validate
+stdout 'agents.yaml:7:20: error: spec.output.schema: must be a path to a JSON or YAML file, or a JSON Schema object'
+
+# A valid schema plans where the host enforces it, and fails plan before
+# any host call where it doesn't.
+cd ../valid
+exec solaria validate
+stdout '^valid: 2 Agents, 4 Environments$'
+exec solaria plan -e local
+stdout '^  \+ Agent/triage$'
+exec solaria plan -e sdk-docker
+stderr 'warning: Agent/triage on claude-agent-sdk/docker: the SDK treats format in spec.output.schema as an annotation and doesn''t check it'
+env ANTHROPIC_API_KEY=
+! exec solaria plan -e ma-cloud
+stderr 'error: Agent/triage on managed-agents/cloud: spec.output.schema can''t be enforced here; this host doesn''t support output schemas \(ADR 0019\)'
+stderr 'error: Agent/summary on managed-agents/cloud: spec.output.schema can''t be enforced here'
+! stdout .
+! exec solaria plan -e local-gitagent
+stderr 'error: Agent/triage on gitagent/docker: spec.output.schema can''t be enforced here'
+! stdout .
+
+-- invalid.txt --
+agents.yaml:7:20: error: spec.output.schema: file "schemas/missing.json" not found
+agents.yaml:15:20: error: spec.output.schema: schemas/verdict.txt: must be a .json, .yaml or .yml file
+agents.yaml:23:20: error: spec.output.schema: schemas/broken.json: parse JSON: unexpected EOF
+agents.yaml:31:20: error: spec.output.schema: schemas/list.yaml: the root must be an object schema (type: object), since the answer is one JSON object
+agents.yaml:40:13: error: spec.output.schema: not a valid JSON Schema: at properties.score.minimum: got string, want number
+agents.yaml:49:13: error: spec.output.schema: $ref https://example.com/user.json points outside the schema; output schemas must be self-contained
+-- invalid/role.md --
+Answer in JSON.
+-- invalid/agents.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: missing}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output: {schema: schemas/missing.json}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: extension}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output: {schema: schemas/verdict.txt}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: unparsable}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output: {schema: schemas/broken.json}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: array}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output: {schema: schemas/list.yaml}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: invalid}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output:
+    schema: {type: object, properties: {score: {type: integer, minimum: low}}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: remote-ref}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output:
+    schema: {type: object, properties: {user: {$ref: "https://example.com/user.json"}}}
+-- invalid/schemas/verdict.txt --
+type: object
+-- invalid/schemas/broken.json --
+{"type": "object",
+-- invalid/schemas/list.yaml --
+type: array
+items: {type: string}
+-- shape/role.md --
+Answer in JSON.
+-- shape/agents.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: number}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output: {schema: 42}
+-- valid/role.md --
+Answer in JSON.
+-- valid/agents.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: triage}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output: {schema: schemas/triage.yaml}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: summary}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  output:
+    schema:
+      type: object
+      $defs:
+        point: {type: string}
+      properties:
+        points: {type: array, items: {$ref: "#/$defs/point"}}
+      required: [points]
+-- valid/schemas/triage.yaml --
+type: object
+properties:
+  severity: {enum: [low, medium, high]}
+  link: {type: string, format: uri}
+required: [severity]
+-- valid/environments.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec: {provider: stub, placement: file}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: sdk-docker}
+spec: {provider: claude-agent-sdk, placement: docker}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec: {provider: managed-agents, placement: cloud}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec: {provider: gitagent, placement: docker}

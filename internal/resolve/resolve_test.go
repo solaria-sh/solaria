@@ -360,3 +360,48 @@ func TestUnknownEnvironment(t *testing.T) {
 		t.Errorf("err = %v, want no Environment named \"nowhere\"", err)
 	}
 }
+
+// TestOutputSchemaDigest checks ADR 0019: an output schema inline, in a JSON
+// file or in a YAML file gives the same digests, and adding or changing one
+// gives new digests.
+func TestOutputSchemaDigest(t *testing.T) {
+	without := find(t, resolveAll(t, project)["cloud"], "reviewer").SpecDigest
+
+	const anchor = "  limits: {maxTurns: 40, timeout: 90m}\n"
+	with := func(output string, extra map[string]string) string {
+		t.Helper()
+		files := maps.Clone(project)
+		if !strings.Contains(files["agents.yaml"], anchor) {
+			t.Fatal("fixture has no limits line")
+		}
+		files["agents.yaml"] = strings.Replace(files["agents.yaml"], anchor, anchor+output, 1)
+		maps.Copy(files, extra)
+		return find(t, resolveAll(t, files)["cloud"], "reviewer").SpecDigest
+	}
+
+	inline := with(`  output:
+    schema:
+      type: object
+      properties:
+        verdict: {enum: [approve, reject]}
+        score: {type: integer, minimum: 0}
+      required: [verdict]
+`, nil)
+	jsonFile := with("  output: {schema: schemas/verdict.json}\n", map[string]string{
+		"schemas/verdict.json": `{"required":["verdict"],"type":"object","properties":{"score":{"minimum":0.0,"type":"integer"},"verdict":{"enum":["approve","reject"]}}}`,
+	})
+	yml := with("  output: {schema: verdict.yml}\n", map[string]string{
+		"verdict.yml": "required:\n  - verdict\nproperties:\n  score:\n    type: integer\n    minimum: 0\n  verdict:\n    enum: [approve, reject]\ntype: object\n",
+	})
+	changed := with("  output: {schema: {type: object, required: [score]}}\n", nil)
+
+	if inline == without {
+		t.Errorf("adding an output schema kept the digest %s", without)
+	}
+	if jsonFile != inline || yml != inline {
+		t.Errorf("same schema, different digests: inline %s, JSON %s, YAML %s", inline, jsonFile, yml)
+	}
+	if changed == inline {
+		t.Errorf("changing the schema kept the digest %s", inline)
+	}
+}
