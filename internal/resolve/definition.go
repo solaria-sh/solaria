@@ -7,7 +7,8 @@ import (
 // Format names the shape of Definition. Any change to what goes into a
 // definition, or how it is normalized, changes every digest, so it needs a
 // new Format (ADR 0008). The one exception is a new field that is omitted
-// when empty, such as Vaults: agents that don't use it keep their digests.
+// when empty, such as Vaults or Output: agents that don't use it keep their
+// digests.
 const Format = "solaria.sh/definition/v1"
 
 // Definition is everything that makes up an agent's behavior, normalized so
@@ -33,6 +34,9 @@ type Definition struct {
 	// Vaults the agent references, by name. Left out when there are none,
 	// so agents without vaults hash as they did before Vaults existed.
 	Vaults map[string]Vault `json:"vaults,omitempty"`
+	// Output is the contract for the agent's final answer. Left out when the
+	// agent has none, so other agents keep their digests (ADR 0019).
+	Output *Output `json:"output,omitempty"`
 }
 
 // Vault is a referenced Vault: what each credential unlocks, never a value.

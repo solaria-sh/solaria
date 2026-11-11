@@ -98,14 +98,16 @@ func (p *Provider) Placements() []string { return []string{process.Placement, Pl
 // Capabilities of the SDK, in a local process or a container. It runs
 // Anthropic models only, falls back between them, and connects over every
 // MCP transport. Nobody can answer an approval in an unattended run, so
-// permissions.ask means deny. Only docker takes a sandbox image. Destroy
-// removes the bundle, and the images on docker.
+// permissions.ask means deny. Only docker takes a sandbox image. It
+// enforces an output schema. Destroy removes the bundle, and the images on
+// docker.
 func (p *Provider) Capabilities(placement string) provider.Capabilities {
 	return provider.Capabilities{
 		ModelProviders: []string{"anthropic"},
 		Fallback:       true,
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   placement == PlacementDocker,
+		OutputSchema:   true,
 		Destroy:        provider.DestroyDelete,
 	}
 }

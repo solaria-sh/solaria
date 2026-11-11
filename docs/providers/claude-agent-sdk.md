@@ -101,9 +101,12 @@ The launcher prints one JSON object on stdout: the SDK's result plus the agent's
 | 0 | `success` | The run succeeded. |
 | 1 | `error_max_turns`, `error_max_budget_usd`, `error_during_execution`, ... | The SDK's own error, or `success` with `is_error` set. |
 | 1 | `error_timeout` | The run took longer than `limits.timeout` and was aborted. |
+| 1 | `error_max_structured_output_retries` | The agent has `output.schema` and gave no answer that matched it. |
 | 2 | `error_launch` | The run couldn't start: no task, a missing secret, binary or API key, or the SDK isn't installed. |
 
 `errors` says what went wrong.
+
+When the agent has `output.schema`, `structured_output` holds the answer: a JSON object the SDK has checked against the schema. The SDK re-prompts the agent when an answer doesn't match. It treats the `format` keyword as an annotation and doesn't check it, so plan warns about schemas that use it.
 
 ## How the definition maps
 
@@ -120,6 +123,7 @@ The launcher prints one JSON object on stdout: the SDK's result plus the agent's
 | `permissions.ask` | The tool is denied: left out of `tools`, and in `disallowedTools`. Nobody can approve during an unattended run. |
 | `limits.maxTurns` | `maxTurns` |
 | `limits.timeout` | The launcher aborts the run |
+| `output.schema` | `outputFormat` (`output_format` in Python) of type `json_schema` |
 | `secretRef` | A reference in `options.json`; the launcher reads the value from the secret source when the run starts |
 | `telemetry` | Claude Code's OpenTelemetry variables: metrics and logs over OTLP |
 

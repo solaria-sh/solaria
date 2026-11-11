@@ -275,6 +275,13 @@ func definition(set *config.Set, r *config.Resource) (Definition, map[string]str
 		}
 		d.Limits = lim
 	}
+	if o := s.Output; o != nil {
+		schema, err := OutputSchema(r.Dir(), o.Schema)
+		if err != nil {
+			return Definition{}, nil, fmt.Errorf("read output schema: %w", err)
+		}
+		d.Output = &Output{Schema: schema}
+	}
 	for name, fields := range s.Providers {
 		d.Providers[name] = mergePatch(nil, fields).(map[string]any)
 	}

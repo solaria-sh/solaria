@@ -40,6 +40,10 @@
           "$ref": "#/$defs/LimitsSpec",
           "description": "Bounds each run of the agent."
         },
+        "output": {
+          "$ref": "#/$defs/OutputSpec",
+          "description": "What the agent's final answer must look like. Part of the agent's identity: environments can't change it."
+        },
         "vaults": {
           "items": {
             "$ref": "#/$defs/VaultRef"
@@ -169,6 +173,33 @@
         "name"
       ],
       "description": "Identifies a resource."
+    },
+    "OutputSchema": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to a JSON or YAML file holding the schema."
+        },
+        {
+          "type": "object",
+          "description": "The JSON Schema itself."
+        }
+      ]
+    },
+    "OutputSpec": {
+      "properties": {
+        "schema": {
+          "$ref": "#/$defs/OutputSchema",
+          "description": "The JSON Schema (draft 2020-12) the agent's final answer must match: either a path to a JSON or YAML file, relative to this file, or the schema itself, written in YAML. Its root must be an object schema, since the answer is one JSON object. Plan fails on a host that can't enforce it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "schema"
+      ],
+      "description": "Says what the agent's final answer must look like."
     },
     "PermissionsSpec": {
       "properties": {

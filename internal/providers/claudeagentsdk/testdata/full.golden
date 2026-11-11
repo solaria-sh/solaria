@@ -49,7 +49,7 @@
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7e6debe384925333e17d7bd433c522d41523acd2622d4287314d93406e799804,solaria.environment=dev",
+    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.environment=dev",
     "OTEL_SERVICE_NAME": "reviewer"
   },
   "scratch": {
@@ -78,7 +78,7 @@
   "agent": {
     "logicalId": "Agent/reviewer",
     "environment": "dev",
-    "resolvedDigest": "sha256:7e6debe384925333e17d7bd433c522d41523acd2622d4287314d93406e799804"
+    "resolvedDigest": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614"
   },
   "sdk": {
     "runtime": "node",
@@ -150,7 +150,33 @@
         "type": "local",
         "path": "plugin"
       }
-    ]
+    ],
+    "outputFormat": {
+      "type": "json_schema",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue": {
+            "format": "uri",
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "approve",
+              "request-changes"
+            ]
+          }
+        },
+        "required": [
+          "verdict",
+          "summary"
+        ],
+        "type": "object"
+      }
+    }
   }
 }
 === package.json
@@ -187,4 +213,5 @@ Never push.
 === secrets
 DOCS_TOKEN,GITHUB_TOKEN
 === diagnostics
+warning: Agent/reviewer on claude-agent-sdk/process: the SDK treats format in spec.output.schema as an annotation and doesn't check it
 warning: Agent/reviewer on claude-agent-sdk/process: allowTools on github: the other tools of these servers are denied when called, but the agent still sees them

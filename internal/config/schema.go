@@ -66,6 +66,7 @@ var printer = message.NewPrinter(language.English)
 var messages = map[string]string{
 	"/$defs/KeyValue/oneOf":      "set exactly one of value and secretRef",
 	"/$defs/McpServerSpec/anyOf": "set packages, remotes, or both",
+	"/$defs/OutputSchema/oneOf":  "must be a path to a JSON or YAML file, or a JSON Schema object",
 }
 
 // patterns explains the patterns in our schemas in words, keyed like

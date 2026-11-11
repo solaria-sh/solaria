@@ -66,7 +66,7 @@
   "agent": {
     "logicalId": "Agent/helper",
     "environment": "ci",
-    "resolvedDigest": "sha256:f845570c2ebee00a9e5a275038b48a3513b9de9a79d25935867488735ffb3688"
+    "resolvedDigest": "sha256:22656a684ef587a9e3a43f9272d21dec1121bac0a73d2eaa3aff57cbd34cd469"
   },
   "sdk": {
     "runtime": "python",
@@ -99,6 +99,20 @@
         "args": [
           "notes-mcp==0.4.1"
         ]
+      }
+    },
+    "outputFormat": {
+      "type": "json_schema",
+      "schema": {
+        "properties": {
+          "answer": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "type": "object"
       }
     }
   }

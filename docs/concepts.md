@@ -26,7 +26,7 @@ A Solaria project is a folder of YAML files. Each document in them is a resource
 
 There are four kinds:
 
-- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits.
+- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
 - **McpServer**: an MCP server, in the shape of the [MCP Registry's `server.json`](https://github.com/modelcontextprotocol/registry): `packages` that run locally over stdio (npm, PyPI), `remotes` reached over HTTP, or both. Agents refer to servers by name with `ref:`, and can narrow them with `allowTools`.
 - **Environment**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: the sandbox, the secret source, telemetry, per-agent overrides and host settings.
 - **Vault**: credentials an agent may use, each naming a secret and what it unlocks. Agents list the vaults they use in `spec.vaults`. See [Credentials and vaults](#credentials-and-vaults).
@@ -63,6 +63,23 @@ An environment receives every agent, or those matching `spec.agents.selector`. M
 ```
 
 An override that would add a tool fails `validate`, naming the field. Overrides change the agent's `resolvedDigest` in that environment, never its `specDigest`.
+
+### Structured answers
+
+An agent that is a step in a pipeline can declare the JSON its final answer must match, with a JSON Schema (draft 2020-12) in `spec.output.schema`: a path to a JSON or YAML file, relative to the agent's file, or the schema itself.
+
+```yaml
+spec:
+  output:
+    schema:
+      type: object
+      properties:
+        verdict: {enum: [approve, request-changes]}
+        summary: {type: string}
+      required: [verdict, summary]
+```
+
+`validate` checks that the schema is valid, self-contained (no `$ref` to another document) and that its root is `type: object`, since the answer is one JSON object. The schema is part of the agent's digests, in whichever form it's written, and environments can't change it. The host enforces it: plan fails on a provider that can't, rather than asking for JSON in the prompt. Today that's [claude-agent-sdk](providers/claude-agent-sdk.md#what-a-run-prints) (and `stub`); see [ADR 0019](adr/0019-agent-output-schema.md).
 
 ### Credentials and vaults
 
