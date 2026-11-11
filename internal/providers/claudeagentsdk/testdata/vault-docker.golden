@@ -165,9 +165,9 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
 === system-prompt.md
 You review pull requests.
 === image
-solaria/ci-docker/reviewer:e9ac7ea6abd3 for linux/amd64
+solaria/ci-docker/reviewer:8de326e9966c for linux/amd64
 === run
-docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env GITHUB_PAT --env GIT_HOST_TOKEN --env ANTHROPIC_API_KEY solaria/ci-docker/reviewer:e9ac7ea6abd3
+docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env GITHUB_PAT --env GIT_HOST_TOKEN --env ANTHROPIC_API_KEY solaria/ci-docker/reviewer:8de326e9966c
 === invocation
 {
   "argv": [
@@ -187,7 +187,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
     "GIT_HOST_TOKEN",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/ci-docker/reviewer:e9ac7ea6abd3"
+    "solaria/ci-docker/reviewer:8de326e9966c"
   ],
   "workspace": "mount",
   "task": {

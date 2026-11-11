@@ -81,7 +81,7 @@ func golden(t *testing.T, path string, got []byte) {
 
 func TestValidate(t *testing.T) {
 	a := agent(t.TempDir())
-	got := messages(Validate(a, nil))
+	got := messages(Validate(a, Machine{}))
 	if len(got) != 1 || !strings.Contains(got[0], "sandbox.network is limited") {
 		t.Errorf("default sandbox: %q", got)
 	}
@@ -91,7 +91,7 @@ func TestValidate(t *testing.T) {
 		Network:   &v1alpha1.NetworkSpec{Mode: v1alpha1.NetworkUnrestricted},
 		Resources: &v1alpha1.ResourcesSpec{Memory: "4Gi"},
 	}
-	got = messages(Validate(a, []string{"/etc/claude-code/managed-settings.json"}))
+	got = messages(Validate(a, Machine{Managed: []string{"/etc/claude-code/managed-settings.json"}}))
 	want := []string{
 		"sandbox.packages aren't installed on the process placement: the run uses the tools this machine has",
 		"sandbox.resources aren't enforced on the process placement",
@@ -518,6 +518,125 @@ func TestPreludeDotenvMatchesGo(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("got  %q\nwant %q", got, want)
+			}
+		})
+	}
+}
+
+// srtAgent is an agent with a remote and an npm MCP server, telemetry on
+// localhost and an extra allowed host, isolated with srt.
+func srtAgent() *resolve.Agent {
+	return &resolve.Agent{
+		Name: "triage",
+		Env: &v1alpha1.EnvironmentSpec{
+			Sandbox: &v1alpha1.SandboxSpec{
+				Isolation: v1alpha1.IsolationSRT,
+				Network:   &v1alpha1.NetworkSpec{Allow: []string{"tracker.example.com"}},
+			},
+			Telemetry: &v1alpha1.TelemetrySpec{Endpoint: "http://localhost:4318"},
+		},
+		Definition: resolve.Definition{Tools: resolve.Tools{MCP: map[string]resolve.MCPServer{
+			"docs":   {Spec: v1alpha1.McpServerSpec{Remotes: []v1alpha1.MCPRemote{{URL: "https://docs.example.com:8443/mcp"}}}},
+			"github": {Spec: v1alpha1.McpServerSpec{Packages: []v1alpha1.MCPPackage{{RegistryType: v1alpha1.RegistryNPM}}}},
+		}}},
+	}
+}
+
+func TestSRTFor(t *testing.T) {
+	s := SRTFor(srtAgent(), "/project/.solaria/cache", []string{"api.anthropic.com"})
+	if want := []string{"api.anthropic.com", "docs.example.com", "registry.npmjs.org", "tracker.example.com"}; !slices.Equal(s.Network.AllowedDomains, want) {
+		t.Errorf("allowedDomains = %v, want %v", s.Network.AllowedDomains, want)
+	}
+	if !s.Network.AllowLocalBinding {
+		t.Error("a telemetry collector on localhost needs allowLocalBinding")
+	}
+	if want := []string{"/project/.solaria/cache", "."}; !slices.Equal(s.Filesystem.AllowWrite, want) {
+		t.Errorf("allowWrite = %v, want %v", s.Filesystem.AllowWrite, want)
+	}
+	// srt refuses a settings file without every list.
+	var m map[string]map[string]any
+	if err := json.Unmarshal(s.JSON(), &m); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"allowedDomains", "deniedDomains"} {
+		if _, ok := m["network"][k]; !ok {
+			t.Errorf("network.%s is missing", k)
+		}
+	}
+	for _, k := range []string{"denyRead", "allowWrite", "denyWrite"} {
+		if _, ok := m["filesystem"][k]; !ok {
+			t.Errorf("filesystem.%s is missing", k)
+		}
+	}
+
+	a := srtAgent()
+	a.Env.Telemetry = nil
+	a.Env.Sandbox.Network.PackageManagers = true
+	s = SRTFor(a, "/cache", nil)
+	if s.Network.AllowLocalBinding || !slices.Contains(s.Network.AllowedDomains, "proxy.golang.org") {
+		t.Errorf("network = %+v", s.Network)
+	}
+}
+
+func TestLoopback(t *testing.T) {
+	for host, want := range map[string]bool{
+		"localhost": true, "LOCALHOST:4318": true, "otel.localhost": true, "127.0.0.1": true, "127.0.0.1:4318": true,
+		"[::1]": true, "[::1]:4318": true, "example.com": false, "10.0.0.1": false, "[2001:db8::1]": false,
+	} {
+		if got := isLoopback(host); got != want {
+			t.Errorf("isLoopback(%q) = %v, want %v", host, got, want)
+		}
+	}
+	if got := urlHost("http://[::1]:4318/v1"); got != "[::1]" {
+		t.Errorf("urlHost of an IPv6 URL = %q", got)
+	}
+}
+
+func TestValidateSRT(t *testing.T) {
+	all := func(string) (string, error) { return "/usr/bin/x", nil }
+	only := func(names ...string) func(string) (string, error) {
+		return func(name string) (string, error) {
+			if slices.Contains(names, name) {
+				return "/usr/bin/" + name, nil
+			}
+			return "", errors.New("not found")
+		}
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(*resolve.Agent)
+		m    Machine
+		want []string
+	}{
+		{"linux", nil, Machine{GOOS: "linux", LookPath: all}, []string{
+			"warning: srt runs the agent in its own network namespace on Linux, so hosts on this machine's loopback, such as a telemetry collector on localhost, may be unreachable",
+		}},
+		{"macos", nil, Machine{GOOS: "darwin", LookPath: only("srt", "rg")}, nil},
+		{"windows", nil, Machine{GOOS: "windows", LookPath: all}, []string{
+			"error: sandbox.isolation srt can't isolate runs on this machine: srt doesn't run on windows; use the docker placement instead",
+		}},
+		{"no srt", nil, Machine{GOOS: "darwin", LookPath: only("rg")}, []string{
+			"error: sandbox.isolation srt can't isolate runs on this machine: srt isn't on PATH; install it with npm install -g @anthropic-ai/sandbox-runtime",
+		}},
+		{"no deps", nil, Machine{GOOS: "linux", LookPath: only("srt", "rg")}, []string{
+			"error: sandbox.isolation srt can't isolate runs on this machine: srt needs bwrap and socat on PATH, which this machine doesn't have",
+			"warning: srt runs the agent in its own network namespace on Linux, so hosts on this machine's loopback, such as a telemetry collector on localhost, may be unreachable",
+		}},
+		{"unrestricted", func(a *resolve.Agent) { a.Env.Sandbox.Network.Mode = v1alpha1.NetworkUnrestricted }, Machine{GOOS: "darwin", LookPath: all}, []string{
+			"error: sandbox.isolation srt limits the network to the hosts the agent needs, so it can't be combined with sandbox.network.mode unrestricted; list the extra hosts in sandbox.network.allow",
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := srtAgent()
+			if tc.edit != nil {
+				tc.edit(a)
+			}
+			var got []string
+			for _, d := range Validate(a, tc.m) {
+				got = append(got, d.String())
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("diagnostics:\n  %s\nwant\n  %s", strings.Join(got, "\n  "), strings.Join(tc.want, "\n  "))
 			}
 		})
 	}

@@ -51,6 +51,9 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string
 	if a.Env.Sandbox != nil && a.Env.Sandbox.Image != "" && !caps.SandboxImage {
 		errorf("sandbox.image isn't supported here; describe the sandbox with packages instead (ADR 0007)")
 	}
+	if sb := a.Env.Sandbox; sb != nil && sb.Isolation != "" && !slices.Contains(caps.Isolation, sb.Isolation) {
+		errorf("sandbox.isolation %s isn't supported here; it wraps runs on the process placement, and other placements run in a sandbox of their own (ADR 0017)", sb.Isolation)
+	}
 	if d.Output != nil && !caps.OutputSchema {
 		errorf("spec.output.schema can't be enforced here; this host doesn't support output schemas (ADR 0019)")
 	}

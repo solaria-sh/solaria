@@ -123,7 +123,7 @@ export function isolate(spec, { cacheDir }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "solaria-run-"));
   for (const [name, rel] of Object.entries(spec.scratch)) {
     const dir = path.join(root, ...rel.split("/"));
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     env[name] = dir;
   }
   for (const [name, rel] of Object.entries(spec.cache)) {

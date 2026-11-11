@@ -269,7 +269,22 @@ type SandboxSpec struct {
 	// a path to a Dockerfile relative to this file. Only container
 	// placements accept it.
 	Image string `json:"image,omitempty" jsonschema:"minLength=1"`
+	// Wraps each run in an OS-level sandbox, on placements that don't have
+	// one of their own. srt runs the process placement's launcher inside
+	// Anthropic's sandbox-runtime, which must be installed: writes are
+	// limited to the run's scratch folders and the inputs the agent may
+	// write, and the network to the hosts the agents need. macOS and Linux
+	// only.
+	Isolation Isolation `json:"isolation,omitempty"`
 }
+
+// Isolation is an OS-level sandbox around a run.
+type Isolation string
+
+// Isolations.
+const (
+	IsolationSRT Isolation = "srt"
+)
 
 // PackagesSpec lists packages per package manager.
 type PackagesSpec struct {

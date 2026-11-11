@@ -135,12 +135,34 @@ Models from providers other than `anthropic` fail at plan time; fallback models 
 
 ## Sandbox
 
-The `process` placement runs on the machine as it is, so it can't enforce the sandbox:
+The `process` placement runs on the machine as it is, so on its own it can't enforce the sandbox:
 
 - `packages` aren't installed: the run uses the tools the machine has. Plan warns.
-- A limited `network` isn't enforced. Plan warns unless the mode is `unrestricted`.
+- A limited `network` isn't enforced, unless `isolation` is `srt`. Plan warns unless the mode is `unrestricted`.
 - `resources` aren't enforced. Plan warns.
 - `image` fails plan.
+
+### Isolating `process` runs with srt
+
+An environment can opt in to Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) (`srt`), which wraps the whole launcher: the SDK, its tools and stdio MCP servers share one boundary.
+
+```yaml
+kind: Environment
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox:
+    isolation: srt
+    network: {allow: [tracker.example.com]}
+```
+
+Apply writes `srt-settings.json` into the bundle, and the recorded command becomes `srt --settings <bundle>/srt-settings.json -- node <bundle>/launch.mjs` (or the same around `launch.py`):
+
+- **Writes** go only to srt's temp folder, which holds the run's scratch `HOME` and temp folders (Claude Code's own temp folder, `CLAUDE_CODE_TMPDIR`, moves there too), the provider's package cache in `.solaria/claude-agent-sdk/.cache`, and the workspace. The bundle, the rest of your home folder and everything else are read-only.
+- **The network** is limited to the hosts the agent needs: Anthropic's API, its remote MCP servers, the registries its stdio MCP packages download from, the telemetry endpoint, `sandbox.network.allow`, and the package managers' registries with `packageManagers: true`. A telemetry endpoint on `localhost` stays reachable. `mode: unrestricted` fails plan, since srt has no way to allow every host.
+- The SDK's own `sandbox` option stays off, since sandboxes don't nest.
+
+**Needs:** `srt` on `PATH` (`npm install -g @anthropic-ai/sandbox-runtime`), installed outside any folder a run may write to, and `ripgrep` on macOS, or `bubblewrap`, `socat` and `ripgrep` on Linux. Plan fails when one is missing, and on Windows. On Linux, srt gives the run its own network namespace, so a telemetry collector on `localhost` may be unreachable; plan warns. srt is a beta research preview, which is why isolation is opt-in.
 
 The `docker` placement enforces more:
 

@@ -24,6 +24,8 @@ type Host interface {
 	Install(ctx context.Context, req InstallRequest, log io.Writer) error
 	// GOOS is the operating system runs start on.
 	GOOS() string
+	// LookPath finds a program on PATH, as exec.LookPath does.
+	LookPath(name string) (string, error)
 }
 
 // Runtime is an installed Node or Python.
@@ -95,6 +97,8 @@ func venvPython(goos, bundle string) string {
 type localHost struct{}
 
 func (localHost) GOOS() string { return runtime.GOOS }
+
+func (localHost) LookPath(name string) (string, error) { return exec.LookPath(name) }
 
 func (localHost) Runtime(ctx context.Context, name string) (Runtime, error) {
 	candidates := []string{"node"}
