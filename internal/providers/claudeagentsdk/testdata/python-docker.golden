@@ -69,7 +69,11 @@ ENTRYPOINT ["/opt/solaria/agent/venv/bin/python","/opt/solaria/agent/launch.py"]
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
     "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-    "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "SOLARIA_ENVIRONMENT": "ci-docker",
+    "SOLARIA_LOGICAL_ID": "Agent/helper",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:22656a684ef587a9e3a43f9272d21dec1121bac0a73d2eaa3aff57cbd34cd469",
+    "SOLARIA_SPEC_DIGEST": "sha256:22656a684ef587a9e3a43f9272d21dec1121bac0a73d2eaa3aff57cbd34cd469"
   },
   "scratch": {
     "APPDATA": "home/AppData/Roaming",
@@ -153,9 +157,9 @@ claude-agent-sdk==0.2.178
 === system-prompt.md
 You answer questions about the docs.
 === image
-solaria/ci-docker/helper:15e6ea097a5a for linux/amd64
+solaria/ci-docker/helper:7c1705acd840 for linux/amd64
 === run
-docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY solaria/ci-docker/helper:15e6ea097a5a
+docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY solaria/ci-docker/helper:7c1705acd840
 === invocation
 {
   "argv": [
@@ -171,7 +175,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
     "{workspace}:/workspace",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/ci-docker/helper:15e6ea097a5a"
+    "solaria/ci-docker/helper:7c1705acd840"
   ],
   "workspace": "mount",
   "task": {

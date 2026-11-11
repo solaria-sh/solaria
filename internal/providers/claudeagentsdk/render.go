@@ -15,6 +15,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/diag"
 	"github.com/solaria-sh/solaria/internal/digest"
+	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/providers/process"
 	"github.com/solaria-sh/solaria/internal/resolve"
 )
@@ -515,7 +516,7 @@ func binaries(o sdkOptions) []string {
 
 // env is what every run sets: Claude Code's switches that keep it from
 // reading memory and instruction files or reaching services the card
-// doesn't name, and the environment's telemetry.
+// doesn't name, the agent's identity, and the environment's telemetry.
 func (r *renderer) env() map[string]string {
 	a := r.a
 	env := map[string]string{
@@ -525,6 +526,7 @@ func (r *renderer) env() map[string]string {
 		"ENABLE_CLAUDEAI_MCP_SERVERS":              "false",
 		"CLAUDE_AGENT_SDK_CLIENT_APP":              "solaria",
 	}
+	maps.Copy(env, provider.IdentityEnv(a))
 	t := a.Env.Telemetry
 	if t == nil {
 		return env
@@ -548,11 +550,7 @@ func (r *renderer) env() map[string]string {
 	if len(headers) > 0 {
 		env["OTEL_EXPORTER_OTLP_HEADERS"] = strings.Join(headers, ",")
 	}
-	env["OTEL_RESOURCE_ATTRIBUTES"] = strings.Join([]string{
-		"gen_ai.agent.name=" + a.Name,
-		"gen_ai.agent.version=" + a.ResolvedDigest,
-		"solaria.environment=" + a.Environment,
-	}, ",")
+	env["OTEL_RESOURCE_ATTRIBUTES"] = provider.ResourceAttributes(a, "")
 	return env
 }
 

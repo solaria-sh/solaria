@@ -54,5 +54,6 @@ spec:
   telemetry:
     endpoint: http://host.docker.internal:4318
     headers: [{name: x-tenant, value: acme}]
+    resourceAttributes: {service.namespace: platform}
   providers:
     gitagent: {platform: linux/arm64}

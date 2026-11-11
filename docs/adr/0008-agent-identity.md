@@ -72,7 +72,7 @@ This follows the [OpenTelemetry GenAI conventions](https://github.com/open-telem
 - namespaced extras: `solaria.agent.spec_digest`, `solaria.environment`;
 - `service.version` = `resolvedDigest` too, for backends that group by service version (added 2026-11-10).
 
-An Environment's `telemetry.resourceAttributes` adds attributes of the team's own, such as `service.namespace`, which keeps agents with the same name in different projects apart without changing the logical ID. They can't replace the attributes above: `validate` rejects `gen_ai.agent.*`, `service.version` and `solaria.*` keys. Like the rest of `telemetry`, they're outside the digests, and a change to them is an environment change that providers plan as an update (see "What the digests don't cover").
+An Environment's `telemetry.resourceAttributes` adds attributes of the team's own, such as `service.namespace`, which keeps agents with the same name in different projects apart without changing the logical ID. They can't replace the attributes above: `validate` rejects `gen_ai.agent.*`, `service.name`, `service.version` and `solaria.*` keys. (`service.name` was added when this was built: `OTEL_SERVICE_NAME` takes precedence over it, so it would be dropped silently.) Keys are letters, digits, `.`, `_` and `-`; values are percent-encoded in `OTEL_RESOURCE_ATTRIBUTES`. Like the rest of `telemetry`, they're outside the digests, and a change to them is an environment change that providers plan as an update (see "What the digests don't cover").
 
 There's deliberately no attribute carrying the git commit. It would be rendered into every bundle or image, so every commit would update every agent, changed or not. `resolvedDigest` already identifies the version, and the commit stays in state and in `solaria.lock`.
 
@@ -91,7 +91,7 @@ Added 2026-11-10. Where a provider controls the run's environment variables (the
 - `SOLARIA_ENVIRONMENT`;
 - `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST`.
 
-The agent and its tools can tag what they produce with the version that produced it. All four come from the definition and the environment's name, so they change only when the digests or the environment do, and cause no extra updates. On `managed-agents`, they're set if its environments accept variables; otherwise the provider documents the gap.
+The agent and its tools can tag what they produce with the version that produced it. All four come from the definition and the environment's name, so they change only when the digests or the environment do, and cause no extra updates. On `managed-agents`, they're set if its environments accept variables; otherwise the provider documents the gap. As built, they don't (an environment takes only networking and packages), and the provider's page says so.
 
 ### Annotations
 

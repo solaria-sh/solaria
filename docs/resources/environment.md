@@ -47,6 +47,7 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.telemetry.headers[].name` | string | yes | Name of the header or variable. |
 | `spec.telemetry.headers[].value` | string |  | Value, when it isn't secret. |
 | `spec.telemetry.headers[].secretRef` | string |  | Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |
+| `spec.telemetry.resourceAttributes` | map of strings |  | Resource attributes added to everything the agents export, such as service.namespace to tell projects apart. They can't replace the attributes Solaria sets: gen_ai.agent.*, service.name, service.version and solaria.* keys fail validation. |
 | `spec.overrides` | map of objects |  | Changes to agents in this environment only, keyed by agent name. |
 | `spec.overrides.<name>.model` | object |  | Model fields to replace. |
 | `spec.overrides.<name>.model.preferred` | string |  | Preferred model, as provider:model. Matches `^[a-z][a-z0-9-]*:[^ ]+$`. |

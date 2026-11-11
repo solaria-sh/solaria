@@ -157,6 +157,18 @@ Agent/hello  sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26f
 
 `-a` picks agents and can be repeated. Without `-e`, digest prints only each `specDigest`. `-o json` gives the same in a fixed shape, with the definition format the digests were computed in.
 
+**Inside the run**, on `claude-agent-sdk` and `gitagent`, the agent and its tools see `SOLARIA_LOGICAL_ID`, `SOLARIA_ENVIRONMENT`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST`, so they can tag what they produce with the version that produced it. Managed Agents environments don't take variables, so runs there don't get them.
+
+**In telemetry**, an environment's `telemetry` sends the identity as OpenTelemetry resource attributes: `gen_ai.agent.name`, `gen_ai.agent.version` and `service.version` (both the `resolvedDigest`), `solaria.agent.spec_digest` and `solaria.environment`. `telemetry.resourceAttributes` adds your own, such as `service.namespace` to keep agents with the same name in different projects apart:
+
+```yaml
+  telemetry:
+    endpoint: http://collector:4318
+    resourceAttributes: {service.namespace: payments}
+```
+
+They can't replace Solaria's attributes: `gen_ai.agent.*`, `service.name`, `service.version` and `solaria.*` keys fail `validate`.
+
 The **host binding** maps the logical ID to the host's own identity: an image tag, or a Managed Agents agent ID and version. Providers also write the logical ID and digests onto the host object, in labels or metadata, so a trace or a console view can be traced back to the definition.
 
 ## State

@@ -333,6 +333,11 @@ type TelemetrySpec struct {
 	Protocol OTLPProtocol `json:"protocol,omitempty"`
 	// Headers sent with every export.
 	Headers []KeyValue `json:"headers,omitempty"`
+	// Resource attributes added to everything the agents export, such as
+	// service.namespace to tell projects apart. They can't replace the
+	// attributes Solaria sets: gen_ai.agent.*, service.name,
+	// service.version and solaria.* keys fail validation.
+	ResourceAttributes map[string]string `json:"resourceAttributes,omitempty"`
 }
 
 // OTLPProtocol is an OTLP transport protocol.

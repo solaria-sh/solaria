@@ -98,7 +98,7 @@ two
 === image
 solaria/local-gitagent/reviewer:041f835f4aa3
 === run
-docker run --rm --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY --env OPENAI_API_KEY --env OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318 --env OTEL_SERVICE_NAME=reviewer --env OTEL_EXPORTER_OTLP_HEADERS=x-tenant=acme --env OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.name=reviewer,gen_ai.agent.id=solaria/local-gitagent/reviewer,gen_ai.agent.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.environment=local-gitagent solaria/local-gitagent/reviewer:041f835f4aa3
+docker run --rm --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY --env OPENAI_API_KEY --env SOLARIA_ENVIRONMENT=local-gitagent --env SOLARIA_LOGICAL_ID=Agent/reviewer --env SOLARIA_RESOLVED_DIGEST=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54 --env SOLARIA_SPEC_DIGEST=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54 --env OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318 --env OTEL_SERVICE_NAME=reviewer --env OTEL_EXPORTER_OTLP_HEADERS=x-tenant=acme --env OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.id=solaria/local-gitagent/reviewer,gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,service.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.agent.spec_digest=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.environment=local-gitagent,service.namespace=platform solaria/local-gitagent/reviewer:041f835f4aa3
 === invocation
 {
   "argv": [
@@ -118,13 +118,21 @@ docker run --rm --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --
     "--env",
     "OPENAI_API_KEY",
     "--env",
+    "SOLARIA_ENVIRONMENT=local-gitagent",
+    "--env",
+    "SOLARIA_LOGICAL_ID=Agent/reviewer",
+    "--env",
+    "SOLARIA_RESOLVED_DIGEST=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54",
+    "--env",
+    "SOLARIA_SPEC_DIGEST=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54",
+    "--env",
     "OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318",
     "--env",
     "OTEL_SERVICE_NAME=reviewer",
     "--env",
     "OTEL_EXPORTER_OTLP_HEADERS=x-tenant=acme",
     "--env",
-    "OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.name=reviewer,gen_ai.agent.id=solaria/local-gitagent/reviewer,gen_ai.agent.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.environment=local-gitagent",
+    "OTEL_RESOURCE_ATTRIBUTES=gen_ai.agent.id=solaria/local-gitagent/reviewer,gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,service.version=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.agent.spec_digest=sha256:041f835f4aa323514fdc8c9aef978e66b7ec2094382a759093ae81600430dd54,solaria.environment=local-gitagent,service.namespace=platform",
     "solaria/local-gitagent/reviewer:041f835f4aa3"
   ],
   "workspace": "mount",
