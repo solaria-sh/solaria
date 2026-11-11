@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.13.0](https://github.com/solaria-sh/solaria/compare/v0.12.0...v0.13.0) (2026-11-11)
+
+
+### Added
+
+* **providers:** pin the gitagent commit and record each agent's runtime ([#37](https://github.com/solaria-sh/solaria/issues/37)) ([04ee6c4](https://github.com/solaria-sh/solaria/commit/04ee6c42a19fe68b21216409cb6e125255226293))
+* **sandbox:** isolate process runs with srt ([#38](https://github.com/solaria-sh/solaria/issues/38)) ([c9bece4](https://github.com/solaria-sh/solaria/commit/c9bece45e656acc78d47606acb92bd13de720562))
+
 ## [0.12.0](https://github.com/solaria-sh/solaria/compare/v0.11.0...v0.12.0) (2026-11-11)
 
 
