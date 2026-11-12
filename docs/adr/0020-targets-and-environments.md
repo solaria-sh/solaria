@@ -8,7 +8,7 @@ decision-makers: Renan Tarouco da Fonseca
 
 ## Context and problem statement
 
-Solaria's `Environment` kind (ADR 0004) is a deployment target. It picks a provider and placement and selects agents. It holds the overrides, secrets, telemetry and input bindings, and it has its own state file and lock (ADR 0009). It also embeds one `sandbox`: packages, network, resources, image and isolation (ADR 0007).
+Solaria's `Environment` kind (ADR 0004) is a deployment target. It picks a provider and placement and selects agents. It holds the overrides, secrets, telemetry and input bindings, and it has its own state, lock and state backend (ADR 0009). It also embeds one `sandbox`: packages, network, resources, image and isolation (ADR 0007).
 
 Managed Agents uses the same word for something smaller. A Managed Agents environment is only a sandbox template, either `cloud` with `packages` and `networking` or `self_hosted`. It knows nothing about agents, and any agent can run in any environment, because each session picks the pair. The `managed-agents` provider already maps a Solaria environment's `sandbox` onto one Managed Agents environment, and plans it as `Environment/<name>` (ADR 0012). So the word means two things in Solaria. The second meaning, a reusable sandbox, isn't specific to Managed Agents. Container placements build it as an image, and the `process` placement turns it into srt settings.
 
@@ -58,7 +58,7 @@ spec:
     managed-agents: {namePrefix: reviewer-example-}
 ```
 
-- The other fields don't change: `provider`, `placement`, `agents`, `secrets`, `telemetry`, `inputs`, `overrides` and `providers`. They keep what ADRs 0004, 0006, 0016 and 0017 say about them.
+- The other fields don't change: `provider`, `placement`, `agents`, `secrets`, `telemetry`, `inputs`, `overrides`, `state` and `providers`. They keep what ADRs 0004, 0006, 0009, 0016 and 0017 say about them. State stays per target, so `state` picks the target's backend, as it does for an environment today.
 - `environments` assigns Environments to the agents the target selects:
   - each entry is a `ref:` with an optional `agents` selector, the same `AgentSelection` the target uses;
   - at most one entry has no `agents`, and it is the default;
@@ -108,7 +108,7 @@ Nothing about the agents changes: specs, definitions and digests stay as they ar
 
 - **Documents:** a `kind: Environment` with `spec.provider` fails to decode. The error names the file and line, and says to rename the kind to `Target` and move `sandbox` into an Environment it references. Decoding the old kind under the reused name for a release would leave `kind: Environment` with two meanings while the docs explain one, so there's no grace period. The kind is `v1alpha1`. The embedded templates, examples, testscripts and generated docs change in the same pull request.
 - **CLI:** `-e/--environment` becomes `-t/--target` on every command that takes it. `init` is the only command that uses `-t`, for `--template`, and it takes no target. The old flag stays hidden for one minor release and warns.
-- **State:** the files stay at `.solaria/state/<target>.json`, with the same names. The state format is bumped:
+- **State:** the files stay at `.solaria/state/<target>.json`, and Azure Blob state at `<prefix>/<target>.json`, with the same names. The state format is bumped:
   - `environment` becomes `target`;
   - the single `host` entry becomes `environments`, keyed by Environment name;
   - `vaults` is keyed as before.
