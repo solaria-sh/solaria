@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -82,10 +81,7 @@ shape, so scripts don't depend on the state format.`,
 			}
 			w := cmd.OutOrStdout()
 			if output == "json" {
-				enc := json.NewEncoder(w)
-				enc.SetIndent("", "  ")
-				enc.SetEscapeHTML(false)
-				return enc.Encode(res)
+				return encodeJSON(w, res)
 			}
 			if len(envs) == 0 {
 				_, err := fmt.Fprintln(w, "No environment has state yet. Run solaria apply -e <environment> first.")

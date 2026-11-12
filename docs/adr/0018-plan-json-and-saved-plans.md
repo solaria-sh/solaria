@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-10
+status: accepted
+date: 2026-11-12
 decision-makers: Renan Tarouco da Fonseca
 ---
 
@@ -33,19 +33,21 @@ Chosen option: "Saved plans that store digests and the planned steps, checked ag
 - the state's `lineage` and `serial` at plan time;
 - the source commit, and whether the worktree was dirty;
 - one step per agent (no-ops included), sorted by logical ID: action, `specDigest` and `resolvedDigest` before and after, field changes (long text is summarized, as in the text plan), reason and notes;
-- the environment's host step (ADR 0012);
+- the environment's host step (ADR 0012), and the host vaults' steps (ADR 0016);
+- the options the plan was made with (`refresh`, `destroy`, `rotateSecrets`);
+- a summary of the counts;
 - the diagnostics.
 
 Secret values never appear, only reference names, as everywhere else. Fields are added compatibly; anything that removes or changes one is a new format version.
 
 **Commands.**
 - `solaria plan -e <env> -o json` prints it.
-- `solaria plan -e <env> -out <file>` writes it and also prints the text plan.
-- `solaria apply <file>` applies it. It takes no `-e`: the file names the environment.
+- `solaria plan -e <env> --out <file>` writes it and also prints the text plan.
+- `solaria apply <file> [path...]` applies it. It takes no `-e`, `--refresh` or `--rotate-secrets`: the file names the environment and the options, and apply plans again with them. It doesn't ask for confirmation, since the plan was reviewed.
 
 **What apply checks.** `apply <file>` takes the state lock, then plans again from the current checkout, state and hosts, and compares the result with the file. It refuses, changing nothing, when:
 - the state's lineage or serial differs;
-- any agent's digests, or the environment's host step, differ;
+- any agent's digests, or the digest of the environment's host object or a host vault, differ;
 - any step's action differs, for example because a refresh found drift since the plan;
 - the file's Solaria version or `resolve.Format` differs from the running binary's.
 
@@ -84,4 +86,5 @@ Each refusal names what changed and says to plan again. When everything matches,
 - [ADR 0008](0008-agent-identity.md): digests.
 - [ADR 0009](0009-state.md): lineage, serial and locking.
 - [ADR 0013](0013-lock-file-pins-digests.md): the lock file.
+- Accepted 2026-11-12 with its implementation. Implementing it settled details the proposal left open: the flag is `--out` (`-out` would read as `-o ut`); the plan records its options, so `apply <file>` plans again with them, and a `plan --destroy` file applies as a destroy; host vaults, which arrived after the proposal, are steps like the host object; a plan made before the environment has state has no lineage and serial 0, so the first apply after it is refused by serial; and a plan with errors prints no JSON.
 - [Terraform saved plans](https://developer.hashicorp.com/terraform/cli/commands/plan#out-filename) and [JSON output format](https://developer.hashicorp.com/terraform/internals/json-format).
