@@ -45,13 +45,15 @@ Chosen option: "Local, gitignored state per environment, behind a backend interf
   - The local backend writes `.solaria/.gitignore` (`*`), so state stays out of git without setup.
   - `destroy` works from state alone, even after the environment left the configuration.
 - **No secrets:** state holds only reference names, so it's safe to read and share, unlike Terraform's state.
-- **`StateBackend` interface from day one:** the local backend is the only implementation in v0. Remote backends with real locking (Azure Blob leases, S3, HTTP) come later.
+- **`StateBackend` interface from day one:** the local backend was the only implementation in v0. Remote backends with real locking (Azure Blob leases, S3, HTTP) come later.
 
 **The first remote backend is Azure Blob Storage** (decided 2026-11-10, Scoped access and hosting):
 - One blob per environment, holding the same JSON as the local file.
 - The lock is a lease on that blob, held while a command writes and renewed until it finishes. `force-unlock` breaks the lease. Lineage and serial checks work as for local state.
 - Credentials come from the standard Azure credential chain, never from project files, and never reach state or logs.
-- Where a project chooses its backend is decided when the backend is built.
+- An Environment chooses its backend in `spec.state` (decided 2026-11-12, when the backend was built): `state: {azureBlob: {account, container, prefix}}`, with local state when it's omitted. Shared environments keep remote state and `local-<name>` environments stay on disk, and nobody can apply a shared environment against empty local state by forgetting a flag. It isn't part of any digest. Commands find the backend through the Environment, so an environment that has left the configuration is looked for in local state: keep it until it's destroyed. `force-unlock` loads the configuration for the same reason.
+- The blob is `<prefix>/<environment>.json`. A lock on an environment without state creates an empty blob to lease, which reads as no state.
+- The lease lasts 60 seconds and is renewed every 20 while the command runs, so a stopped run's lock expires on its own within a minute. The lease ID is the lock's nonce, and the lock's information (who, which operation, since when) is in the blob's metadata while the lease is held. A write carries the lease ID, so a run whose lease was broken or expired can't write.
 - An opt-in integration test, `SOLARIA_IT_AZURE_BLOB=1`, runs against a real storage account.
 - An S3-compatible backend, locking with conditional writes, is planned next.
 
@@ -86,3 +88,4 @@ End-to-end tests cover a lock conflict, a stale serial and a lineage mismatch.
 - [Managed Agents: pinning a session to an agent version](https://platform.claude.com/docs/en/managed-agents/sessions)
 - Revised on 2026-11-10: Azure Blob Storage is the first remote backend.
 - Revised on 2026-11-11: the binding records the agent's runtime.
+- Revised on 2026-11-12: the Azure Blob backend was built; an Environment chooses its backend in `spec.state`.

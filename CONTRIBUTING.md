@@ -29,9 +29,12 @@ Unit tests never touch the network or real hosts. Integration tests that do are 
 $ SOLARIA_IT_DOCKER=1 go test ./internal/providers/gitagent -run Integration -v -timeout 50m
 $ SOLARIA_IT_MANAGED_AGENTS=1 ANTHROPIC_API_KEY=... go test ./internal/providers/managedagents -run Integration -v
 $ SOLARIA_IT_SRT=1 go test ./internal/providers/process -run Integration -v
+$ SOLARIA_IT_AZURE_BLOB=1 SOLARIA_IT_AZURE_ACCOUNT=... SOLARIA_IT_AZURE_CONTAINER=... go test ./internal/state -run Integration -v
 ```
 
 The srt test needs `srt` and `curl` on `PATH`, and the network.
+
+The Azure Blob test needs an existing container and credentials the Azure credential chain finds, such as an `az login`, with read and write access to its blobs. It writes under `solaria-it/<random>/` and deletes its blob at the end.
 
 The Managed Agents test creates real objects named `solaria-it-*` in the key's organization and archives the agent at the end, which can't be undone.
 

@@ -52,15 +52,18 @@ shape, so scripts don't depend on the state format.`,
 			if err != nil {
 				return err
 			}
-			backend := &state.Local{Dir: f.stateDir}
 			envs := []string{f.env}
 			if f.env == "" {
-				if envs, err = backend.Environments(); err != nil {
+				if envs, err = environmentsWithState(set, f.stateDir); err != nil {
 					return err
 				}
 			}
 			res := statusResult{Environments: []envStatus{}}
 			for _, env := range envs {
+				backend, err := stateBackend(set, env, f.stateDir)
+				if err != nil {
+					return err
+				}
 				st, err := backend.Read(env)
 				if err != nil {
 					return err

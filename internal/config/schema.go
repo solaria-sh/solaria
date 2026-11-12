@@ -86,6 +86,9 @@ var patterns = map[string]string{
 	"/$defs/EnvironmentSpec/properties/placement/pattern":    "is not a valid placement name",
 	"/$defs/RepositoryNeed/properties/name/pattern":          "is not a valid name: use lowercase letters, digits and hyphens, starting and ending with a letter or digit",
 	"/$defs/CredentialTarget/properties/gitHost/pattern":     "is not a host name, such as dev.azure.com",
+	"/$defs/AzureBlobState/properties/account/pattern":       "is not a storage account name: use 3 to 24 lowercase letters and digits",
+	"/$defs/AzureBlobState/properties/container/pattern":     "is not a container name: use 3 to 63 lowercase letters, digits and single hyphens, starting and ending with a letter or digit",
+	"/$defs/AzureBlobState/properties/prefix/pattern":        "is not a folder such as solaria/reviewers: use letters, digits, '.', '_' and '-', with no leading '/' and no '.' or '..' folders",
 }
 
 func keywordLocation(e *jsonschema.ValidationError) string {

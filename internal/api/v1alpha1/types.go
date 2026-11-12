@@ -260,6 +260,11 @@ type EnvironmentSpec struct {
 	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
 	// Where agents' inputs come from in this environment.
 	Inputs *InputsSpec `json:"inputs,omitempty"`
+	// Where Solaria keeps this environment's state: what it deployed, and
+	// the lock that stops two applies at once. When omitted, state is a
+	// local file under .solaria/state, which suits personal environments;
+	// a shared environment needs state everyone who applies it can reach.
+	State *StateSpec `json:"state,omitempty"`
 	// Changes to agents in this environment only, keyed by agent name.
 	Overrides map[string]AgentOverride `json:"overrides,omitempty"`
 	// Settings for the environment's provider, keyed by provider name, such
@@ -267,6 +272,33 @@ type EnvironmentSpec struct {
 	// its own settings. They describe the host, not the agents, so they
 	// aren't part of any agent's digest.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
+}
+
+// StateSpec says where an environment's state is kept. It describes where
+// Solaria works, not the agents, so it isn't part of any digest.
+type StateSpec struct {
+	// Keeps the state in Azure Blob Storage, as one blob per environment
+	// holding the same JSON as a local state file. The lock is a lease on
+	// that blob, renewed while a command runs, so a stopped run's lock
+	// expires within a minute. Credentials come from the Azure credential
+	// chain (environment variables, workload identity, managed identity, or
+	// an Azure CLI login), never from project files; they need read and
+	// write access to blobs in the container, such as the Storage Blob Data
+	// Contributor role.
+	AzureBlob *AzureBlobState `json:"azureBlob,omitempty" jsonschema:"required"`
+}
+
+// AzureBlobState is a container in an Azure storage account that holds
+// state blobs.
+type AzureBlobState struct {
+	// The storage account's name, as in <account>.blob.core.windows.net.
+	Account string `json:"account" jsonschema:"required,minLength=3,maxLength=24,pattern=^[a-z0-9]+$"`
+	// The container that holds the state. Solaria doesn't create it.
+	Container string `json:"container" jsonschema:"required,minLength=3,maxLength=63,pattern=^[a-z0-9](-?[a-z0-9])+$"`
+	// A folder in the container for this project's state, such as
+	// solaria/reviewers, so several projects can share a container. The blob
+	// is <prefix>/<environment>.json, or <environment>.json without one.
+	Prefix string `json:"prefix,omitempty" jsonschema:"pattern=^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$"`
 }
 
 // IsDockerfilePath tells a Dockerfile path in sandbox.image from an image
