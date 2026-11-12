@@ -157,9 +157,9 @@ claude-agent-sdk==0.2.178
 === system-prompt.md
 You answer questions about the docs.
 === image
-solaria/ci-docker/helper:dcaa3098f866 for linux/amd64
+solaria/ci-docker/helper:04bc60f9632e for linux/amd64
 === run
-docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY solaria/ci-docker/helper:dcaa3098f866
+docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace --env ANTHROPIC_API_KEY solaria/ci-docker/helper:04bc60f9632e
 === invocation
 {
   "argv": [
@@ -175,7 +175,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
     "{workspace}:/workspace",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/ci-docker/helper:dcaa3098f866"
+    "solaria/ci-docker/helper:04bc60f9632e"
   ],
   "workspace": "mount",
   "workspaceAccess": "read-write",

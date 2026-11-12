@@ -102,6 +102,7 @@ func TestRenderGolden(t *testing.T) {
 		{"srt", "full", "dev-srt"},
 		{"srt-read-only", "full", "srt-read-only"},
 		{"docker-read-only", "full", "docker-read-only"},
+		{"repos-srt", "repos", "ci-srt"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if strings.HasSuffix(tc.name, "read-only") && runtime.GOOS == "windows" {
@@ -936,8 +937,16 @@ func TestSRT(t *testing.T) {
 	_, entry := cycle(t, p, a, nil)
 	bundle := filepath.Join(work, filepath.FromSlash(entry.Binding.Outputs[outBundle]))
 	settings := filepath.Join(bundle, process.SRTSettingsFile)
-	if want := []string{"srt", "--settings", settings, "--", "node", filepath.Join(bundle, "launch.mjs")}; !slices.Equal(entry.Binding.Invocation.Argv, want) {
+	// The launcher clones the agent's repositories, then starts srt itself.
+	if want := []string{"node", filepath.Join(bundle, "launch.mjs")}; !slices.Equal(entry.Binding.Invocation.Argv, want) {
 		t.Errorf("argv = %q, want %q", entry.Binding.Invocation.Argv, want)
+	}
+	var bf bundleFile
+	if b, err := os.ReadFile(filepath.Join(bundle, optionsFile)); err != nil || json.Unmarshal(b, &bf) != nil {
+		t.Fatalf("read %s: %v", optionsFile, err)
+	}
+	if bf.SRT != process.SRTSettingsFile {
+		t.Errorf("options.json srt = %q, want %q", bf.SRT, process.SRTSettingsFile)
 	}
 	content, err := os.ReadFile(settings)
 	if err != nil {
@@ -1010,5 +1019,31 @@ func TestReadOnlyWorkspace(t *testing.T) {
 	p := NewWithHost(provider.Options{Environment: "srt-read-only", WorkDir: t.TempDir()}, &fakeHost{version: "v22.3.0"}, nil, func() []string { return nil })
 	if diags := diag.List(p.Validate(context.Background(), a)); !strings.Contains(diags.String(), "error: Agent/reviewer on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only") {
 		t.Errorf("validate without srt:\n%s", diags)
+	}
+}
+
+// TestRepositories checks that a clone's token reaches the command, and
+// only the clone: the run's own environment never names it.
+func TestRepositories(t *testing.T) {
+	a := load(t, filepath.Join("testdata", "repos"), "ci-docker")
+	b, err := render(a, testProviderDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(b.Docker.Argv, "AZURE_DEVOPS_TOKEN") {
+		t.Errorf("docker argv doesn't pass the clone's token: %q", b.Docker.Argv)
+	}
+	if inv := b.invocation(a, b.Docker.Argv, state.WorkspaceMount); !slices.Contains(inv.Env, "AZURE_DEVOPS_TOKEN") {
+		t.Errorf("invocation env %v lacks the clone's token", inv.Env)
+	}
+	var iso process.Isolation
+	if err := json.Unmarshal(b.Files[isolationFile], &iso); err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(iso.Secrets, "AZURE_DEVOPS_TOKEN") || len(iso.SecretEnv) > 0 {
+		t.Errorf("the run is given the clone's token: %+v", iso)
+	}
+	if len(iso.Repositories) != 2 || iso.Repositories[0].SecretRef != "AZURE_DEVOPS_TOKEN" {
+		t.Errorf("isolation.json repositories = %+v", iso.Repositories)
 	}
 }

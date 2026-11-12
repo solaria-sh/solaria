@@ -6,9 +6,11 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/validate"
@@ -441,5 +443,76 @@ func TestWorkspaceDigest(t *testing.T) {
 	}
 	if p := bound.WorkspacePath(); p != bound.EnvDir && p != filepath.Clean(bound.EnvDir) {
 		t.Errorf("WorkspacePath = %q, want the environment's folder %q", p, bound.EnvDir)
+	}
+}
+
+// TestRepositories checks that an agent's repositories are in its digest,
+// in any order, while where they come from isn't, and that a clone's token
+// never becomes a variable of the run (ADR 0017).
+func TestRepositories(t *testing.T) {
+	files := func(repos, url string) map[string]string {
+		return map[string]string{
+			"role.md": "You build.\n",
+			"solaria.yaml": `apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: builder}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-sonnet-5-5}
+` + repos + `  vaults: [{ref: git}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git}
+spec:
+  credentials:
+    - {name: azure, secretRef: AZURE_DEVOPS_TOKEN, for: {gitHost: dev.azure.com}}
+    - {name: cli, secretRef: CLI_TOKEN, for: {env: CLI_TOKEN}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec:
+  provider: stub
+  placement: file
+  inputs: &inputs
+    repositories:
+      product: {url: "` + url + `", ref: main, credential: {vault: git, name: azure}}
+      spec: {url: "https://github.com/example/spec.git", depth: 1}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: cloud}
+spec:
+  provider: stub
+  placement: file
+  inputs: *inputs
+`,
+		}
+	}
+	const both = "  repositories:\n    - {name: product, access: read-write}\n    - {name: spec, access: read-only}\n"
+	const reversed = "  repositories:\n    - {name: spec, access: read-only}\n    - {name: product, access: read-write}\n"
+	a := find(t, resolveAll(t, files(both, "https://dev.azure.com/example/factory/_git/product"))["local"], "builder")
+	b := find(t, resolveAll(t, files(reversed, "https://dev.azure.com/example/factory/_git/other"))["local"], "builder")
+	if a.SpecDigest != b.SpecDigest || a.ResolvedDigest != b.ResolvedDigest {
+		t.Errorf("the order of repositories, or a binding's URL, changed the digests")
+	}
+	none := find(t, resolveAll(t, files("", "https://dev.azure.com/example/factory/_git/product"))["local"], "builder")
+	if none.SpecDigest == a.SpecDigest || none.Definition.Repositories != nil {
+		t.Errorf("declaring repositories kept the digest %s", none.SpecDigest)
+	}
+
+	want := []resolve.BoundRepository{
+		{Name: "product", Access: v1alpha1.AccessReadWrite, URL: "https://dev.azure.com/example/factory/_git/product", Ref: "main", SecretRef: "AZURE_DEVOPS_TOKEN"},
+		{Name: "spec", Access: v1alpha1.AccessReadOnly, URL: "https://github.com/example/spec.git", Depth: 1},
+	}
+	if got := a.Repositories(); !slices.Equal(got, want) {
+		t.Errorf("Repositories() = %+v, want %+v", got, want)
+	}
+	if got := a.CloneSecretRefs(); !slices.Equal(got, []string{"AZURE_DEVOPS_TOKEN"}) {
+		t.Errorf("CloneSecretRefs() = %v", got)
+	}
+	if got := a.SecretVars(); len(got) != 1 || got["CLI_TOKEN"] != "CLI_TOKEN" {
+		t.Errorf("SecretVars() = %v, want only CLI_TOKEN: a clone's token never reaches the run", got)
 	}
 }

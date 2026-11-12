@@ -1,0 +1,53 @@
+# The builder reads the specification and changes the product. The product
+# is private, so its clone is authenticated with a token for its git host,
+# which only git sees. The specification is public and read-only.
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: builder}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-sonnet-5-5}
+  tools: {builtin: [read, edit, shell]}
+  repositories:
+    - {name: product, access: read-write}
+    - {name: spec, access: read-only}
+  vaults: [{ref: git}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git}
+spec:
+  credentials:
+    - name: dev-azure
+      secretRef: AZURE_DEVOPS_TOKEN
+      for: {gitHost: dev.azure.com}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-srt}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox: {isolation: srt}
+  inputs:
+    repositories:
+      product:
+        url: https://dev.azure.com/example/factory/_git/product
+        ref: main
+        credential: {vault: git, name: dev-azure}
+      spec:
+        url: https://github.com/example/spec.git
+        depth: 1
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  inputs:
+    repositories:
+      product:
+        url: https://dev.azure.com/example/factory/_git/product
+        credential: {vault: git, name: dev-azure}
+      spec: {url: "https://github.com/example/spec.git"}

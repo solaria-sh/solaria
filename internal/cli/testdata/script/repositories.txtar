@@ -1,0 +1,221 @@
+# An agent declares the repositories it works on; each environment binds
+# where they come from, and the run gets a clone of each (ADR 0017).
+cd project
+
+# Bindings are checked: an HTTPS URL without credentials in it, a ref that
+# can't read as an option, and a credential for the URL's git host, from a
+# vault the agent lists. Every repository an agent declares must be bound.
+! exec solaria validate
+stdout '^bad.yaml:\d+:\d+: error: spec.inputs.repositories: Agent "builder" needs repository "spec", and this environment doesn''t bind it$'
+stdout '^bad.yaml:\d+:\d+: error: spec.inputs.repositories.product.url: "https://me:xxxxx@dev.azure.com/example/factory/_git/product" has a user name or password in it; leave it out, the credential authenticates the clone$'
+stdout '^bad.yaml:\d+:\d+: error: spec.inputs.repositories.product.ref: "--upload-pack=touch" is not a branch or tag name$'
+stdout '^bad.yaml:\d+:\d+: error: spec.inputs.repositories.docs.credential: credential "github" in Vault "git" is for git host github.com, and the repository is on dev.azure.com$'
+stdout '^bad.yaml:\d+:\d+: error: spec.inputs.repositories.tools.url: "http://git.example.com/tools.git" is not an https:// URL; clones go over HTTPS$'
+stdout '^bad.yaml:\d+:\d+: warning: spec.inputs.repositories.tools: no agent in this environment declares repository "tools"$'
+stdout '^other.yaml:\d+:\d+: error: spec.inputs.repositories.product.credential: Agent "builder" uses this repository, so it must list Vault "other" in spec.vaults$'
+! stdout 'me:secret'
+rm bad.yaml other.yaml
+exec solaria validate
+
+# The token reaches only git, so it's never in the plan, the state or the
+# files apply writes.
+env AZURE_DEVOPS_TOKEN=tok-never-stored
+exec solaria plan -e local
+! stdout tok-never-stored
+exec solaria apply -e local --auto-approve
+! grep tok-never-stored .solaria/state/local.json
+! grep tok-never-stored .solaria/stub/local/builder.json
+grep AZURE_DEVOPS_TOKEN .solaria/state/local.json
+
+# status -a says where each repository comes from and where the run finds
+# it, from the configuration.
+exec solaria status -e local -a builder
+stdout '^  repository product: cloned from https://dev.azure.com/example/factory/_git/product at main into repositories/product, with the token in AZURE_DEVOPS_TOKEN \(read-write\)$'
+stdout '^  repository spec: cloned from https://github.com/example/spec.git into repositories/spec \(read-only\)$'
+exec solaria status -e local -a builder -o json
+stdout '"repositories": \[\n +\{\n +"name": "product",\n +"access": "read-write",\n +"url": "https://dev.azure.com/example/factory/_git/product",\n +"ref": "main",\n +"secret": "AZURE_DEVOPS_TOKEN",\n +"path": "repositories/product"\n +\},'
+
+# On Managed Agents cloud, the caller attaches each repository when it
+# starts a session. The state is written by hand: applying needs the API.
+cp ../ma-cloud.json .solaria/state/ma-cloud.json
+exec solaria status -e ma-cloud -a builder
+stdout '^  repository spec: attach https://github.com/example/spec.git as a github_repository resource at /workspace/repositories/spec when starting a session \(read-only\)$'
+exec solaria status -e ma-cloud -a builder -o json
+stdout '"attach": "github_repository"'
+
+# Managed Agents cloud sessions attach GitHub repositories themselves; any
+# other git host fails plan, and so does a read-only repository, since the
+# session's clone can be written.
+! exec solaria plan -e ma-cloud
+stderr '^solaria.yaml: error: Agent/builder on managed-agents/cloud: repository product is on dev.azure.com, and this host only attaches GitHub repositories, which its sessions clone themselves \(ADR 0017\)$'
+stderr '^solaria.yaml: error: Agent/builder on managed-agents/cloud: repository spec is read-only, and this host can''t keep its clone from being written \(ADR 0017\)$'
+
+# A self-hosted worker, and a gitagent image, have nothing that clones
+# before the run.
+! exec solaria plan -e ma-self-hosted
+stderr '^solaria.yaml: error: Agent/builder on managed-agents/self-hosted: repository product can''t be cloned here: nothing runs before this host''s runs to clone it \(ADR 0017\)$'
+! exec solaria plan -e local-gitagent
+stderr '^solaria.yaml: error: Agent/builder on gitagent/docker: repository spec can''t be cloned here: nothing runs before this host''s runs to clone it \(ADR 0017\)$'
+
+# The claude-agent-sdk launcher clones on docker, but root in the container
+# can write any clone, so a read-only one fails plan.
+! exec solaria plan -e local-sdk-docker
+stderr '^solaria.yaml: error: Agent/builder on claude-agent-sdk/docker: repository spec is read-only, and this host can''t keep its clone from being written \(ADR 0017\)$'
+! stderr 'repository product'
+
+# Repositories are cloned into the workspace, so it can't be read-only.
+! exec solaria plan -e read-only-workspace
+stderr '^solaria.yaml: error: Agent/builder on stub/file: repositories are cloned into the workspace, which is read-only; keep the workspace read-write and make the repositories read-only instead \(ADR 0017\)$'
+
+# Without srt, a process run can write anywhere its user can.
+[!exec:node] skip 'the process placement checks for node'
+! exec solaria plan -e local-sdk
+stderr '^solaria.yaml: error: Agent/builder on claude-agent-sdk/process: repository spec is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt to keep its clone read-only$'
+
+-- project/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: builder}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-haiku-5-5"}
+  tools: {builtin: [read, edit]}
+  repositories:
+    - {name: product, access: read-write}
+    - {name: spec, access: read-only}
+  vaults: [{ref: git}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git}
+spec:
+  credentials:
+    - {name: azure, secretRef: AZURE_DEVOPS_TOKEN, for: {gitHost: dev.azure.com}}
+    - {name: github, secretRef: GITHUB_TOKEN, for: {gitHost: github.com}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec:
+  provider: stub
+  placement: file
+  inputs: &inputs
+    repositories:
+      product:
+        url: https://dev.azure.com/example/factory/_git/product
+        ref: main
+        credential: {vault: git, name: azure}
+      spec:
+        url: https://github.com/example/spec.git
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec:
+  provider: managed-agents
+  placement: cloud
+  inputs: *inputs
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-self-hosted}
+spec:
+  provider: managed-agents
+  placement: self-hosted
+  inputs: *inputs
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec:
+  provider: gitagent
+  placement: docker
+  inputs: *inputs
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-sdk-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  inputs: *inputs
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: read-only-workspace}
+spec:
+  provider: stub
+  placement: file
+  inputs: *inputs
+  overrides:
+    builder:
+      workspace: {access: read-only}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-sdk}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  inputs: *inputs
+-- project/bad.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: bad}
+spec:
+  provider: stub
+  placement: file
+  inputs:
+    repositories:
+      product:
+        url: https://me:secret@dev.azure.com/example/factory/_git/product
+        ref: --upload-pack=touch
+      docs:
+        url: https://dev.azure.com/example/factory/_git/docs
+        credential: {vault: git, name: github}
+      tools:
+        url: http://git.example.com/tools.git
+-- project/other.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: other}
+spec:
+  credentials:
+    - {name: azure, secretRef: OTHER_TOKEN, for: {gitHost: dev.azure.com}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: other}
+spec:
+  provider: stub
+  placement: file
+  inputs:
+    repositories:
+      product:
+        url: https://dev.azure.com/example/factory/_git/product
+        credential: {vault: other, name: azure}
+      spec:
+        url: https://github.com/example/spec.git
+-- ma-cloud.json --
+{
+  "format": "solaria.sh/state/v1",
+  "lineage": "7e1d2c3b-4a5f-4e6d-8c7b-6a5f4e3d2c1b",
+  "serial": 1,
+  "environment": "ma-cloud",
+  "agents": {
+    "Agent/builder": {
+      "id": "Agent/builder",
+      "provider": "managed-agents",
+      "providerVersion": "dev",
+      "placement": "cloud",
+      "specDigest": "sha256:1111aaaa2222",
+      "resolvedDigest": "sha256:1111aaaa2222",
+      "binding": {"hostId": "agent_011", "version": "1"},
+      "definition": {"format": "solaria.sh/definition/v1"},
+      "source": {},
+      "appliedAt": "2026-11-11T10:00:00Z"
+    }
+  }
+}
+-- project/role.md --
+You build the product from its specification.

@@ -4,15 +4,17 @@
 //   node launch.mjs -p "<task>"
 //   echo "<task>" | node launch.mjs
 //
-// It isolates the run (isolate.mjs), calls the Claude Agent SDK with the
-// options in options.json, and prints one JSON object: the SDK's result
-// plus the agent's logical ID, resolved digest and SDK version. It exits 0
-// when the run succeeded, 1 when the run ended in an error, and 2 when it
-// couldn't start.
+// It clones the agent's repositories into the workspace, enters srt when
+// the environment isolates runs with it, isolates the run (isolate.mjs),
+// calls the Claude Agent SDK with the options in options.json, and prints
+// one JSON object: the SDK's result plus the agent's logical ID, resolved
+// digest and SDK version. It exits 0 when the run succeeded, 1 when the run
+// ended in an error, and 2 when it couldn't start.
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { adopt, isolate } from "./isolate.mjs";
+import { adopt, clone, isolate } from "./isolate.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const readJSON = (name) => JSON.parse(fs.readFileSync(path.join(here, name), "utf8"));
@@ -34,14 +36,23 @@ const resultFields = [
 
 class LaunchError extends Error {}
 
-async function readTask(args) {
+// insideSRT marks the launcher srt starts, after the clones.
+const insideSRT = "SOLARIA_INSIDE_SRT";
+
+// checkArgs fails early on a command line the run can't take.
+function checkArgs(args) {
   if (args.length > 0) {
     if ((args[0] !== "-p" && args[0] !== "--prompt") || args.length !== 2) {
       throw new LaunchError('usage: node launch.mjs [-p "<task>"]; without -p the task is read from stdin');
     }
-    return args[1];
+  } else if (process.stdin.isTTY) {
+    throw new LaunchError('no task: pass -p "<task>" or pipe it on stdin');
   }
-  if (process.stdin.isTTY) throw new LaunchError('no task: pass -p "<task>" or pipe it on stdin');
+}
+
+async function readTask(args) {
+  checkArgs(args);
+  if (args.length > 0) return args[1];
   const chunks = [];
   for await (const c of process.stdin) chunks.push(c);
   const task = Buffer.concat(chunks).toString("utf8");
@@ -66,9 +77,24 @@ function options(bundle, env) {
   }
   if (o.plugins) o.plugins = o.plugins.map((p) => ({ ...p, path: path.join(here, p.path) }));
   o.env = env;
-  // The environment's bound workspace, or the folder the run starts in.
-  o.cwd = bundle.workspace ?? process.cwd();
+  o.cwd = workspace(bundle);
   return o;
+}
+
+// workspace is the environment's bound workspace, or the folder the run
+// starts in.
+function workspace(bundle) {
+  return bundle.workspace ?? process.cwd();
+}
+
+// enterSRT runs this launcher again inside srt, with the same arguments,
+// stdin and stdout, and returns its exit code. The clones are done by then,
+// so srt's settings can keep a read-only one from being written.
+function enterSRT(bundle) {
+  const argv = ["--settings", path.join(here, bundle.srt), "--", process.execPath, fileURLToPath(import.meta.url), ...process.argv.slice(2)];
+  const res = spawnSync("srt", argv, { stdio: "inherit", env: { ...process.env, [insideSRT]: "1" } });
+  if (res.error) throw new LaunchError(`can't start srt: ${res.error.message}`);
+  return res.status ?? 1;
 }
 
 async function main() {
@@ -79,6 +105,15 @@ async function main() {
   };
   let cleanup = () => {};
   try {
+    if (process.env[insideSRT] !== "1") {
+      checkArgs(process.argv.slice(2));
+      try {
+        clone(readJSON("isolation.json"), workspace(bundle));
+      } catch (err) {
+        throw new LaunchError(err.message);
+      }
+      if (bundle.srt) return enterSRT(bundle);
+    }
     const task = await readTask(process.argv.slice(2));
     let run;
     try {

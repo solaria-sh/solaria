@@ -78,6 +78,59 @@ func InputPath(envDir, path string) string {
 	return filepath.Clean(p)
 }
 
+// BoundRepository is a repository an agent works on, with where the
+// environment says it comes from (ADR 0017).
+type BoundRepository struct {
+	Name   string
+	Access v1alpha1.Access
+	URL    string
+	Ref    string
+	Depth  int
+	// SecretRef is the secret holding the token that authenticates the
+	// clone, from the bound Vault credential; "" for a public repository.
+	SecretRef string
+}
+
+// Repositories lists the agent's repositories, sorted by name, with their
+// bindings. A repository the environment doesn't bind is left out:
+// validate reports it.
+func (a *Agent) Repositories() []BoundRepository {
+	var out []BoundRepository
+	for _, r := range a.Definition.Repositories {
+		var in v1alpha1.RepositoryInput
+		var ok bool
+		if a.Env.Inputs != nil {
+			in, ok = a.Env.Inputs.Repositories[r.Name]
+		}
+		if !ok {
+			continue
+		}
+		repo := BoundRepository{Name: r.Name, Access: r.Access, URL: in.URL, Ref: in.Ref, Depth: in.Depth}
+		if c := in.Credential; c != nil {
+			for _, cr := range a.Definition.Vaults[c.Vault].Credentials {
+				if cr.Name == c.Name {
+					repo.SecretRef = cr.SecretRef
+				}
+			}
+		}
+		out = append(out, repo)
+	}
+	return out
+}
+
+// CloneSecretRefs lists the secrets that authenticate the agent's clones,
+// sorted. The clone uses them before the run, which never gets them.
+func (a *Agent) CloneSecretRefs() []string {
+	var out []string
+	for _, r := range a.Repositories() {
+		if r.SecretRef != "" {
+			out = append(out, r.SecretRef)
+		}
+	}
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
 // SecretRefs lists the secrets a run must be given values for, sorted: the
 // values of SecretVars.
 func (a *Agent) SecretRefs() []string {
@@ -107,6 +160,9 @@ func (a *Agent) SecretVars() map[string]string {
 	}
 	for _, v := range a.Definition.Vaults {
 		for _, c := range v.Credentials {
+			if c.GitHost != "" {
+				continue // it authenticates clones, before the run
+			}
 			name := c.SecretRef
 			if c.Env != "" {
 				name = c.Env
@@ -306,6 +362,7 @@ func definition(set *config.Set, r *config.Resource) (Definition, map[string]str
 		d.Output = &Output{Schema: schema}
 	}
 	d.Workspace = workspace(s.Workspace)
+	d.Repositories = repositories(s.Repositories)
 	for name, fields := range s.Providers {
 		d.Providers[name] = mergePatch(nil, fields).(map[string]any)
 	}
@@ -374,7 +431,7 @@ func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 func vault(spec v1alpha1.VaultSpec) Vault {
 	v := Vault{Credentials: make([]Credential, 0, len(spec.Credentials))}
 	for _, c := range spec.Credentials {
-		cr := Credential{Name: c.Name, SecretRef: c.SecretRef, Env: c.For.Env}
+		cr := Credential{Name: c.Name, SecretRef: c.SecretRef, Env: c.For.Env, GitHost: c.For.GitHost}
 		if c.For.MCPServer != nil {
 			cr.MCPServer = c.For.MCPServer.Ref
 		}

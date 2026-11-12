@@ -57,7 +57,7 @@ What the digest input includes and excludes:
 - **Values:** `limits.timeout` is normalized (`90m` and `1h30m` are equal). Empty lists encode as `[]`.
 - **Vaults:** each referenced Vault keyed by name, its credentials sorted by name, each with its secret's name and its target. Never a value.
 - **Output:** `{"schema": ...}`, the parsed output schema (ADR 0019). Inline, JSON and YAML schemas give the same value; the file's name doesn't count.
-- **Fields added later:** a field added to the format after it shipped is left out of the input when it's empty, so agents that don't use it keep their digests and the format keeps its name. `vaults` (ADR 0016), `output` (ADR 0019) and `workspace` (ADR 0017) are such fields; `workspace` is present only when the workspace is read-only, since read-write is the default. Changing what an existing field holds, or how it's normalized, still needs a new format.
+- **Fields added later:** a field added to the format after it shipped is left out of the input when it's empty, so agents that don't use it keep their digests and the format keeps its name. `vaults` (ADR 0016), `output` (ADR 0019), `workspace` and `repositories` (ADR 0017) are such fields, and so is a credential's `gitHost`; `workspace` is present only when the workspace is read-only, since read-write is the default. Changing what an existing field holds, or how it's normalized, still needs a new format.
 - **Overrides:**
   - `model` and `limits` replace field by field;
   - `providers` merges as an [RFC 7386](https://www.rfc-editor.org/rfc/rfc7386) JSON Merge Patch, where `null` removes a field.
@@ -137,4 +137,4 @@ The golden files pin the digests themselves, so an accidental format change fail
 - Revised in M5: how providers track environment changes the digests leave out.
 - Revised 2026-11-10 (Fidelity and polish): annotations, identity inside the run, `service.version` and `telemetry.resourceAttributes`, and why there's no git-commit attribute. A project namespace in the logical ID was considered and deferred: `service.namespace` covers the telemetry collision without migrating state. The agent's output schema joins the digest input under [ADR 0019](0019-agent-output-schema.md).
 - Revised for ADR 0016: fields added later are left out when empty, and vaults join the input.
-- Revised for ADR 0017: a read-only workspace joins the input.
+- Revised for ADR 0017: a read-only workspace, the agent's repositories with their access, and a credential's git host join the input.

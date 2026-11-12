@@ -1,0 +1,151 @@
+=== isolate.mjs (shared)
+=== isolation.json
+{
+  "binaries": [],
+  "pass": [
+    "ALL_PROXY",
+    "ANTHROPIC_API_KEY",
+    "COMSPEC",
+    "GIT_SSH_COMMAND",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "NODE_EXTRA_CA_CERTS",
+    "NO_PROXY",
+    "NUMBER_OF_PROCESSORS",
+    "OS",
+    "PATHEXT",
+    "PROCESSOR_ARCHITECTURE",
+    "PROGRAMFILES",
+    "REQUESTS_CA_BUNDLE",
+    "SSL_CERT_DIR",
+    "SSL_CERT_FILE",
+    "SYSTEMDRIVE",
+    "SYSTEMROOT",
+    "TZ",
+    "WINDIR",
+    "all_proxy",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy"
+  ],
+  "secrets": [],
+  "repositories": [
+    {
+      "name": "product",
+      "url": "https://dev.azure.com/example/factory/_git/product",
+      "ref": "main",
+      "secretRef": "AZURE_DEVOPS_TOKEN"
+    },
+    {
+      "name": "spec",
+      "url": "https://github.com/example/spec.git",
+      "depth": 1
+    }
+  ],
+  "set": {
+    "CLAUDE_AGENT_SDK_CLIENT_APP": "solaria",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_DISABLE_CLAUDE_MDS": "1",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
+    "NODE_USE_ENV_PROXY": "1",
+    "SOLARIA_ENVIRONMENT": "ci-srt",
+    "SOLARIA_LOGICAL_ID": "Agent/builder",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9",
+    "SOLARIA_SPEC_DIGEST": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9"
+  },
+  "scratch": {
+    "APPDATA": "home/AppData/Roaming",
+    "CLAUDE_CODE_TMPDIR": "claude-tmp",
+    "CLAUDE_CONFIG_DIR": "home/.claude",
+    "HOME": "home",
+    "LOCALAPPDATA": "home/AppData/Local",
+    "TEMP": "tmp",
+    "TMP": "tmp",
+    "TMPDIR": "tmp",
+    "USERPROFILE": "home",
+    "XDG_CACHE_HOME": "home/.cache",
+    "XDG_CONFIG_HOME": "home/.config",
+    "XDG_DATA_HOME": "home/.local/share",
+    "XDG_STATE_HOME": "home/.local/state"
+  },
+  "cache": {
+    "PIP_CACHE_DIR": "pip",
+    "UV_CACHE_DIR": "uv",
+    "npm_config_cache": "npm"
+  }
+}
+=== launch.mjs (shared)
+=== options.json
+{
+  "agent": {
+    "logicalId": "Agent/builder",
+    "environment": "ci-srt",
+    "resolvedDigest": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9"
+  },
+  "sdk": {
+    "runtime": "node",
+    "package": "@anthropic-ai/claude-agent-sdk",
+    "version": "0.3.319"
+  },
+  "cacheDir": "../../../.cache",
+  "systemPromptFile": "system-prompt.md",
+  "srt": "srt-settings.json",
+  "options": {
+    "model": "claude-sonnet-5-5",
+    "tools": [
+      "Edit",
+      "Read",
+      "Bash"
+    ],
+    "allowedTools": [
+      "Bash",
+      "Edit",
+      "Read"
+    ],
+    "disallowedTools": [
+      "Edit(./repositories/spec/**)"
+    ],
+    "permissionMode": "dontAsk",
+    "settingSources": [],
+    "strictMcpConfig": true,
+    "mcpServers": {}
+  }
+}
+=== package.json
+{
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.319"
+  },
+  "description": "Rendered by Solaria. Run solaria apply instead of editing this bundle.",
+  "name": "solaria-agent",
+  "private": true,
+  "type": "module"
+}
+=== srt-settings.json
+{
+  "network": {
+    "allowedDomains": [
+      "api.anthropic.com"
+    ],
+    "deniedDomains": []
+  },
+  "filesystem": {
+    "denyRead": [],
+    "allowWrite": [
+      "/project/.solaria/claude-agent-sdk/.cache",
+      "."
+    ],
+    "denyWrite": [
+      "repositories/spec"
+    ]
+  }
+}
+=== system-prompt.md
+You build the product from its specification.
+=== secrets
+AZURE_DEVOPS_TOKEN
+=== diagnostics

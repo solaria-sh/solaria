@@ -40,4 +40,7 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.vaults[].ref` | string | yes | Name of a Vault resource. |
 | `spec.workspace` | object |  | The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace. |
 | `spec.workspace.access` | `read-write` or `read-only` |  | read-write (the default) or read-only. A placement that can't keep the workspace read-only fails plan rather than ignore it. |
+| `spec.repositories` | list of objects |  | Git repositories the agent works on. Each environment binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/<name> in the workspace before a run. |
+| `spec.repositories[].name` | string | yes | Name the environment binds the repository under, and its folder in the workspace: repositories/<name>. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
+| `spec.repositories[].access` | `read-write` or `read-only` | yes | read-only or read-write: whether the agent may change its clone. A placement that can't keep a clone read-only fails plan rather than ignore it. |
 | `spec.providers` | map of objects |  | Fields passed unchanged to one provider, keyed by provider name. Using them makes the agent less portable, and validate reports it. |

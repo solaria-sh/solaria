@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-10
+status: accepted
+date: 2026-11-11
 decision-makers: Renan Tarouco da Fonseca
 ---
 
@@ -36,7 +36,7 @@ spec:
   workspace: {access: read-only}          # or read-write; default read-write
   repositories:
     - name: product
-      access: read-only
+      access: read-only                   # required: read-only or read-write
 ```
 
 Both are part of the definition, so they're in `specDigest` and `resolvedDigest`. The workspace enters the digest input only when it's read-only, so agents that keep the default keep their digests (ADR 0008). An environment's override can make the workspace read-only, never writable again, like the other narrowing overrides.
@@ -55,20 +55,22 @@ spec:
         credential: {vault: git, name: git-host}   # a Vault credential (ADR 0016)
 ```
 
-`validate` fails when an agent declares a repository the environment doesn't bind. Bindings aren't in any digest: they describe the environment, like the sandbox.
+`validate` fails when an agent declares a repository the environment doesn't bind. Bindings aren't in any digest: they describe the environment, like the sandbox. A URL must be `https://` without a user name or password, and a ref can't start with `-`. The credential is one with a new target, `for: {gitHost: dev.azure.com}`: it must match the URL's host, and be in a vault that every agent using the repository lists. Its token is used only to clone, so the run never gets it; an agent that should push gets a credential of its own, with `for: {env: …}`.
 
 **Native where possible, otherwise the launcher.**
 
 | Placement | Workspace | Repositories |
 |---|---|---|
-| `process` | The working directory; read-only only with srt isolation (below) | The launcher clones each one before the run |
-| `docker` | Mounted `:ro` or read-write | The launcher clones each one inside the container |
-| `managed-agents` / `self-hosted` | The session's; read-only, or a bound folder, fails plan | The worker container clones each one |
-| `managed-agents` / `cloud` | What the caller attaches; read-only, or a bound folder, fails plan | GitHub: a `github_repository` resource listed in the invocation for the caller to attach. Any other git host fails plan, naming the repository: no Solaria code runs there |
+| `process` | The working directory; read-only only with srt isolation (below) | The launcher clones each one before the run; read-only only with srt |
+| `docker` | Mounted `:ro` or read-write | The launcher clones each one inside the container; read-only fails plan, since the run is root there and can write any clone |
+| `managed-agents` / `self-hosted` | The session's; read-only, or a bound folder, fails plan | Fails plan, naming the repository: the host takes no resources here, and the worker doesn't clone yet |
+| `managed-agents` / `cloud` | What the caller attaches; read-only, or a bound folder, fails plan | GitHub: a `github_repository` resource for the caller to attach, which `status -a` shows. Any other git host fails plan, naming the repository: no Solaria code runs there. Read-only fails plan, since the session can write its clone |
 
-A cloned repository lands at `repositories/<name>` inside the workspace. A read-only repository is cloned, then made unwritable the same way as a read-only workspace. Credentials reach the clone through the Vault credential and never appear in a URL, a log or state.
+gitagent has no launcher of its own to clone with, so a repository fails plan there too.
 
-The invocation (ADR 0014) records each input: the workspace access (`workspaceAccess`), a bound folder (`workspace: path` and `workspacePath`), and each repository with its name, URL, ref and access, and, where the caller must attach it, how. `status -a` shows them.
+A cloned repository lands at `repositories/<name>` inside the workspace, so a workspace with repositories must be read-write; a clone that's already there fails the run rather than be overwritten. A read-only repository is cloned, then made unwritable the same way as a read-only workspace. Credentials reach the clone through the Vault credential and never appear in a URL, a log or state: git gets the token as an HTTP header for the URL's host, through its environment, with a scratch HOME and no system configuration.
+
+The invocation (ADR 0014) records the workspace: its access (`workspaceAccess`) and a bound folder (`workspace: path` and `workspacePath`). Repositories are listed by `status -a` and `status -o json` from the configuration instead, with their name, URL, ref, access, the secret that authenticates them, and where the run finds them or, on Managed Agents, how to attach them: their bindings belong to the environment, and on a host the caller attaches them to, nothing is applied.
 
 **Sandboxing the `process` placement.** A `process` run has no isolation of its own, so a read-only workspace can't be enforced there by default. An environment can opt in to Anthropic's sandbox-runtime (`srt`), which wraps the whole launcher, so the SDK, its tools and stdio MCP servers share one boundary:
 
@@ -80,14 +82,14 @@ spec:
     isolation: srt
 ```
 
-- The launcher command becomes `srt --settings <bundle>/srt-settings.json -- node launch.mjs`, or the same around `launch.py`. Apply writes the settings into the bundle, so the bundle's digest covers them and editing them shows as drift:
-  - writes are allowed only to srt's temp folder, which holds the run's scratch HOME and temp folder, the provider's package cache, and the workspace and repositories the agent declares writable;
+- The launcher clones the agent's repositories, then runs itself again as `srt --settings <bundle>/srt-settings.json -- node launch.mjs`, or the same around `launch.py`, so the recorded command stays the launcher's. Cloning first lets srt deny writes to a read-only clone that already exists, which bubblewrap needs. Apply writes the settings into the bundle, so the bundle's digest covers them and editing them shows as drift:
+  - writes are allowed only to srt's temp folder, which holds the run's scratch HOME and temp folder, the provider's package cache, and the workspace unless it's read-only; a read-only repository's clone is denied;
   - the domain allow-list is the hosts the agent needs (the model API, its remote MCP servers, the registries its stdio MCP packages come from, the telemetry endpoint) plus `sandbox.network`, so `process` enforces the network too. A loopback endpoint, such as a local telemetry collector, is reached through srt's local binding rather than the list.
 - srt has no way to allow every host, so `isolation: srt` with `network.mode: unrestricted` fails plan.
 - srt is installed outside every writable path. The SDK's own `sandbox` option stays off, since sandboxes don't nest. The launcher's allowlist passes srt's proxy variables through, and tells Node's own `fetch` to use them.
 - It works on macOS and on Linux with bubblewrap and socat. On Windows, and wherever srt is missing, plan fails when `isolation: srt` is set.
 - It's opt-in because srt is a beta research preview whose configuration may change. Without it, `process` behaves as ADR 0014 describes, and plan warns as before.
-- A read-only workspace also adds deny rules for the file-editing tools, as defense in depth.
+- A read-only workspace or repository also adds deny rules for the file-editing tools, as defense in depth.
 
 **Failing closed.** A read-only workspace or repository on a placement that can't enforce it, such as `process` without isolation, fails plan, naming the agent and offering `docker` or `sandbox.isolation: srt`. This differs from budgets and the sandbox's resource fields, which warn: access limits are a promise about what an agent can do, so they're never silently dropped.
 
@@ -104,7 +106,8 @@ spec:
 
 - Validation tests cover an unbound repository and a credential that isn't in a referenced vault.
 - Golden tests show the srt settings, the `:ro` mount and the clone steps per placement.
-- Plan tests cover each fail-closed case: read-only on plain `process`, `isolation: srt` on Windows, and a non-GitHub repository on Managed Agents cloud.
+- Plan tests cover each fail-closed case: read-only on plain `process`, `isolation: srt` on Windows, a non-GitHub repository on Managed Agents cloud, and repositories where nothing clones them.
+- A test checks that a clone's token is in neither the plan, the state nor the files apply writes.
 - An opt-in integration test runs a read-only workspace under srt and checks that a write fails.
 
 ## Pros and cons of the options
@@ -126,3 +129,4 @@ spec:
 - [ADR 0014](0014-process-placement-and-claude-agent-sdk.md): the `process` placement and the invocation.
 - [ADR 0016](0016-vault-scoped-credentials.md): Vault credentials.
 - [Claude Code sandboxing](https://code.claude.com/docs/en/sandboxing) and [sandbox-runtime](https://github.com/anthropics/sandbox-runtime). The SDK's own `sandbox` option covers only Bash and its children, which is why the whole launcher is wrapped instead. Seatbelt (macOS) and Landlock (Linux) were also considered; neither can filter by domain without a proxy.
+- Accepted 2026-11-11 after the three pull requests that implement it. Implementing it narrowed the proposal: the workspace enters the digest only when read-only; read-only repositories fail plan on `docker` and Managed Agents cloud; repositories fail plan on Managed Agents self-hosted and gitagent until something clones there; and repositories are listed by `status` rather than in the invocation.

@@ -53,6 +53,13 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.inputs` | object |  | Where agents' inputs come from in this environment. |
 | `spec.inputs.workspace` | object |  | The folder agents work on. |
 | `spec.inputs.workspace.path` | string |  | A folder on the machine that runs the agent, relative to this file or absolute. When omitted, it's the folder the run starts in. Only placements that run on this machine take it. |
+| `spec.inputs.repositories` | map of objects |  | Where each repository the agents declare comes from, by name. |
+| `spec.inputs.repositories.<name>.url` | string | yes | HTTPS URL of the git repository, without a user name or password in it: the credential authenticates the clone. |
+| `spec.inputs.repositories.<name>.ref` | string |  | Branch or tag to check out. When omitted, the remote's default branch. |
+| `spec.inputs.repositories.<name>.depth` | integer |  | Number of commits to clone, for a shallow clone. When omitted, the whole history. |
+| `spec.inputs.repositories.<name>.credential` | object |  | The Vault credential that authenticates the clone. It must be for the URL's host (for.gitHost), and in a vault each agent using the repository lists. Omit it for a public repository. |
+| `spec.inputs.repositories.<name>.credential.vault` | string | yes | Name of a Vault resource. |
+| `spec.inputs.repositories.<name>.credential.name` | string | yes | Name of a credential in that vault. |
 | `spec.overrides` | map of objects |  | Changes to agents in this environment only, keyed by agent name. |
 | `spec.overrides.<name>.model` | object |  | Model fields to replace. |
 | `spec.overrides.<name>.model.preferred` | string |  | Preferred model, as provider:model. Matches `^[a-z][a-z0-9-]*:[^ ]+$`. |

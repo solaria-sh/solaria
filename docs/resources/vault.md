@@ -21,7 +21,8 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.credentials` | list of objects | yes | Credentials in the vault, each with a unique name. At least 1. |
 | `spec.credentials[].name` | string | yes | Name of the credential, unique in the vault. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
 | `spec.credentials[].secretRef` | string | yes | Name of the secret that holds the value, in the environment's secret source (a variable or a dotenv entry). Matches `^[A-Z_][A-Z0-9_]*$`. |
-| `spec.credentials[].for` | object | yes | What the credential unlocks: an MCP server, or an environment variable of the run. |
+| `spec.credentials[].for` | object | yes | What the credential unlocks: an MCP server, an environment variable of the run, or clones from a git host. |
 | `spec.credentials[].for.mcpServer` | object |  | An MCP server that uses this secret in a header or a package variable, by reference to an McpServer resource. |
 | `spec.credentials[].for.mcpServer.ref` | string | yes | Name of an McpServer resource. |
 | `spec.credentials[].for.env` | string |  | An environment variable the run gets, set to the secret's value. Matches `^[A-Z_][A-Z0-9_]*$`. |
+| `spec.credentials[].for.gitHost` | string |  | A git host, such as dev.azure.com, that the secret, a token, authenticates clones from over HTTPS. The token is used to clone the repositories bound to it, and never reaches the run. Matches `^[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$`. |

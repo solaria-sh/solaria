@@ -1,6 +1,9 @@
 package resolve
 
 import (
+	"slices"
+	"strings"
+
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 )
 
@@ -40,6 +43,27 @@ type Definition struct {
 	// Workspace is set only when the agent may not write to its workspace,
 	// so read-write agents, the default, keep their digests (ADR 0017).
 	Workspace *Workspace `json:"workspace,omitempty"`
+	// Repositories the agent works on, sorted by name. Left out when there
+	// are none, so other agents keep their digests (ADR 0017). Where each
+	// comes from belongs to the environment, so it isn't here.
+	Repositories []Repository `json:"repositories,omitempty"`
+}
+
+// Repository is a repository an agent declares, and its access.
+type Repository struct {
+	Name   string          `json:"name"`
+	Access v1alpha1.Access `json:"access"`
+}
+
+// repositories normalizes an agent's repositories: sorted by name, nil
+// when there are none.
+func repositories(rs []v1alpha1.RepositoryNeed) []Repository {
+	var out []Repository
+	for _, r := range rs {
+		out = append(out, Repository{Name: r.Name, Access: r.Access})
+	}
+	slices.SortFunc(out, func(a, b Repository) int { return strings.Compare(a.Name, b.Name) })
+	return out
 }
 
 // Workspace is what the agent may do to the folder it works on.
@@ -75,6 +99,7 @@ type Credential struct {
 	SecretRef string `json:"secretRef"`
 	MCPServer string `json:"mcpServer,omitempty"`
 	Env       string `json:"env,omitempty"`
+	GitHost   string `json:"gitHost,omitempty"`
 }
 
 // Model is the resolved model binding.

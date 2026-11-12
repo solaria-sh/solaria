@@ -5,11 +5,12 @@
 #   venv/bin/python launch.py -p "<task>"
 #   echo "<task>" | venv/bin/python launch.py
 #
-# It isolates the run (isolate.py), calls the Claude Agent SDK with the
-# options in options.json, and prints one JSON object: the SDK's result plus
-# the agent's logical ID, resolved digest and SDK version. It exits 0 when
-# the run succeeded, 1 when the run ended in an error, and 2 when it
-# couldn't start.
+# It clones the agent's repositories into the workspace, enters srt when the
+# environment isolates runs with it, isolates the run (isolate.py), calls the
+# Claude Agent SDK with the options in options.json, and prints one JSON
+# object: the SDK's result plus the agent's logical ID, resolved digest and
+# SDK version. It exits 0 when the run succeeded, 1 when the run ended in an
+# error, and 2 when it couldn't start.
 import sys
 
 # Importing isolate.py mustn't write into the bundle.
@@ -19,11 +20,15 @@ import asyncio  # noqa: E402
 import copy  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
+import subprocess  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from isolate import adopt, isolate  # noqa: E402
+from isolate import adopt, clone, isolate  # noqa: E402
+
+# INSIDE_SRT marks the launcher srt starts, after the clones.
+INSIDE_SRT = "SOLARIA_INSIDE_SRT"
 
 # The SDK's result fields a caller gets, by their names in the SDK.
 RESULT_FIELDS = [
@@ -68,13 +73,19 @@ def read_json(name):
         return json.load(f)
 
 
-def read_task(args):
+def check_args(args):
+    """Fail early on a command line the run can't take."""
     if args:
         if args[0] not in ("-p", "--prompt") or len(args) != 2:
             raise LaunchError('usage: python launch.py [-p "<task>"]; without -p the task is read from stdin')
-        return args[1]
-    if sys.stdin is None or sys.stdin.isatty():
+    elif sys.stdin is None or sys.stdin.isatty():
         raise LaunchError('no task: pass -p "<task>" or pipe it on stdin')
+
+
+def read_task(args):
+    check_args(args)
+    if args:
+        return args[1]
     task = sys.stdin.read()
     if task.strip() == "":
         raise LaunchError("no task: stdin was empty")
@@ -98,9 +109,26 @@ def options(bundle, env):
         with open(os.path.join(HERE, bundle["systemPromptFile"]), encoding="utf-8") as f:
             out["system_prompt"] = f.read()
     out["env"] = env
-    # The environment's bound workspace, or the folder the run starts in.
-    out["cwd"] = bundle.get("workspace") or os.getcwd()
+    out["cwd"] = workspace(bundle)
     return out
+
+
+def workspace(bundle):
+    """The environment's bound workspace, or the folder the run starts in."""
+    return bundle.get("workspace") or os.getcwd()
+
+
+def enter_srt(bundle):
+    """Run this launcher again inside srt, with the same arguments, stdin
+    and stdout, and return its exit code. The clones are done by then, so
+    srt's settings can keep a read-only one from being written."""
+    argv = ["srt", "--settings", os.path.join(HERE, bundle["srt"]), "--",
+            sys.executable, os.path.abspath(__file__), *sys.argv[1:]]
+    try:
+        res = subprocess.run(argv, env={**os.environ, INSIDE_SRT: "1"}, check=False)
+    except OSError as err:
+        raise LaunchError(f"can't start srt: {err}") from None
+    return res.returncode if res.returncode >= 0 else 1
 
 
 async def run_query(sdk, task, opts, timeout):
@@ -132,6 +160,14 @@ def main():
 
     cleanup = None
     try:
+        if os.environ.get(INSIDE_SRT) != "1":
+            check_args(sys.argv[1:])
+            try:
+                clone(read_json("isolation.json"), workspace(bundle))
+            except (RuntimeError, ValueError, OSError) as err:
+                raise LaunchError(str(err)) from None
+            if bundle.get("srt"):
+                return enter_srt(bundle)
         task = read_task(sys.argv[1:])
         try:
             env, _, cleanup = isolate(read_json("isolation.json"), os.path.normpath(os.path.join(HERE, bundle["cacheDir"])))

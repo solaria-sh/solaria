@@ -53,6 +53,27 @@
       ],
       "description": "Selects agents."
     },
+    "CredentialRef": {
+      "properties": {
+        "vault": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a Vault resource."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a credential in that vault."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "vault",
+        "name"
+      ],
+      "description": "Names one credential of a Vault."
+    },
     "EnvironmentSpec": {
       "properties": {
         "provider": {
@@ -116,6 +137,16 @@
         "workspace": {
           "$ref": "#/$defs/WorkspaceInput",
           "description": "The folder agents work on."
+        },
+        "repositories": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RepositoryInput"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Where each repository the agents declare comes from, by name."
         }
       },
       "additionalProperties": false,
@@ -385,6 +416,34 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Tightens an agent's permissions in one environment."
+    },
+    "RepositoryInput": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "HTTPS URL of the git repository, without a user name or password in it: the credential authenticates the clone."
+        },
+        "ref": {
+          "type": "string",
+          "description": "Branch or tag to check out. When omitted, the remote's default branch."
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of commits to clone, for a shallow clone. When omitted, the whole history."
+        },
+        "credential": {
+          "$ref": "#/$defs/CredentialRef",
+          "description": "The Vault credential that authenticates the clone. It must be for the URL's host (for.gitHost), and in a vault each agent using the repository lists. Omit it for a public repository."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "description": "Says where a repository comes from."
     },
     "ResourcesSpec": {
       "properties": {

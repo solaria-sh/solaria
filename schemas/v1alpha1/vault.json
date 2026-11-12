@@ -17,7 +17,7 @@
         },
         "for": {
           "$ref": "#/$defs/CredentialTarget",
-          "description": "What the credential unlocks: an MCP server, or an environment variable of the run."
+          "description": "What the credential unlocks: an MCP server, an environment variable of the run, or clones from a git host."
         }
       },
       "additionalProperties": false,
@@ -40,6 +40,11 @@
           "required": [
             "env"
           ]
+        },
+        {
+          "required": [
+            "gitHost"
+          ]
         }
       ],
       "properties": {
@@ -51,6 +56,12 @@
           "type": "string",
           "pattern": "^[A-Z_][A-Z0-9_]*$",
           "description": "An environment variable the run gets, set to the secret's value."
+        },
+        "gitHost": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$",
+          "description": "A git host, such as dev.azure.com, that the secret, a token, authenticates clones from over HTTPS. The token is used to clone the repositories bound to it, and never reaches the run."
         }
       },
       "additionalProperties": false,

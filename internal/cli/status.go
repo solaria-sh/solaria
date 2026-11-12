@@ -16,6 +16,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/lockfile"
 	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers"
 	"github.com/solaria-sh/solaria/internal/providers/container"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/state"
@@ -172,6 +173,57 @@ type agentState struct {
 	// Vaults are the host vaults to attach when starting a session, on
 	// hosts that keep credentials in vaults.
 	Vaults []vaultRef `json:"vaults,omitempty"`
+	// Repositories are the agent's repositories (ADR 0017), read from the
+	// configuration: where each comes from belongs to the environment, and
+	// on hosts the caller attaches them to, nothing is applied.
+	Repositories []repositoryStatus `json:"repositories,omitempty"`
+}
+
+// repositoryStatus is a repository an agent works on, and how it reaches
+// the run.
+type repositoryStatus struct {
+	Name   string `json:"name"`
+	Access string `json:"access"`
+	URL    string `json:"url"`
+	Ref    string `json:"ref,omitempty"`
+	Depth  int    `json:"depth,omitempty"`
+	// Secret names the secret holding the token that authenticates the
+	// clone.
+	Secret string `json:"secret,omitempty"`
+	// Path is where the run finds it: relative to the workspace when the
+	// command clones it, or the mount path to attach it at.
+	Path string `json:"path"`
+	// Attach is the session resource to attach it as, on hosts that clone
+	// it themselves: github_repository. Absent when the command clones it.
+	Attach string `json:"attach,omitempty"`
+}
+
+// githubRepository is the Managed Agents session resource for a GitHub
+// repository.
+const githubRepository = "github_repository"
+
+// repositories describes an agent's repositories as its provider gets
+// them.
+func repositories(d *resolve.Agent) []repositoryStatus {
+	repos := d.Repositories()
+	if len(repos) == 0 {
+		return nil
+	}
+	attach := false
+	if p, err := providers.New(d.Provider, provider.Options{Environment: d.Environment}); err == nil {
+		attach = p.Capabilities(d.Placement).Repositories == provider.RepositoriesGitHub
+	}
+	out := make([]repositoryStatus, len(repos))
+	for i, r := range repos {
+		out[i] = repositoryStatus{
+			Name: r.Name, Access: string(r.Access), URL: r.URL, Ref: r.Ref, Depth: r.Depth,
+			Secret: r.SecretRef, Path: "repositories/" + r.Name,
+		}
+		if attach {
+			out[i].Attach, out[i].Path = githubRepository, "/workspace/repositories/"+r.Name
+		}
+	}
+	return out
 }
 
 // configStatus compares an agent's state with the configuration.
@@ -291,6 +343,9 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 				as.Vaults = append(as.Vaults, vaultRef{Name: name, HostID: v.Binding.HostID})
 			}
 		}
+		if d != nil {
+			as.Repositories = repositories(d)
+		}
 		es.Agents = append(es.Agents, as)
 	}
 	return es, nil
@@ -405,6 +460,7 @@ func writeInvocation(b *strings.Builder, env string, as agentState) {
 			}
 			fmt.Fprintf(b, "  vaults: attach %s when starting a session\n", strings.Join(refs, ", "))
 		}
+		writeRepositories(b, as.Repositories)
 		return
 	}
 	run := as.Run
@@ -449,6 +505,27 @@ func writeInvocation(b *strings.Builder, env string, as agentState) {
 	}
 	if inv.Result != "" {
 		fmt.Fprintf(b, "  prints: %s\n", inv.Result)
+	}
+	writeRepositories(b, as.Repositories)
+}
+
+// writeRepositories says, for each repository, where it comes from and
+// where the run finds it.
+func writeRepositories(b *strings.Builder, repos []repositoryStatus) {
+	for _, r := range repos {
+		from := r.URL
+		if r.Ref != "" {
+			from += " at " + r.Ref
+		}
+		var token string
+		if r.Secret != "" {
+			token = ", with the token in " + r.Secret
+		}
+		if r.Attach != "" {
+			fmt.Fprintf(b, "  repository %s: attach %s as a %s resource at %s when starting a session%s (%s)\n", r.Name, from, r.Attach, r.Path, token, r.Access)
+			continue
+		}
+		fmt.Fprintf(b, "  repository %s: cloned from %s into %s%s (%s)\n", r.Name, from, r.Path, token, r.Access)
 	}
 }
 

@@ -109,9 +109,13 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   placement == PlacementDocker,
 		LocalWorkspace: true,
-		Isolation:      isolation(placement),
-		OutputSchema:   true,
-		Destroy:        provider.DestroyDelete,
+		// The launcher clones; on process, srt keeps a read-only clone
+		// unwritten, which Validate requires.
+		Repositories:         provider.RepositoriesClone,
+		ReadOnlyRepositories: placement == process.Placement,
+		Isolation:            isolation(placement),
+		OutputSchema:         true,
+		Destroy:              provider.DestroyDelete,
 	}
 }
 
@@ -258,16 +262,13 @@ func (b *bundle) runtime() string {
 
 // argv is the command that starts the launcher. It runs in the workspace
 // the agent works on, which is the current directory, so the bundle's
-// paths are absolute.
+// paths are absolute. Under srt the launcher clones the agent's
+// repositories first, then starts srt itself.
 func (p *Provider) argv(dir string, b *bundle) []string {
-	argv := []string{"node", filepath.Join(dir, "launch.mjs")}
 	if b.Runtime == RuntimePython {
-		argv = []string{venvPython(p.host.GOOS(), dir), filepath.Join(dir, "launch.py")}
+		return []string{venvPython(p.host.GOOS(), dir), filepath.Join(dir, "launch.py")}
 	}
-	if b.SRT {
-		argv = process.SRTArgv(filepath.Join(dir, process.SRTSettingsFile), argv)
-	}
-	return argv
+	return []string{"node", filepath.Join(dir, "launch.mjs")}
 }
 
 // ResultFormat names what the launcher prints: one JSON object with the

@@ -299,16 +299,24 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 }
 
 // desiredVaults collects the Vaults the environment's agents reference,
-// with the McpServers their credentials are for.
+// with the McpServers their credentials are for. A credential for a git
+// host authenticates clones, which the host's vaults have no part in, so
+// it's left out, and so is a vault that holds nothing else.
 func (e *Engine) desiredVaults(agents []resolve.Agent, env *provider.Environment, placement string) []*provider.Vault {
 	byName := map[string]*provider.Vault{}
 	for i := range agents {
 		a := &agents[i]
 		for name, rv := range a.Definition.Vaults {
+			if !slices.ContainsFunc(rv.Credentials, func(c resolve.Credential) bool { return c.GitHost == "" }) {
+				continue
+			}
 			v := byName[name]
 			if v == nil {
 				v = &provider.Vault{Name: name, Env: env, Placement: placement}
 				for _, c := range rv.Credentials { // sorted by resolve
+					if c.GitHost != "" {
+						continue
+					}
 					vc := provider.VaultCredential{Credential: c}
 					if r := e.Set.Lookup(v1alpha1.KindMcpServer, c.MCPServer); c.MCPServer != "" && r != nil {
 						spec := r.McpServer().Spec

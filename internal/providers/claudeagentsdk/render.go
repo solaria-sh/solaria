@@ -33,13 +33,14 @@ type bundle struct {
 	// Solaria's launcher are in it as well as the definition. Its first 12
 	// hex digits name the bundle's directory.
 	BuildDigest string
-	// Secrets are the names of the secrets a run is given.
+	// Secrets are the names of the secrets the launcher reads: those the
+	// run is given, and those that authenticate its clones.
 	Secrets []string
 	// Dotenv is the absolute path of the dotenv file the secrets come
 	// from, when the environment has one.
 	Dotenv string
-	// SRT means runs start inside srt, with the bundle's srt-settings.json
-	// (sandbox.isolation: srt, ADR 0017).
+	// SRT means the launcher starts the run inside srt, with the bundle's
+	// srt-settings.json (sandbox.isolation: srt, ADR 0017).
 	SRT bool
 	// Docker is set on the docker placement.
 	Docker *dockerParts
@@ -129,8 +130,11 @@ type bundleFile struct {
 	// Workspace is the absolute path of the folder the environment binds
 	// as the workspace, on process; the run works on it wherever it
 	// starts.
-	Workspace string     `json:"workspace,omitempty"`
-	Options   sdkOptions `json:"options"`
+	Workspace string `json:"workspace,omitempty"`
+	// SRT is the srt settings file, relative to the bundle, when the
+	// launcher starts the run inside srt.
+	SRT     string     `json:"srt,omitempty"`
+	Options sdkOptions `json:"options"`
 }
 
 type agentInfo struct {
@@ -227,6 +231,9 @@ func (r *renderer) render() error {
 	if err := r.plugin(); err != nil {
 		return err
 	}
+	if !r.docker() && process.Isolated(a) {
+		bf.SRT = process.SRTSettingsFile
+	}
 	b.Files[optionsFile] = marshal(bf)
 
 	needs := process.Needs{
@@ -264,7 +271,7 @@ func (r *renderer) render() error {
 	// The caller supplies secrets by their own names, including those a
 	// Vault credential gives the run under another (iso.SecretEnv); the
 	// prelude renames them.
-	b.Secrets = a.SecretRefs()
+	b.Secrets = slices.Compact(slices.Sorted(slices.Values(append(a.SecretRefs(), a.CloneSecretRefs()...))))
 	b.Files[isolationFile] = iso.JSON()
 
 	switch b.Runtime {
@@ -424,6 +431,12 @@ func (r *renderer) options() sdkOptions {
 		// tools there too makes the agent's attempts fail plainly. The run
 		// works in its workspace, so ./** is the workspace.
 		o.DisallowedTools = append(o.DisallowedTools, "Edit(./**)")
+	}
+	for _, repo := range d.Repositories {
+		if repo.Access == v1alpha1.AccessReadOnly {
+			// The same for a read-only clone, which srt keeps unwritten.
+			o.DisallowedTools = append(o.DisallowedTools, "Edit(./repositories/"+repo.Name+"/**)")
+		}
 	}
 	asked := map[string]bool{}
 	for _, t := range d.Permissions.Ask {

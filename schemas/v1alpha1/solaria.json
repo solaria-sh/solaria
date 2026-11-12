@@ -136,6 +136,13 @@
           "$ref": "#/$defs/WorkspaceSpec",
           "description": "The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace."
         },
+        "repositories": {
+          "items": {
+            "$ref": "#/$defs/RepositoryNeed"
+          },
+          "type": "array",
+          "description": "Git repositories the agent works on. Each environment binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/\u003cname\u003e in the workspace before a run."
+        },
         "providers": {
           "additionalProperties": {
             "type": "object"
@@ -170,7 +177,7 @@
         },
         "for": {
           "$ref": "#/$defs/CredentialTarget",
-          "description": "What the credential unlocks: an MCP server, or an environment variable of the run."
+          "description": "What the credential unlocks: an MCP server, an environment variable of the run, or clones from a git host."
         }
       },
       "additionalProperties": false,
@@ -181,6 +188,27 @@
         "for"
       ],
       "description": "One secret and what it unlocks."
+    },
+    "CredentialRef": {
+      "properties": {
+        "vault": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a Vault resource."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of a credential in that vault."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "vault",
+        "name"
+      ],
+      "description": "Names one credential of a Vault."
     },
     "CredentialTarget": {
       "oneOf": [
@@ -193,6 +221,11 @@
           "required": [
             "env"
           ]
+        },
+        {
+          "required": [
+            "gitHost"
+          ]
         }
       ],
       "properties": {
@@ -204,6 +237,12 @@
           "type": "string",
           "pattern": "^[A-Z_][A-Z0-9_]*$",
           "description": "An environment variable the run gets, set to the secret's value."
+        },
+        "gitHost": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$",
+          "description": "A git host, such as dev.azure.com, that the secret, a token, authenticates clones from over HTTPS. The token is used to clone the repositories bound to it, and never reaches the run."
         }
       },
       "additionalProperties": false,
@@ -303,6 +342,16 @@
         "workspace": {
           "$ref": "#/$defs/WorkspaceInput",
           "description": "The folder agents work on."
+        },
+        "repositories": {
+          "additionalProperties": {
+            "$ref": "#/$defs/RepositoryInput"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Where each repository the agents declare comes from, by name."
         }
       },
       "additionalProperties": false,
@@ -878,6 +927,59 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Narrows how the agent may use its tools."
+    },
+    "RepositoryInput": {
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "HTTPS URL of the git repository, without a user name or password in it: the credential authenticates the clone."
+        },
+        "ref": {
+          "type": "string",
+          "description": "Branch or tag to check out. When omitted, the remote's default branch."
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of commits to clone, for a shallow clone. When omitted, the whole history."
+        },
+        "credential": {
+          "$ref": "#/$defs/CredentialRef",
+          "description": "The Vault credential that authenticates the clone. It must be for the URL's host (for.gitHost), and in a vault each agent using the repository lists. Omit it for a public repository."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "description": "Says where a repository comes from."
+    },
+    "RepositoryNeed": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Name the environment binds the repository under, and its folder in the workspace: repositories/\u003cname\u003e."
+        },
+        "access": {
+          "type": "string",
+          "enum": [
+            "read-write",
+            "read-only"
+          ],
+          "description": "read-only or read-write: whether the agent may change its clone. A placement that can't keep a clone read-only fails plan rather than ignore it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "access"
+      ],
+      "description": "A repository an agent works on, and what it may do to its copy."
     },
     "ResourcesSpec": {
       "properties": {
