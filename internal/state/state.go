@@ -5,6 +5,7 @@ package state
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -203,6 +204,38 @@ func (e *Entry) Revision() Revision {
 // ErrStale means a write was based on an outdated or foreign state.
 var ErrStale = errors.New("state changed since it was read")
 
+// checkWrite refuses to write s over current (nil when there is no state)
+// unless s was read from it: same lineage and serial. where says where
+// current is kept, such as "on disk".
+func checkWrite(current, s *State, where string) error {
+	if current != nil {
+		if current.Lineage != s.Lineage {
+			return fmt.Errorf("%w: lineage %s %s, %s in this run (another state was put in its place)", ErrStale, current.Lineage, where, s.Lineage)
+		}
+		if current.Serial != s.Serial {
+			return fmt.Errorf("%w: serial %d %s, this run read %d", ErrStale, current.Serial, where, s.Serial)
+		}
+	} else if s.Serial != 0 {
+		return fmt.Errorf("%w: the state was removed after serial %d", ErrStale, s.Serial)
+	}
+	return nil
+}
+
+// decode parses a state read from where, a path or URL for messages.
+func decode(b []byte, where string) (*State, error) {
+	var s State
+	if err := json.Unmarshal(b, &s); err != nil {
+		return nil, fmt.Errorf("read state %s: %w", where, err)
+	}
+	if s.Format != Format {
+		return nil, fmt.Errorf("state %s has format %q; this version of solaria reads %s", where, s.Format, Format)
+	}
+	if s.Agents == nil {
+		s.Agents = map[string]*Entry{}
+	}
+	return &s, nil
+}
+
 // LockedError means another process holds an environment's lock.
 type LockedError struct {
 	Environment string
@@ -223,8 +256,8 @@ type LockInfo struct {
 	Created   time.Time `json:"created"`
 }
 
-// Backend stores states. The local backend is the only one in v0; remote
-// backends with real locking come later.
+// Backend stores states: Local in a directory, AzureBlob in an Azure
+// Storage container (ADR 0009).
 type Backend interface {
 	// Lock takes the environment's lock and returns its nonce.
 	Lock(env string, info LockInfo) (nonce string, err error)

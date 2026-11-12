@@ -111,17 +111,7 @@ func (l *Local) Read(env string) (*State, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read state: %w", err)
 	}
-	var s State
-	if err := json.Unmarshal(b, &s); err != nil {
-		return nil, fmt.Errorf("read state %s: %w", l.statePath(env), err)
-	}
-	if s.Format != Format {
-		return nil, fmt.Errorf("state %s has format %q; this version of solaria reads %s", l.statePath(env), s.Format, Format)
-	}
-	if s.Agents == nil {
-		s.Agents = map[string]*Entry{}
-	}
-	return &s, nil
+	return decode(b, l.statePath(env))
 }
 
 // Write checks lineage and serial against the file, then replaces it
@@ -131,15 +121,8 @@ func (l *Local) Write(s *State) error {
 	if err != nil {
 		return err
 	}
-	if current != nil {
-		if current.Lineage != s.Lineage {
-			return fmt.Errorf("%w: lineage %s on disk, %s in this run (another state was put in its place)", ErrStale, current.Lineage, s.Lineage)
-		}
-		if current.Serial != s.Serial {
-			return fmt.Errorf("%w: serial %d on disk, this run read %d", ErrStale, current.Serial, s.Serial)
-		}
-	} else if s.Serial != 0 {
-		return fmt.Errorf("%w: the state file was removed after serial %d", ErrStale, s.Serial)
+	if err := checkWrite(current, s, "on disk"); err != nil {
+		return err
 	}
 	if err := l.ensureDir(); err != nil {
 		return fmt.Errorf("create state directory: %w", err)

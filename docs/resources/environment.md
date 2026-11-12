@@ -60,6 +60,11 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.inputs.repositories.<name>.credential` | object |  | The Vault credential that authenticates the clone. It must be for the URL's host (for.gitHost), and in a vault each agent using the repository lists. Omit it for a public repository. |
 | `spec.inputs.repositories.<name>.credential.vault` | string | yes | Name of a Vault resource. |
 | `spec.inputs.repositories.<name>.credential.name` | string | yes | Name of a credential in that vault. |
+| `spec.state` | object |  | Where Solaria keeps this environment's state: what it deployed, and the lock that stops two applies at once. When omitted, state is a local file under .solaria/state, which suits personal environments; a shared environment needs state everyone who applies it can reach. |
+| `spec.state.azureBlob` | object | yes | Keeps the state in Azure Blob Storage, as one blob per environment holding the same JSON as a local state file. The lock is a lease on that blob, renewed while a command runs, so a stopped run's lock expires within a minute. Credentials come from the Azure credential chain (environment variables, workload identity, managed identity, or an Azure CLI login), never from project files; they need read and write access to blobs in the container, such as the Storage Blob Data Contributor role. |
+| `spec.state.azureBlob.account` | string | yes | The storage account's name, as in <account>.blob.core.windows.net. Matches `^[a-z0-9]+$`. |
+| `spec.state.azureBlob.container` | string | yes | The container that holds the state. Solaria doesn't create it. Matches `^[a-z0-9](-?[a-z0-9])+$`. |
+| `spec.state.azureBlob.prefix` | string |  | A folder in the container for this project's state, such as solaria/reviewers, so several projects can share a container. The blob is <prefix>/<environment>.json, or <environment>.json without one. Matches `^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$`. |
 | `spec.overrides` | map of objects |  | Changes to agents in this environment only, keyed by agent name. |
 | `spec.overrides.<name>.model` | object |  | Model fields to replace. |
 | `spec.overrides.<name>.model.preferred` | string |  | Preferred model, as provider:model. Matches `^[a-z][a-z0-9-]*:[^ ]+$`. |

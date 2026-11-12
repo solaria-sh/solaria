@@ -1,0 +1,64 @@
+# An Environment can keep its state in Azure Blob Storage (ADR 0009). The
+# backend itself is tested against a fake API in internal/state; this checks
+# the configuration, without contacting Azure.
+exec solaria validate solaria.yaml
+! stderr .
+
+# Names Azure would reject fail before any call.
+! exec solaria validate bad
+stdout '^bad/solaria.yaml:\d+:\d+: error: spec.state.azureBlob.account: "Agent_State" is not a storage account name: use 3 to 24 lowercase letters and digits$'
+stdout '^bad/solaria.yaml:\d+:\d+: error: spec.state.azureBlob.container: "x" is not a container name: '
+stdout '^bad/solaria.yaml:\d+:\d+: error: spec.state.azureBlob.prefix: "/abs/../x" is not a folder such as solaria/reviewers: '
+stdout '^bad/solaria.yaml:\d+:\d+: error: spec.state: missing required field "azureBlob"$'
+
+# force-unlock needs to know where the state is, so an environment that
+# doesn't load stops it, rather than unlocking local state by mistake.
+! exec solaria force-unlock -e azure 11111111-2222-4333-8444-555555555555 bad
+stderr '^Error: environment azure doesn''t load, so where its state is kept is unknown; run solaria validate$'
+
+# Environments without spec.state keep local state, as before.
+! exec solaria force-unlock -e local 11111111-2222-4333-8444-555555555555
+stderr '^Error: environment "local" is not locked$'
+
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: writer}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-haiku-5-5"}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: shared}
+spec:
+  provider: stub
+  placement: file
+  state:
+    azureBlob: {account: agentstate, container: solaria-state, prefix: teams/platform}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec:
+  provider: stub
+  placement: file
+-- role.md --
+You write.
+-- bad/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: azure}
+spec:
+  provider: stub
+  placement: file
+  state:
+    azureBlob: {account: Agent_State, container: x, prefix: /abs/../x}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: empty}
+spec:
+  provider: stub
+  placement: file
+  state: {}

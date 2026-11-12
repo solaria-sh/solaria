@@ -6,9 +6,11 @@ import (
 	"io"
 	"os"
 	"os/user"
+	"slices"
 
 	"github.com/spf13/cobra"
 
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/diag"
 	"github.com/solaria-sh/solaria/internal/engine"
@@ -77,10 +79,14 @@ func newEngine(cmd *cobra.Command, set *config.Set, f *projectFlags) (*engine.En
 			return nil, err
 		}
 	}
+	backend, err := stateBackend(set, f.env, f.stateDir)
+	if err != nil {
+		return nil, err
+	}
 	return &engine.Engine{
 		Log:          cmd.ErrOrStderr(),
 		Set:          set,
-		Backend:      &state.Local{Dir: f.stateDir},
+		Backend:      backend,
 		NewProvider:  providers.New,
 		WorkDir:      ".",
 		Source:       gitinfo.Source("."),
@@ -88,6 +94,63 @@ func newEngine(cmd *cobra.Command, set *config.Set, f *projectFlags) (*engine.En
 		LockFile:     lock,
 		LockFilePath: f.lockFile,
 	}, nil
+}
+
+// stateBackend returns where env's state is kept: the backend its
+// Environment names in spec.state (ADR 0009), or local files in stateDir.
+// An environment that has left the configuration has local state.
+func stateBackend(set *config.Set, env, stateDir string) (state.Backend, error) {
+	if a := remoteState(set, env); a != nil {
+		return state.NewAzureBlob(state.AzureBlobConfig{Account: a.Account, Container: a.Container, Prefix: a.Prefix})
+	}
+	return &state.Local{Dir: stateDir}, nil
+}
+
+// remoteState returns the Azure Blob container env's state is kept in, or
+// nil for local state.
+func remoteState(set *config.Set, env string) *v1alpha1.AzureBlobState {
+	if set == nil {
+		return nil
+	}
+	r := set.Lookup(v1alpha1.KindEnvironment, env)
+	if r == nil || r.Environment().Spec.State == nil {
+		return nil
+	}
+	return r.Environment().Spec.State.AzureBlob
+}
+
+// environmentsWithState lists the environments that have state: those with
+// local state files, except environments the configuration keeps
+// elsewhere, and those whose remote state exists.
+func environmentsWithState(set *config.Set, stateDir string) ([]string, error) {
+	local, err := (&state.Local{Dir: stateDir}).Environments()
+	if err != nil {
+		return nil, err
+	}
+	var envs []string
+	for _, env := range local {
+		if remoteState(set, env) == nil {
+			envs = append(envs, env)
+		}
+	}
+	for _, r := range set.Kind(v1alpha1.KindEnvironment) {
+		if remoteState(set, r.Name) == nil {
+			continue
+		}
+		backend, err := stateBackend(set, r.Name, stateDir)
+		if err != nil {
+			return nil, err
+		}
+		st, err := backend.Read(r.Name)
+		if err != nil {
+			return nil, err
+		}
+		if st != nil {
+			envs = append(envs, r.Name)
+		}
+	}
+	slices.Sort(envs)
+	return envs, nil
 }
 
 func whoami() string {

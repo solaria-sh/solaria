@@ -53,6 +53,36 @@
       ],
       "description": "Selects agents."
     },
+    "AzureBlobState": {
+      "properties": {
+        "account": {
+          "type": "string",
+          "maxLength": 24,
+          "minLength": 3,
+          "pattern": "^[a-z0-9]+$",
+          "description": "The storage account's name, as in \u003caccount\u003e.blob.core.windows.net."
+        },
+        "container": {
+          "type": "string",
+          "maxLength": 63,
+          "minLength": 3,
+          "pattern": "^[a-z0-9](-?[a-z0-9])+$",
+          "description": "The container that holds the state. Solaria doesn't create it."
+        },
+        "prefix": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$",
+          "description": "A folder in the container for this project's state, such as solaria/reviewers, so several projects can share a container. The blob is \u003cprefix\u003e/\u003cenvironment\u003e.json, or \u003cenvironment\u003e.json without one."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "account",
+        "container"
+      ],
+      "description": "A container in an Azure storage account that holds state blobs."
+    },
     "CredentialRef": {
       "properties": {
         "vault": {
@@ -105,6 +135,10 @@
         "inputs": {
           "$ref": "#/$defs/InputsSpec",
           "description": "Where agents' inputs come from in this environment."
+        },
+        "state": {
+          "$ref": "#/$defs/StateSpec",
+          "description": "Where Solaria keeps this environment's state: what it deployed, and the lock that stops two applies at once. When omitted, state is a local file under .solaria/state, which suits personal environments; a shared environment needs state everyone who applies it can reach."
         },
         "overrides": {
           "additionalProperties": {
@@ -515,6 +549,20 @@
         "source"
       ],
       "description": "Says where secret values come from."
+    },
+    "StateSpec": {
+      "properties": {
+        "azureBlob": {
+          "$ref": "#/$defs/AzureBlobState",
+          "description": "Keeps the state in Azure Blob Storage, as one blob per environment holding the same JSON as a local state file. The lock is a lease on that blob, renewed while a command runs, so a stopped run's lock expires within a minute. Credentials come from the Azure credential chain (environment variables, workload identity, managed identity, or an Azure CLI login), never from project files; they need read and write access to blobs in the container, such as the Storage Blob Data Contributor role."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "azureBlob"
+      ],
+      "description": "Says where an environment's state is kept. It describes where Solaria works, not the agents, so it isn't part of any digest."
     },
     "TelemetrySpec": {
       "properties": {

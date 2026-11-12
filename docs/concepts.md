@@ -248,9 +248,29 @@ The **host binding** maps the logical ID to the host's own identity: an image ta
 
 ## State
 
-`.solaria/state/<environment>.json` records, for each agent: its provider and placement, both digests, the host binding, a `remoteHash` of the host object, the git commit it was applied from, when and by whom, and a history of earlier bindings. Environments whose host keeps a shared object of its own, such as a Managed Agents environment, also have a `host` entry (ADR 0012), and host vaults have `vaults` entries (ADR 0016).
+Each environment's state records, for each agent: its provider and placement, both digests, the host binding, a `remoteHash` of the host object, the git commit it was applied from, when and by whom, and a history of earlier bindings. Environments whose host keeps a shared object of its own, such as a Managed Agents environment, also have a `host` entry (ADR 0012), and host vaults have `vaults` entries (ADR 0016).
 
-State never holds secret values, only the names of secrets. It's gitignored, and a state lock (`.solaria/state/<environment>.lock`) stops two applies from running at once. Each environment has its own state, so give every developer their own environments, with a name prefix on host objects.
+State never holds secret values, only the names of secrets. Each environment has its own state, so give every developer their own environments, with a name prefix on host objects.
+
+By default state is a local file, `.solaria/state/<environment>.json`. It's gitignored, and a lock file next to it (`<environment>.lock`) stops two applies on the same machine from running at once. That suits personal environments. A shared environment, such as one a pipeline applies, keeps its state where everyone who applies it can reach it, with `spec.state` on the Environment:
+
+```yaml
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: production}
+spec:
+  provider: managed-agents
+  placement: cloud
+  state:
+    azureBlob:
+      account: agentstate      # <account>.blob.core.windows.net
+      container: solaria         # must exist; Solaria doesn't create it
+      prefix: teams/platform      # optional: the blob is teams/platform/production.json
+```
+
+With `azureBlob`, the state is a blob holding the same JSON as the local file, and the lock is a lease on that blob. A command that writes takes the lease and renews it until it finishes, so a run that stops without releasing it frees the environment within a minute; `solaria force-unlock` breaks it sooner. Credentials come from the Azure credential chain, never from project files: environment variables (`AZURE_CLIENT_ID` and friends), workload identity, a managed identity, or an `az login`. In an Azure DevOps pipeline, the `AzureCLI@2` task provides the login. The identity needs read and write access to blobs in the container, such as the Storage Blob Data Contributor role.
+
+`spec.state` isn't part of any digest. Commands find an environment's state through its Environment, so keep the Environment in the configuration until you've run `destroy` on it; an environment that has left the configuration is looked for in local state.
 
 ## The workflow
 
