@@ -55,6 +55,13 @@
           "$ref": "#/$defs/WorkspaceSpec",
           "description": "The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace."
         },
+        "repositories": {
+          "items": {
+            "$ref": "#/$defs/RepositoryNeed"
+          },
+          "type": "array",
+          "description": "Git repositories the agent works on. Each environment binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/\u003cname\u003e in the workspace before a run."
+        },
         "providers": {
           "additionalProperties": {
             "type": "object"
@@ -230,6 +237,31 @@
       "additionalProperties": false,
       "type": "object",
       "description": "Narrows how the agent may use its tools."
+    },
+    "RepositoryNeed": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Name the environment binds the repository under, and its folder in the workspace: repositories/\u003cname\u003e."
+        },
+        "access": {
+          "type": "string",
+          "enum": [
+            "read-write",
+            "read-only"
+          ],
+          "description": "read-only or read-write: whether the agent may change its clone. A placement that can't keep a clone read-only fails plan rather than ignore it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "access"
+      ],
+      "description": "A repository an agent works on, and what it may do to its copy."
     },
     "ToolsSpec": {
       "properties": {

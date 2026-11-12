@@ -84,6 +84,8 @@ var patterns = map[string]string{
 	"/$defs/NetworkSpec/properties/allow/items/pattern":      "is not a host name, such as example.com or *.example.com",
 	"/$defs/EnvironmentSpec/properties/provider/pattern":     "is not a valid provider name",
 	"/$defs/EnvironmentSpec/properties/placement/pattern":    "is not a valid placement name",
+	"/$defs/RepositoryNeed/properties/name/pattern":          "is not a valid name: use lowercase letters, digits and hyphens, starting and ending with a letter or digit",
+	"/$defs/CredentialTarget/properties/gitHost/pattern":     "is not a host name, such as dev.azure.com",
 }
 
 func keywordLocation(e *jsonschema.ValidationError) string {

@@ -94,6 +94,7 @@
   "timeout": "15m0s",
   "timeoutMs": 900000,
   "systemPromptFile": "system-prompt.md",
+  "srt": "srt-settings.json",
   "options": {
     "model": "claude-sonnet-5-5",
     "fallbackModel": "claude-haiku-5-5",

@@ -46,6 +46,7 @@ Agents and the environment are named after their Solaria resources, behind the o
 | `limits` | not enforced; plan warns. Session budgets cap cost. |
 | `output.schema` | not supported; plan fails |
 | `workspace.access` | `read-only` fails plan: a session's files belong to the host, which can't keep them from being written. An environment that binds `inputs.workspace.path` fails plan too, since runs don't work on a folder on your machine. |
+| `repositories` | On `cloud`, each GitHub repository is a `github_repository` resource the caller attaches when starting a session: `status -a` shows its URL, mount path (`/workspace/repositories/<name>`) and the secret holding its token, its `authorization_token`. `ref` becomes its branch checkout, and `depth` is ignored with a warning. A repository on another git host fails plan, and so does a read-only one: the session can write its clone. On `self-hosted`, environments take no resources, so repositories fail plan. |
 | `providers.managed-agents` on the Agent | sent in the request as they are, for fields Solaria has no word for, such as `multiagent`. Fields Solaria sets itself fail validation. |
 
 Managed Agents agents hold no credentials, and the host connects to MCP servers without custom headers: a session gets credentials from the [vaults](https://platform.claude.com/docs/en/managed-agents/vaults) attached when it starts. An agent whose MCP servers send a secret header and that lists no `vaults` gets a warning. A header with a plain value is left out, with a warning.
@@ -58,6 +59,7 @@ Apply keeps one host vault per [Vault](../concepts.md#credentials-and-vaults) an
 |---|---|
 | `for: {mcpServer: …}` | a static bearer token for the server's remote URL. The host sends `Authorization: Bearer <token>`, so the server must take the secret in its `Authorization` header, or plan fails. A leading `Bearer ` in the value is dropped, so one value works here and where a launcher sends the header as it is. A secret only a package uses isn't stored, with a warning: Managed Agents runs no MCP packages. |
 | `for: {env: NAME}` | an environment variable `NAME`. The sandbox holds a placeholder, and the host puts the value into outbound requests to any host the environment's `sandbox.network` allows. |
+| `for: {gitHost: …}` | nothing: it authenticates a repository's clone, and the caller passes its value as the `github_repository` resource's token. |
 
 Sessions attach the vaults when they start; Solaria doesn't start sessions. `solaria status -e <environment> -a <agent>` lists the vault IDs, and `status -o json` has them as each agent's `vaults`.
 

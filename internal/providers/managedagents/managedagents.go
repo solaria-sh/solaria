@@ -126,9 +126,20 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		ModelProviders: []string{"anthropic"},
 		MCPTransports:  []string{provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   placement == PlacementSelfHosted,
+		Repositories:   repositories(placement),
 		Approvals:      true,
 		Destroy:        provider.DestroyArchive,
 	}
+}
+
+// repositories is how a placement gets an agent's repositories: cloud
+// sessions attach GitHub repositories; self-hosted environments take no
+// resources, and the worker doesn't clone.
+func repositories(placement string) string {
+	if placement == PlacementCloud {
+		return provider.RepositoriesGitHub
+	}
+	return ""
 }
 
 // Validate reports what the host can't take from an agent. Environment-wide

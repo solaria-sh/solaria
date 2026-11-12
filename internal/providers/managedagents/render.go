@@ -282,6 +282,11 @@ func validateAgent(a *resolve.Agent, s settings, where string) diag.List {
 		diags = append(diags, diag.Warnf("", diag.Pos{}, "%s: %s", where, fmt.Sprintf(format, args...)))
 	}
 	d := a.Definition
+	for _, r := range a.Repositories() {
+		if r.Depth > 0 {
+			warnf("repository %s: depth is ignored; a session clones the repository itself", r.Name)
+		}
+	}
 	if n := utf8.RuneCountInString(s.namePrefix + a.Name); n > maxName {
 		errorf("the agent's name is %d characters with its prefix; the host takes %d", n, maxName)
 	}

@@ -43,6 +43,9 @@ var kinds = []kindSchema{
 	{v1alpha1.KindVault, &v1alpha1.Vault{}},
 }
 
+// hostPattern matches a host name, such as dev.azure.com.
+const hostPattern = `^[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$`
+
 // Generate returns the schema files by name. It reads doc comments from the
 // Go sources, so it must run with the module root as working directory.
 func Generate() (map[string][]byte, error) {
@@ -186,16 +189,26 @@ func extend(s *jsonschema.Schema, kind string) {
 			p.PropertyNames = &jsonschema.Schema{Pattern: namePattern}
 		}
 	}
+	if d := s.Definitions["InputsSpec"]; d != nil {
+		if p, ok := d.Properties.Get("repositories"); ok {
+			p.PropertyNames = &jsonschema.Schema{Pattern: namePattern}
+		}
+	}
+	if d := s.Definitions["CredentialTarget"]; d != nil {
+		if p, ok := d.Properties.Get("gitHost"); ok {
+			p.Pattern = hostPattern
+		}
+	}
 	if d := s.Definitions["NetworkSpec"]; d != nil {
 		if p, ok := d.Properties.Get("allow"); ok {
-			p.Items = &jsonschema.Schema{Type: "string", Pattern: `^(\*\.)?[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$`}
+			p.Items = &jsonschema.Schema{Type: "string", Pattern: `^(\*\.)?` + hostPattern[1:]}
 		}
 	}
 	if d := s.Definitions["McpServerSpec"]; d != nil {
 		d.AnyOf = []*jsonschema.Schema{{Required: []string{"packages"}}, {Required: []string{"remotes"}}}
 	}
 	if d := s.Definitions["CredentialTarget"]; d != nil {
-		d.OneOf = []*jsonschema.Schema{{Required: []string{"mcpServer"}}, {Required: []string{"env"}}}
+		d.OneOf = []*jsonschema.Schema{{Required: []string{"mcpServer"}}, {Required: []string{"env"}}, {Required: []string{"gitHost"}}}
 	}
 	if d := s.Definitions["KeyValue"]; d != nil {
 		d.OneOf = []*jsonschema.Schema{{Required: []string{"value"}}, {Required: []string{"secretRef"}}}

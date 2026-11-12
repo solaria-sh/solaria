@@ -44,7 +44,7 @@ spec:
 ```
 
 - `secretRef` names a value in the environment's secret source, as McpServer headers do today. Values always come from there; a Vault never holds one.
-- `for` takes exactly one target. An `mcpServer` target must be a server that uses this `secretRef`, in a remote's header or a package's environment variable; the server reads it under the secret's own name. An `env` target sets the named variable in the run from the secret, which may be named differently.
+- `for` takes exactly one target. An `mcpServer` target must be a server that uses this `secretRef`, in a remote's header or a package's environment variable; the server reads it under the secret's own name. An `env` target sets the named variable in the run from the secret, which may be named differently. A `gitHost` target (ADR 0017) authenticates clones of repositories on that host, and never reaches the run; Managed Agents vaults don't hold it.
 
 **References.** An agent lists its vaults in `spec.vaults: [{ref: tracker}]`, the same `ref:` shape as everything else (ADR 0004). An unresolved reference fails `validate`. The definition digest covers each referenced vault's name and its credentials' names, secret names and targets, never values, so granting or removing a credential changes `resolvedDigest` and shows in `solaria.lock` (ADR 0013). An agent without vaults has no `vaults` field in its definition, so adding the kind changes no existing digest (ADR 0008).
 
@@ -93,3 +93,4 @@ spec:
 - [ADR 0009](0009-state.md): no secrets in state.
 - [ADR 0014](0014-process-placement-and-claude-agent-sdk.md): the launcher's allowlist and the invocation.
 - [Managed Agents overview](https://platform.claude.com/docs/en/managed-agents/overview), for vaults attached when a session starts.
+- [ADR 0017](0017-run-inputs.md): the `gitHost` target, for repository clones.

@@ -66,9 +66,25 @@ type AgentSpec struct {
 	// The folder the agent works on, and whether it may change it. Each
 	// environment says which folder, in spec.inputs.workspace.
 	Workspace *WorkspaceSpec `json:"workspace,omitempty"`
+	// Git repositories the agent works on. Each environment binds every
+	// name to a URL in spec.inputs.repositories, and the repository is
+	// cloned into repositories/<name> in the workspace before a run.
+	Repositories []RepositoryNeed `json:"repositories,omitempty"`
 	// Fields passed unchanged to one provider, keyed by provider name. Using
 	// them makes the agent less portable, and validate reports it.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
+}
+
+// RepositoryNeed is a repository an agent works on, and what it may do to
+// its copy.
+type RepositoryNeed struct {
+	// Name the environment binds the repository under, and its folder in
+	// the workspace: repositories/<name>.
+	Name string `json:"name" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$,maxLength=63"`
+	// read-only or read-write: whether the agent may change its clone. A
+	// placement that can't keep a clone read-only fails plan rather than
+	// ignore it.
+	Access Access `json:"access" jsonschema:"required"`
 }
 
 // WorkspaceSpec is what an agent may do to its workspace.
@@ -281,6 +297,32 @@ type LabelSelector struct {
 type InputsSpec struct {
 	// The folder agents work on.
 	Workspace *WorkspaceInput `json:"workspace,omitempty"`
+	// Where each repository the agents declare comes from, by name.
+	Repositories map[string]RepositoryInput `json:"repositories,omitempty"`
+}
+
+// RepositoryInput says where a repository comes from.
+type RepositoryInput struct {
+	// HTTPS URL of the git repository, without a user name or password in
+	// it: the credential authenticates the clone.
+	URL string `json:"url" jsonschema:"required,minLength=1"`
+	// Branch or tag to check out. When omitted, the remote's default branch.
+	Ref string `json:"ref,omitempty"`
+	// Number of commits to clone, for a shallow clone. When omitted, the
+	// whole history.
+	Depth int `json:"depth,omitempty" jsonschema:"minimum=1"`
+	// The Vault credential that authenticates the clone. It must be for the
+	// URL's host (for.gitHost), and in a vault each agent using the
+	// repository lists. Omit it for a public repository.
+	Credential *CredentialRef `json:"credential,omitempty"`
+}
+
+// CredentialRef names one credential of a Vault.
+type CredentialRef struct {
+	// Name of a Vault resource.
+	Vault string `json:"vault" jsonschema:"required,minLength=1"`
+	// Name of a credential in that vault.
+	Name string `json:"name" jsonschema:"required,minLength=1"`
 }
 
 // WorkspaceInput says which folder is the workspace.
@@ -603,8 +645,8 @@ type Credential struct {
 	// Name of the secret that holds the value, in the environment's secret
 	// source (a variable or a dotenv entry).
 	SecretRef string `json:"secretRef" jsonschema:"required,pattern=^[A-Z_][A-Z0-9_]*$"`
-	// What the credential unlocks: an MCP server, or an environment
-	// variable of the run.
+	// What the credential unlocks: an MCP server, an environment variable
+	// of the run, or clones from a git host.
 	For CredentialTarget `json:"for" jsonschema:"required"`
 }
 
@@ -615,6 +657,10 @@ type CredentialTarget struct {
 	MCPServer *ServerRef `json:"mcpServer,omitempty"`
 	// An environment variable the run gets, set to the secret's value.
 	Env string `json:"env,omitempty" jsonschema:"pattern=^[A-Z_][A-Z0-9_]*$"`
+	// A git host, such as dev.azure.com, that the secret, a token,
+	// authenticates clones from over HTTPS. The token is used to clone the
+	// repositories bound to it, and never reaches the run.
+	GitHost string `json:"gitHost,omitempty" jsonschema:"minLength=1"`
 }
 
 // ServerRef references an McpServer resource.

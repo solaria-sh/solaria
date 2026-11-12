@@ -39,6 +39,7 @@ The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspec
 | `secretRef` | `${NAME}` in `gitagent.yaml`; the run command passes the variable from the secret source |
 | `telemetry` | `OTEL_*` variables in the run command. gitagent doesn't read `OTEL_RESOURCE_ATTRIBUTES` yet, so the identity and `resourceAttributes` set there don't reach its traces. |
 | `workspace.access: read-only` | the workspace is mounted `:ro` |
+| `repositories` | not supported; plan fails, naming each one: the image runs gitagent directly, with nothing to clone before it. Use [claude-agent-sdk](claude-agent-sdk.md#repositories). |
 | identity | `SOLARIA_LOGICAL_ID`, `SOLARIA_ENVIRONMENT`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` in the run command |
 
 ## Sandbox

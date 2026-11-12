@@ -26,9 +26,9 @@ A Solaria project is a folder of YAML files. Each document in them is a resource
 
 There are four kinds:
 
-- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, whether it may change its [workspace](#the-workspace), and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
+- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, whether it may change its [workspace](#the-workspace), the [repositories](#repositories) it works on, and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
 - **McpServer**: an MCP server, in the shape of the [MCP Registry's `server.json`](https://github.com/modelcontextprotocol/registry): `packages` that run locally over stdio (npm, PyPI), `remotes` reached over HTTP, or both. Agents refer to servers by name with `ref:`, and can narrow them with `allowTools`.
-- **Environment**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: the sandbox, the folder its runs work on, the secret source, telemetry, per-agent overrides and host settings.
+- **Environment**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: the sandbox, the folder its runs work on and where its repositories come from, the secret source, telemetry, per-agent overrides and host settings.
 - **Vault**: credentials an agent may use, each naming a secret and what it unlocks. Agents list the vaults they use in `spec.vaults`. See [Credentials and vaults](#credentials-and-vaults).
 
 ```yaml
@@ -141,6 +141,49 @@ spec:
 Access is part of the agent, so a read-only workspace is in both digests; read-write, the default, leaves them as they were. Hosts enforce it or refuse it, never drop it: `docker` mounts the folder read-only, [srt](providers/claude-agent-sdk.md#isolating-process-runs-with-srt) on `process` leaves it out of the folders a run may write to, and the claude-agent-sdk launcher also denies its file-editing tools there. A plain `process` run can write anywhere its user can, and a Managed Agents session's files belong to the host, so a read-only workspace fails plan on both. An override can make the workspace read-only in one environment, never writable again.
 
 The folder belongs to the environment, like the sandbox, so binding it changes no digest. `validate` checks that it exists. A Managed Agents run doesn't work on a folder on your machine, so a bound folder fails plan there. `status -a` shows the workspace and whether it's read-only.
+
+### Repositories
+
+An agent lists the git repositories it works on, each with the access it needs, and each environment says where they come from. Before a run, every repository is cloned into `repositories/<name>` in the workspace:
+
+```yaml
+kind: Agent
+spec:
+  repositories:
+    - {name: product, access: read-write}
+    - {name: spec, access: read-only}
+  vaults: [{ref: git}]
+---
+kind: Vault
+metadata: {name: git}
+spec:
+  credentials:
+    - {name: azure, secretRef: AZURE_DEVOPS_TOKEN, for: {gitHost: dev.azure.com}}
+---
+kind: Environment
+spec:
+  inputs:
+    repositories:
+      product:
+        url: https://dev.azure.com/example/factory/_git/product
+        ref: main                                  # a branch or tag; the default branch when omitted
+        credential: {vault: git, name: azure}
+      spec:
+        url: https://github.com/example/spec.git   # public, so no credential
+        depth: 1                                   # a shallow clone
+```
+
+Names and access are in both digests; where a repository comes from isn't. `validate` fails on a repository the environment doesn't bind, a URL that isn't `https://` or has a user name or password in it, and a credential that isn't for the URL's host (`for: {gitHost: …}`) or isn't in one of the agent's vaults. The token authenticates the clone and nothing else: git gets it as an HTTP header for that host, and the run never sees it. An agent that should push gets a credential of its own, with `for: {env: …}`.
+
+A read-only repository is kept unwritable like a read-only workspace, where the placement can: srt on `process` denies writes to its clone. A `docker` run is root in its container and a Managed Agents session owns its clone, so a read-only repository fails plan on both. Where each host gets repositories:
+
+| Placement | Repositories |
+|---|---|
+| claude-agent-sdk `process` and `docker` | The launcher clones each one, from any git host, before the run. A clone that's already in the workspace fails the run rather than be overwritten. |
+| managed-agents `cloud` | GitHub repositories only: `status -a` shows each as a `github_repository` resource to attach when starting a session. Other hosts fail plan. |
+| managed-agents `self-hosted`, gitagent | Nothing clones before the run, so repositories fail plan. |
+
+Repositories are cloned into the workspace, so a workspace with repositories must be read-write. `status -a` lists each repository, where it comes from and where the run finds it.
 
 ## Providers and placements
 
@@ -304,6 +347,7 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
 | `locked` | `solaria.lock` pins the environment; each agent's `lockedDigest` is its pinned `resolvedDigest` |
 | `host` | The environment's shared host object, when its provider keeps one: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt` |
 | `vaults` | On the environment: host vaults, when its provider keeps them, with the same fields as `host` and `usedBy`, the agents whose sessions attach each. On an agent: the vaults to attach when starting a session, as `name` and `hostId`. |
+| `repositories` | The agent's [repositories](#repositories), read from the configuration: `name`, `access`, `url`, `ref`, `depth`, `secret` (the secret that authenticates the clone), and `path`, where the run finds it, relative to the workspace. On Managed Agents, `attach` is `github_repository` and `path` is the mount path to attach it at. |
 | `runtime` | What runs the agent loop, at the version applied: `gitagent@<commit>`, `@anthropic-ai/claude-agent-sdk@<version>` or `claude-agent-sdk@<version>`, or `agent_toolset_20260401` on Managed Agents, whose runtime can't be pinned. Results depend on the harness as well as the model, so compare it before comparing runs. Absent for agents applied before Solaria recorded it. |
 | `annotations` | The agent's `metadata.annotations`, read from the configuration rather than state, since they're never applied. Absent for an agent the configuration no longer has. |
 | `configuration` | `upToDate`, `changed`, `overridesChanged` (only the environment's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `annotations`, `configuration` and `lockedDigest`. |

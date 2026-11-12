@@ -56,6 +56,10 @@ type Isolation struct {
 	SecretEnv map[string]string `json:"secretEnv,omitempty"`
 	// Dotenv is the absolute path of the environment's dotenv file.
 	Dotenv string `json:"dotenv,omitempty"`
+	// Repositories are cloned into repositories/<name> in the workspace
+	// before the run starts (ADR 0017). Their tokens are read like
+	// Secrets, and only git sees them.
+	Repositories []Clone `json:"repositories,omitempty"`
 	// Set lists variables set to fixed values.
 	Set map[string]string `json:"set"`
 	// Scratch maps variables to folders under the run's scratch directory,
@@ -64,6 +68,17 @@ type Isolation struct {
 	// Cache maps variables to folders under the bundle's cache directory,
 	// which persists across runs. Only package caches belong here.
 	Cache map[string]string `json:"cache"`
+}
+
+// Clone is a repository the launcher clones before a run.
+type Clone struct {
+	Name  string `json:"name"`
+	URL   string `json:"url"`
+	Ref   string `json:"ref,omitempty"`
+	Depth int    `json:"depth,omitempty"`
+	// SecretRef names the secret holding the token that authenticates the
+	// clone; empty for a public repository.
+	SecretRef string `json:"secretRef,omitempty"`
 }
 
 // Needs is what a provider adds to the base isolation.
@@ -135,6 +150,9 @@ func For(a *resolve.Agent, needs Needs) Isolation {
 		iso.SecretEnv[v] = secret
 	}
 	slices.Sort(iso.Secrets)
+	for _, r := range a.Repositories() {
+		iso.Repositories = append(iso.Repositories, Clone{Name: r.Name, URL: r.URL, Ref: r.Ref, Depth: r.Depth, SecretRef: r.SecretRef})
+	}
 	if s := a.Env.Secrets; s != nil && s.Source == v1alpha1.SecretsDotenv {
 		p := s.Path
 		if p == "" {
@@ -201,6 +219,18 @@ func Validate(a *resolve.Agent, m Machine) diag.List {
 	}
 	if a.Definition.ReadOnlyWorkspace() && !Isolated(a) {
 		diags = append(diags, diag.Errorf("", diag.Pos{}, "workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only"))
+	}
+	if !Isolated(a) {
+		for _, r := range a.Repositories() {
+			if r.Access == v1alpha1.AccessReadOnly {
+				diags = append(diags, diag.Errorf("", diag.Pos{}, "repository %s is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt to keep its clone read-only", r.Name))
+			}
+		}
+	}
+	if len(a.Definition.Repositories) > 0 && m.LookPath != nil {
+		if _, err := m.LookPath("git"); err != nil {
+			diags = append(diags, diag.Errorf("", diag.Pos{}, "repositories are cloned with git, which isn't on PATH"))
+		}
 	}
 	if sb != nil && sb.Resources != nil && (sb.Resources.Memory != "" || sb.Resources.Disk != "") {
 		warn("sandbox.resources aren't enforced on the process placement")
