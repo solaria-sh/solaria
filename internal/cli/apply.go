@@ -3,9 +3,11 @@ package cli
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,14 +23,23 @@ func newPlanCommand() *cobra.Command {
 		detailed bool
 		destroy  bool
 		rotate   bool
+		output   string
+		out      string
 	)
 	cmd := &cobra.Command{
 		Use:   "plan -e <environment> [path...]",
 		Short: "Show what apply would change",
 		Long: `Plan resolves every agent the environment receives, checks it against the
 provider's capabilities, refreshes the state from the host, and shows what
-apply would create, update, replace or delete. It changes nothing.`,
+apply would create, update, replace or delete. It changes nothing.
+
+-o json prints the plan in a documented JSON format instead. --out saves
+that JSON to a file, which apply <file> applies only if nothing changed
+since (ADR 0018).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if output != "text" && output != "json" {
+				return fmt.Errorf("--output must be text or json, not %q", output)
+			}
 			set, err := loadProject(cmd, args)
 			if err != nil {
 				return err
@@ -41,8 +52,24 @@ apply would create, update, replace or delete. It changes nothing.`,
 			if err != nil {
 				return err
 			}
-			if err := engine.Render(cmd.OutOrStdout(), plan); err != nil {
+			doc := e.Document(plan)
+			w := cmd.OutOrStdout()
+			if output == "json" {
+				if err := encodeJSON(w, doc); err != nil {
+					return err
+				}
+			} else if err := engine.Render(w, plan); err != nil {
 				return err
+			}
+			if out != "" {
+				if err := savePlan(out, doc); err != nil {
+					return err
+				}
+				if output == "text" {
+					if _, err := fmt.Fprintf(w, "\nSaved the plan to %s. Apply exactly this plan with: solaria apply %s\n", out, out); err != nil {
+						return err
+					}
+				}
 			}
 			if detailed && plan.HasChanges() {
 				return &exitError{code: 2}
@@ -56,6 +83,8 @@ apply would create, update, replace or delete. It changes nothing.`,
 	cmd.Flags().BoolVar(&detailed, "detailed-exitcode", false, "exit 0 for no changes, 2 for changes, 1 for errors")
 	cmd.Flags().BoolVar(&destroy, "destroy", false, "plan the removal of everything in the environment")
 	cmd.Flags().BoolVar(&rotate, "rotate-secrets", false, rotateUsage)
+	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
+	cmd.Flags().StringVar(&out, "out", "", "also save the plan to this file, for apply <file>")
 	return cmd
 }
 
@@ -67,11 +96,36 @@ func newApplyCommand() *cobra.Command {
 		rotate      bool
 	)
 	cmd := &cobra.Command{
-		Use:   "apply -e <environment> [path...]",
+		Use:   "apply (-e <environment> | <plan-file>) [path...]",
 		Short: "Deploy the configuration to an environment",
 		Long: `Apply plans like plan does, asks for confirmation, and then makes the changes.
-It holds the environment's lock throughout and records the result in state.`,
+It holds the environment's lock throughout and records the result in state.
+
+Given a file saved by plan --out instead of -e, apply plans again with the
+plan's options and applies without asking, but only if the result matches
+the file: the same state serial, Solaria version, and every step's action
+and digests (ADR 0018). Otherwise it changes nothing and says what differs.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			saved, err := savedPlan(args)
+			if err != nil {
+				return err
+			}
+			var file string
+			opts := engine.PlanOptions{Refresh: refresh, RotateSecrets: rotate}
+			switch {
+			case saved != nil && f.env != "":
+				return fmt.Errorf("%s names its environment, %s; leave out -e", args[0], saved.Environment)
+			case saved != nil:
+				for _, flag := range []string{"refresh", "rotate-secrets"} {
+					if cmd.Flags().Changed(flag) {
+						return fmt.Errorf("--%s comes from the plan in %s; leave it out", flag, args[0])
+					}
+				}
+				file, f.env, args = args[0], saved.Environment, args[1:]
+				opts = engine.PlanOptions(saved.Options)
+			case f.env == "":
+				return errors.New(`required flag(s) "environment" not set`)
+			}
 			set, err := loadProject(cmd, args)
 			if err != nil {
 				return err
@@ -80,10 +134,17 @@ It holds the environment's lock throughout and records the result in state.`,
 			if err != nil {
 				return err
 			}
-			return run(cmd, e, f.env, "apply", engine.PlanOptions{Refresh: refresh, RotateSecrets: rotate}, autoApprove)
+			if saved != nil {
+				operation := "apply"
+				if opts.Destroy {
+					operation = "destroy"
+				}
+				return runSaved(cmd, e, operation, opts, saved, file)
+			}
+			return run(cmd, e, f.env, "apply", opts, autoApprove)
 		},
 	}
-	f.register(cmd, true)
+	f.register(cmd, false)
 	registerLockFile(cmd, &f.lockFile)
 	cmd.Flags().BoolVar(&refresh, "refresh", true, "ask the host for the current state of every agent first")
 	cmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "apply without asking for confirmation")
@@ -141,7 +202,17 @@ func makePlan(cmd *cobra.Command, e *engine.Engine, env string, opts engine.Plan
 }
 
 // run locks the environment, plans, confirms and applies.
-func run(cmd *cobra.Command, e *engine.Engine, env, operation string, opts engine.PlanOptions, autoApprove bool) (err error) {
+func run(cmd *cobra.Command, e *engine.Engine, env, operation string, opts engine.PlanOptions, autoApprove bool) error {
+	return lockAndApply(cmd, e, env, operation, opts, autoApprove, nil, "")
+}
+
+// runSaved applies a plan saved by plan --out: it plans again under the
+// lock and applies, without asking, only what the saved plan showed.
+func runSaved(cmd *cobra.Command, e *engine.Engine, operation string, opts engine.PlanOptions, saved *engine.Document, file string) error {
+	return lockAndApply(cmd, e, saved.Environment, operation, opts, true, saved, file)
+}
+
+func lockAndApply(cmd *cobra.Command, e *engine.Engine, env, operation string, opts engine.PlanOptions, autoApprove bool, saved *engine.Document, file string) (err error) {
 	unlock, err := e.Lock(env, operation)
 	if err != nil {
 		return err
@@ -155,6 +226,11 @@ func run(cmd *cobra.Command, e *engine.Engine, env, operation string, opts engin
 	plan, err := makePlan(cmd, e, env, opts)
 	if err != nil {
 		return err
+	}
+	if saved != nil {
+		if diffs := saved.Differences(e.Document(plan)); len(diffs) > 0 {
+			return &stalePlanError{file: file, env: env, diffs: diffs}
+		}
 	}
 	out := cmd.OutOrStdout()
 	if err := engine.Render(out, plan); err != nil {
@@ -230,4 +306,70 @@ func titleCase(s string) string {
 		return s
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// savedPlan reads the plan file apply was given as its first argument, or
+// returns nil when the first argument isn't one: a plan file is JSON with
+// a solaria.sh/plan/ format, which no configuration file has.
+func savedPlan(args []string) (*engine.Document, error) {
+	if len(args) == 0 {
+		return nil, nil
+	}
+	b, err := os.ReadFile(args[0])
+	if err != nil {
+		return nil, nil // a directory, or not there: a project path
+	}
+	var head struct {
+		Format string `json:"format"`
+	}
+	if json.Unmarshal(b, &head) != nil || !strings.HasPrefix(head.Format, "solaria.sh/plan/") {
+		return nil, nil
+	}
+	if head.Format != engine.PlanFormat {
+		return nil, fmt.Errorf("%s: plan format %s isn't one this Solaria reads; it reads %s", args[0], head.Format, engine.PlanFormat)
+	}
+	var doc engine.Document
+	if err := json.Unmarshal(b, &doc); err != nil {
+		return nil, fmt.Errorf("%s: %w", args[0], err)
+	}
+	if doc.Environment == "" {
+		return nil, fmt.Errorf("%s: the plan names no environment", args[0])
+	}
+	return &doc, nil
+}
+
+// savePlan writes the plan document for apply <file>.
+func savePlan(path string, doc *engine.Document) error {
+	var b strings.Builder
+	if err := encodeJSON(&b, doc); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
+		return fmt.Errorf("save the plan: %w", err)
+	}
+	return nil
+}
+
+func encodeJSON(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	return enc.Encode(v)
+}
+
+// stalePlanError is a saved plan that no longer matches what planning
+// again finds.
+type stalePlanError struct {
+	file, env string
+	diffs     []string
+}
+
+func (e *stalePlanError) Error() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s no longer matches %s, so nothing was applied:\n", e.file, e.env)
+	for _, d := range e.diffs {
+		fmt.Fprintf(&b, "  - %s\n", d)
+	}
+	fmt.Fprintf(&b, "Plan again with: solaria plan -e %s --out %s", e.env, e.file)
+	return b.String()
 }

@@ -260,6 +260,8 @@ $ solaria digest -e <environment> # each agent's digests, offline
 $ solaria lock -e <environment>   # pin them, for review in git
 $ solaria plan -e <environment>   # what apply would do
 $ solaria apply -e <environment>  # do it, after confirming
+$ solaria plan -e <environment> --out <file> # save the plan for review
+$ solaria apply <file>            # apply exactly that plan
 $ solaria status                  # what's deployed where
 $ solaria status -e <environment> -a <agent> # how to start it
 $ solaria destroy -e <environment>
@@ -283,6 +285,82 @@ Symbols: `+` create, `~` update, `-/+` replace (the agent moved to another provi
 **Drift.** Refresh asks the host for each object. An object changed outside Solaria, for example in a console, plans an update that puts the definition's version back. One deleted outside Solaria plans a create. `plan --refresh=false` skips the host calls.
 
 **Rollback** is a checkout and an apply: `git checkout <earlier commit>` and `solaria apply`. Hosts that version agents, such as Managed Agents, create a new version with the old content, and the history in state shows that both versions share a `resolvedDigest`.
+
+### Applying a reviewed plan
+
+From CI, a plan can be posted on a pull request and then applied exactly as reviewed (ADR 0018):
+
+```console
+$ solaria plan -e prod -o json            # the plan, for programs
+$ solaria plan -e prod --out prod.plan    # the text plan, and the JSON saved to prod.plan
+$ solaria apply prod.plan                 # apply it, if nothing changed since
+```
+
+`apply <file>` takes no `-e`, `--refresh` or `--rotate-secrets`: the file names its environment and the options it was planned with. Project paths come after the file, as for `plan`. It takes the environment's lock, plans again from the current checkout, state and hosts, and applies without asking, but only if the new plan matches the file. It changes nothing, and lists what differs, when:
+
+- the state's lineage or serial changed, for example because someone applied in between;
+- an agent's digests, or a host object's or vault's digest, changed, for example because the checkout isn't the one that was planned;
+- a step's action changed, for example because refresh found drift;
+- the file was made by another Solaria version, or for another definition format.
+
+Applying increments the serial, so a saved plan applies once. With a lock file, the environment's pins are checked when the plan is made and again when it's applied. The file holds digests and names, never a definition's text or a secret's value, so it's safe to keep as a CI artifact. It doesn't hold the definitions either: apply needs the same checkout.
+
+The JSON, from `-o json` or in a saved plan:
+
+```json
+{
+  "format": "solaria.sh/plan/v1",
+  "solariaVersion": "v0.16.0",
+  "definitionFormat": "solaria.sh/definition/v1",
+  "environment": "prod",
+  "provider": "managed-agents",
+  "placement": "cloud",
+  "options": {"refresh": true, "destroy": false, "rotateSecrets": false},
+  "state": {"lineage": "7e1d2c3b-4a5f-4e6d-8c7b-6a5f4e3d2c1b", "serial": 4},
+  "source": {"commit": "0123456789abcdef0123456789abcdef01234567"},
+  "host": {
+    "id": "Environment/prod",
+    "action": "no-op",
+    "before": {"digest": "sha256:5d1e…"},
+    "after": {"digest": "sha256:5d1e…"}
+  },
+  "agents": [
+    {
+      "id": "Agent/reviewer",
+      "action": "update",
+      "before": {"specDigest": "sha256:ff17…", "resolvedDigest": "sha256:ff17…"},
+      "after": {"specDigest": "sha256:6c03…", "resolvedDigest": "sha256:6c03…"},
+      "changes": [{"path": "instructions[1]", "old": "5 lines", "new": "6 lines", "text": true}],
+      "notes": ["creates a new agent version; sessions pinned to an earlier one keep it"]
+    }
+  ],
+  "summary": {"create": 0, "update": 1, "replace": 0, "delete": 0},
+  "diagnostics": []
+}
+```
+
+| Field | |
+|---|---|
+| `format` | `solaria.sh/plan/v1`. Fields are added compatibly; removing or changing one makes a new format. |
+| `solariaVersion`, `definitionFormat` | The Solaria that made the plan, and the [definition format](#identity) its digests use. `apply <file>` refuses a plan from another version or format. |
+| `environment`, `provider`, `placement` | Where the plan applies |
+| `options` | The flags it was planned with: `refresh`, `destroy` (a plan from `plan --destroy`, which `apply <file>` applies as a destroy), `rotateSecrets` |
+| `state` | The state planned from: `lineage`, absent while the environment has no state, and `serial`, `0` then |
+| `source` | The git `commit` planned from, and `dirty` when the worktree had uncommitted changes |
+| `host` | The environment's shared host object, when its provider keeps one (ADR 0012) |
+| `vaults` | Host vaults, when the provider keeps them (ADR 0016), sorted by `id`. `rotate` means apply sends every credential's value again. |
+| `agents` | One step per agent in the configuration or the state, sorted by `id`, no-ops included |
+| `summary` | How many steps create, update, replace and delete, host objects included |
+| `diagnostics` | Warnings found while planning, each with `severity`, `file`, `line`, `column` and `message`. A plan with errors prints no JSON and exits 1. |
+
+Every step has `id` and `action` (`create`, `update`, `replace`, `delete` or `no-op`), and may have:
+
+| Field | |
+|---|---|
+| `before`, `after` | What's applied now and what the step applies. For an agent, its `specDigest` and `resolvedDigest`; for a host object or vault, the `digest` its provider computes. `before` is absent for a create and `after` for a delete. |
+| `changes` | The changed fields as the text plan shows them: `path`, `old` and `new`. With `text`, `old` and `new` summarize long text, such as `5 lines`. |
+| `reason` | Why the action isn't plain from the changes, such as drift or a move to another provider |
+| `notes` | Things the person applying should know |
 
 ## Starting an agent
 

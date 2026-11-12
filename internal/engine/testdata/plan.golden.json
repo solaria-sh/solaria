@@ -1,0 +1,147 @@
+{
+  "format": "solaria.sh/plan/v1",
+  "solariaVersion": "dev",
+  "definitionFormat": "solaria.sh/definition/v1",
+  "environment": "dev",
+  "provider": "limited",
+  "placement": "here",
+  "options": {
+    "refresh": true,
+    "destroy": false,
+    "rotateSecrets": true
+  },
+  "state": {
+    "lineage": "7e1d2c3b-4a5f-4e6d-8c7b-6a5f4e3d2c1b",
+    "serial": 4
+  },
+  "source": {
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "dirty": true
+  },
+  "host": {
+    "id": "Environment/dev",
+    "action": "update",
+    "before": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "after": {
+      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "changes": [
+      {
+        "path": "packages.apt",
+        "old": "[\"git\"]",
+        "new": "[\"git\",\"jq\"]"
+      }
+    ]
+  },
+  "vaults": [
+    {
+      "id": "Vault/new",
+      "action": "create",
+      "after": {
+        "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    },
+    {
+      "id": "Vault/tracker",
+      "action": "update",
+      "before": {
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "after": {
+        "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "rotate": true,
+      "reason": "sends every credential's value again"
+    }
+  ],
+  "agents": [
+    {
+      "id": "Agent/created",
+      "action": "create",
+      "after": {
+        "specDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "resolvedDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "id": "Agent/deleted",
+      "action": "delete",
+      "before": {
+        "specDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "resolvedDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "reason": "no longer in the configuration"
+    },
+    {
+      "id": "Agent/kept",
+      "action": "no-op",
+      "before": {
+        "specDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "resolvedDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "after": {
+        "specDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "resolvedDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    },
+    {
+      "id": "Agent/moved",
+      "action": "replace",
+      "before": {
+        "specDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "resolvedDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "after": {
+        "specDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "resolvedDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "reason": "moves from other/here to limited/here"
+    },
+    {
+      "id": "Agent/updated",
+      "action": "update",
+      "before": {
+        "specDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "resolvedDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "after": {
+        "specDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "resolvedDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "changes": [
+        {
+          "path": "instructions[0]",
+          "old": "3 lines",
+          "new": "5 lines",
+          "text": true
+        },
+        {
+          "path": "model.preferred",
+          "old": "\"anthropic:claude-haiku-5-5\"",
+          "new": "\"anthropic:claude-sonnet-5-5\""
+        }
+      ],
+      "reason": "changed outside Solaria since the last apply",
+      "notes": [
+        "the host keeps the previous version"
+      ]
+    }
+  ],
+  "summary": {
+    "create": 2,
+    "update": 3,
+    "replace": 1,
+    "delete": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "file": "agents.yaml",
+      "line": 3,
+      "column": 5,
+      "message": "a warning"
+    }
+  ]
+}

@@ -28,6 +28,19 @@ func (s Severity) String() string {
 // MarshalText encodes the severity as its name.
 func (s Severity) MarshalText() ([]byte, error) { return []byte(s.String()), nil }
 
+// UnmarshalText reads a severity's name, as in a saved plan.
+func (s *Severity) UnmarshalText(b []byte) error {
+	switch string(b) {
+	case "error":
+		*s = Error
+	case "warning":
+		*s = Warning
+	default:
+		return fmt.Errorf("unknown severity %q", b)
+	}
+	return nil
+}
+
 // Pos is a 1-based line and column. The zero Pos means "the whole file".
 type Pos struct {
 	Line   int `json:"line,omitempty"`

@@ -62,6 +62,8 @@ type Plan struct {
 	Environment string
 	Provider    string
 	Placement   string
+	// Options are the options the plan was made with.
+	Options PlanOptions
 	// Capabilities of the environment's provider and placement.
 	Capabilities provider.Capabilities
 	// Steps for every agent in the configuration or the state, sorted by
@@ -155,7 +157,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 	if st == nil {
 		st = state.New(env)
 	}
-	plan := &Plan{Environment: env, state: st, providers: map[string]provider.Provider{}}
+	plan := &Plan{Environment: env, Options: opts, state: st, providers: map[string]provider.Provider{}}
 
 	envRes := e.Set.Lookup(v1alpha1.KindEnvironment, env)
 	switch {
