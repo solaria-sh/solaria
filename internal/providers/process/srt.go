@@ -73,11 +73,21 @@ type SRTFilesystem struct {
 
 // SRTFor builds the srt settings of an agent's runs. Writes go to srt's
 // own temp folder, which holds the run's scratch directory, to cacheDir,
-// which must be absolute, and to the workspace. The network is limited
+// which must be absolute, and to the workspace unless it's read-only. The
+// network is limited
 // to modelHosts, the agent's remote MCP servers, the registries its stdio
 // MCP packages come from, the telemetry endpoint, and sandbox.network.
 func SRTFor(a *resolve.Agent, cacheDir string, modelHosts []string) SRTSettings {
 	hosts, local := NeededHosts(a, modelHosts)
+	writable := []string{cacheDir}
+	if !a.Definition.ReadOnlyWorkspace() {
+		// A run starts in its workspace unless the environment binds one.
+		ws := a.WorkspacePath()
+		if ws == "" {
+			ws = "."
+		}
+		writable = append(writable, ws)
+	}
 	return SRTSettings{
 		Network: SRTNetwork{
 			AllowedDomains:    hosts,
@@ -85,9 +95,8 @@ func SRTFor(a *resolve.Agent, cacheDir string, modelHosts []string) SRTSettings 
 			AllowLocalBinding: local,
 		},
 		Filesystem: SRTFilesystem{
-			DenyRead: []string{},
-			// The run starts in the workspace, so "." is the workspace.
-			AllowWrite: []string{cacheDir, "."},
+			DenyRead:   []string{},
+			AllowWrite: writable,
 			DenyWrite:  []string{},
 		},
 	}

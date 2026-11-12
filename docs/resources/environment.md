@@ -50,6 +50,9 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.telemetry.headers[].value` | string |  | Value, when it isn't secret. |
 | `spec.telemetry.headers[].secretRef` | string |  | Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |
 | `spec.telemetry.resourceAttributes` | map of strings |  | Resource attributes added to everything the agents export, such as service.namespace to tell projects apart. They can't replace the attributes Solaria sets: gen_ai.agent.*, service.name, service.version and solaria.* keys fail validation. |
+| `spec.inputs` | object |  | Where agents' inputs come from in this environment. |
+| `spec.inputs.workspace` | object |  | The folder agents work on. |
+| `spec.inputs.workspace.path` | string |  | A folder on the machine that runs the agent, relative to this file or absolute. When omitted, it's the folder the run starts in. Only placements that run on this machine take it. |
 | `spec.overrides` | map of objects |  | Changes to agents in this environment only, keyed by agent name. |
 | `spec.overrides.<name>.model` | object |  | Model fields to replace. |
 | `spec.overrides.<name>.model.preferred` | string |  | Preferred model, as provider:model. Matches `^[a-z][a-z0-9-]*:[^ ]+$`. |
@@ -65,5 +68,7 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.overrides.<name>.limits` | object |  | Limits to replace. |
 | `spec.overrides.<name>.limits.maxTurns` | integer |  | Most model calls in one run. |
 | `spec.overrides.<name>.limits.timeout` | string |  | Longest a run may take, as a duration such as 30m or 1h30m. Matches `^([0-9]+(h\|m\|s))+$`. |
+| `spec.overrides.<name>.workspace` | object |  | Workspace access to narrow in this environment: an override can make a read-write workspace read-only, never the reverse. |
+| `spec.overrides.<name>.workspace.access` | `read-write` or `read-only` |  | read-write (the default) or read-only. A placement that can't keep the workspace read-only fails plan rather than ignore it. |
 | `spec.overrides.<name>.providers` | map of objects |  | Providers fields to merge over the agent's own. |
 | `spec.providers` | map of objects |  | Settings for the environment's provider, keyed by provider name, such as the platform gitagent builds images for. Each provider documents its own settings. They describe the host, not the agents, so they aren't part of any agent's digest. |

@@ -38,6 +38,7 @@ The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspec
 | `output.schema` | not supported; plan fails |
 | `secretRef` | `${NAME}` in `gitagent.yaml`; the run command passes the variable from the secret source |
 | `telemetry` | `OTEL_*` variables in the run command. gitagent doesn't read `OTEL_RESOURCE_ATTRIBUTES` yet, so the identity and `resourceAttributes` set there don't reach its traces. |
+| `workspace.access: read-only` | the workspace is mounted `:ro` |
 | identity | `SOLARIA_LOGICAL_ID`, `SOLARIA_ENVIRONMENT`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` in the run command |
 
 ## Sandbox
@@ -46,6 +47,8 @@ The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspec
 - `resources.memory` becomes `docker run --memory`, 8 GiB by default.
 - Docker can't enforce `network` host lists or `resources.disk`, so plan warns about them.
 - `image` takes an image reference, or a Dockerfile path relative to the environment's file, which is built first.
+
+The run command mounts the folder it starts in at `/workspace`, or the folder the environment binds in `inputs.workspace.path` ([The workspace](../concepts.md#the-workspace)).
 
 ## Settings
 

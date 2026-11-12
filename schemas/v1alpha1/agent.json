@@ -51,6 +51,10 @@
           "type": "array",
           "description": "Vaults whose credentials the agent may use, by reference to Vault resources. Once an agent lists any, every secret its MCP servers need must come from one of them, and the run gets nothing else."
         },
+        "workspace": {
+          "$ref": "#/$defs/WorkspaceSpec",
+          "description": "The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace."
+        },
         "providers": {
           "additionalProperties": {
             "type": "object"
@@ -273,6 +277,21 @@
         "ref"
       ],
       "description": "References a Vault resource."
+    },
+    "WorkspaceSpec": {
+      "properties": {
+        "access": {
+          "type": "string",
+          "enum": [
+            "read-write",
+            "read-only"
+          ],
+          "description": "read-write (the default) or read-only. A placement that can't keep the workspace read-only fails plan rather than ignore it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "What an agent may do to its workspace."
     }
   },
   "properties": {

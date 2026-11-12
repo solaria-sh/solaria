@@ -134,6 +134,8 @@ func mapNamedTypes(t reflect.Type) *jsonschema.Schema {
 		return enum(v1alpha1.BuiltinTools...)
 	case reflect.TypeFor[v1alpha1.NetworkMode]():
 		return enum(v1alpha1.NetworkLimited, v1alpha1.NetworkUnrestricted)
+	case reflect.TypeFor[v1alpha1.Access]():
+		return enum(v1alpha1.AccessReadWrite, v1alpha1.AccessReadOnly)
 	case reflect.TypeFor[v1alpha1.Isolation]():
 		return enum(v1alpha1.IsolationSRT)
 	case reflect.TypeFor[v1alpha1.SecretSource]():

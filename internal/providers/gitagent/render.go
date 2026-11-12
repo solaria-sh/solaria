@@ -413,9 +413,10 @@ func (r *renderer) sandboxWarnings() {
 // environment, or from the environment's dotenv file.
 func (r *renderer) invocation() *state.Invocation {
 	a := r.a
-	inv := &state.Invocation{Workspace: state.WorkspaceMount, Task: state.TaskInput{Flag: "-p"}}
+	inv := &state.Invocation{Task: state.TaskInput{Flag: "-p"}}
+	provider.SetWorkspace(inv, a, state.WorkspaceMount)
 	parts := []string{"docker", "run", "--rm", "--platform", r.b.Platform, "--memory", container.Memory(a.Env.Sandbox)}
-	parts = append(parts, "--volume", state.WorkspacePlaceholder+":/workspace")
+	parts = append(parts, "--volume", container.WorkspaceVolume(a))
 
 	secrets := a.SecretRefs()
 	vars := a.SecretVars()

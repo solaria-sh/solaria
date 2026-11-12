@@ -185,7 +185,7 @@ func (r *renderer) dockerfile(base string) []byte {
 func (r *renderer) dockerArgv() []string {
 	a, b, d := r.a, r.b, r.b.Docker
 	argv := []string{"docker", "run", "--rm", "-i", "--platform", d.Platform, "--memory", container.Memory(a.Env.Sandbox)}
-	argv = append(argv, "--volume", state.WorkspacePlaceholder+":/workspace")
+	argv = append(argv, "--volume", container.WorkspaceVolume(a))
 	if b.Dotenv != "" {
 		argv = append(argv, "--env-file", b.Dotenv)
 	} else {
@@ -235,7 +235,7 @@ func (p *Provider) applyDocker(ctx context.Context, pl *provider.Plan, b *bundle
 	}
 	p.removeOthers(pl.Desired.Name, b.ID())
 
-	inv := b.invocation(d.Argv, state.WorkspaceMount)
+	inv := b.invocation(pl.Desired, d.Argv, state.WorkspaceMount)
 	outputs := p.outputs(b, dir, inv)
 	outputs[outImage] = d.Image
 	outputs[outPlatform] = d.Platform

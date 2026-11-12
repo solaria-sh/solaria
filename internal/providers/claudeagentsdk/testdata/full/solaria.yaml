@@ -82,3 +82,28 @@ spec:
     network: {allow: [git.example.com]}
   secrets: {source: dotenv}
   telemetry: {endpoint: "http://localhost:4318"}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: srt-read-only}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  sandbox: {isolation: srt}
+  inputs:
+    workspace: {path: product}
+  overrides:
+    reviewer:
+      workspace: {access: read-only}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: docker-read-only}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  inputs:
+    workspace: {path: product}
+  overrides:
+    reviewer:
+      workspace: {access: read-only}

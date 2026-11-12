@@ -26,9 +26,9 @@ A Solaria project is a folder of YAML files. Each document in them is a resource
 
 There are four kinds:
 
-- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
+- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, whether it may change its [workspace](#the-workspace), and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
 - **McpServer**: an MCP server, in the shape of the [MCP Registry's `server.json`](https://github.com/modelcontextprotocol/registry): `packages` that run locally over stdio (npm, PyPI), `remotes` reached over HTTP, or both. Agents refer to servers by name with `ref:`, and can narrow them with `allowTools`.
-- **Environment**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: the sandbox, the secret source, telemetry, per-agent overrides and host settings.
+- **Environment**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: the sandbox, the folder its runs work on, the secret source, telemetry, per-agent overrides and host settings.
 - **Vault**: credentials an agent may use, each naming a secret and what it unlocks. Agents list the vaults they use in `spec.vaults`. See [Credentials and vaults](#credentials-and-vaults).
 
 ```yaml
@@ -63,7 +63,8 @@ An environment receives every agent, or those matching `spec.agents.selector`. M
 
 - `tools.builtin` keeps only the listed built-in tools, out of the agent's own (`[]` keeps none);
 - `tools.mcp` narrows a server's `allowTools`, within the agent's own list when it has one;
-- `permissions.ask` adds tools that need approval, which unattended hosts deny.
+- `permissions.ask` adds tools that need approval, which unattended hosts deny;
+- `workspace: {access: read-only}` keeps the agent from changing its [workspace](#the-workspace).
 
 ```yaml
   overrides:
@@ -121,6 +122,25 @@ spec:
 Once an agent lists a vault, it gets exactly the credentials of its vaults: a secret one of its servers needs that no vault grants for that server fails `validate`. An agent without vaults still gets every secret its servers name, and `validate` warns, so a project can move to vaults one agent at a time. A Vault never holds a value. The digest covers each credential's name, secret name and target, so granting one changes the agent's `resolvedDigest`.
 
 Where a vault's credentials reach the run depends on the provider. Launchers pass only the vault's credentials into the run: see [claude-agent-sdk](providers/claude-agent-sdk.md) and [gitagent](providers/gitagent.md#limits). On [managed-agents](providers/managed-agents.md#vaults), apply keeps a host vault for each Vault, which sessions attach, and `solaria apply --rotate-secrets` sends changed values to it.
+
+### The workspace
+
+Most agents work on files. The workspace is the folder they work on: by default the folder the run starts in, mounted into the container on `docker`. An agent says whether it may change it, and an environment can say which folder it is:
+
+```yaml
+kind: Agent
+spec:
+  workspace: {access: read-only}     # read-write by default
+---
+kind: Environment
+spec:
+  inputs:
+    workspace: {path: ../product}    # relative to this file
+```
+
+Access is part of the agent, so a read-only workspace is in both digests; read-write, the default, leaves them as they were. Hosts enforce it or refuse it, never drop it: `docker` mounts the folder read-only, [srt](providers/claude-agent-sdk.md#isolating-process-runs-with-srt) on `process` leaves it out of the folders a run may write to, and the claude-agent-sdk launcher also denies its file-editing tools there. A plain `process` run can write anywhere its user can, and a Managed Agents session's files belong to the host, so a read-only workspace fails plan on both. An override can make the workspace read-only in one environment, never writable again.
+
+The folder belongs to the environment, like the sandbox, so binding it changes no digest. `validate` checks that it exists. A Managed Agents run doesn't work on a folder on your machine, so a bound folder fails plan there. `status -a` shows the workspace and whether it's read-only.
 
 ## Providers and placements
 
@@ -265,6 +285,7 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
           "invocation": {
             "argv": ["node", "/work/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs"],
             "workspace": "cwd",
+            "workspaceAccess": "read-write",
             "task": {"flag": "-p", "stdin": true},
             "env": ["ANTHROPIC_API_KEY", "GITHUB_TOKEN"],
             "result": "solaria.sh/result/v1"
@@ -286,7 +307,7 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
 | `runtime` | What runs the agent loop, at the version applied: `gitagent@<commit>`, `@anthropic-ai/claude-agent-sdk@<version>` or `claude-agent-sdk@<version>`, or `agent_toolset_20260401` on Managed Agents, whose runtime can't be pinned. Results depend on the harness as well as the model, so compare it before comparing runs. Absent for agents applied before Solaria recorded it. |
 | `annotations` | The agent's `metadata.annotations`, read from the configuration rather than state, since they're never applied. Absent for an agent the configuration no longer has. |
 | `configuration` | `upToDate`, `changed`, `overridesChanged` (only the environment's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `annotations`, `configuration` and `lockedDigest`. |
-| `run` | The command for a POSIX shell, run from the workspace. The task goes after it. |
+| `run` | The command for a POSIX shell, run from the workspace unless the environment binds one. The task goes after it. |
 | `invocation` | The same command, for programs. Absent for providers whose host runs the agent, and for agents applied before Solaria recorded it. |
 
 The `invocation`:
@@ -294,7 +315,9 @@ The `invocation`:
 | Field | |
 |---|---|
 | `argv` | The command and its arguments, without the task. `{workspace}` in an argument stands for the workspace's absolute path. |
-| `workspace` | `cwd`: run the command in the workspace. `mount`: `argv` mounts it through `{workspace}`. |
+| `workspace` | `cwd`: run the command in the workspace. `mount`: `argv` mounts it through `{workspace}`. `path`: the environment binds `workspacePath`, which the command works on wherever it starts. |
+| `workspacePath` | The absolute path of the folder the environment binds |
+| `workspaceAccess` | `read-write` or `read-only`: what the agent may do to its workspace, which the host enforces. Absent for agents applied before Solaria recorded it. |
 | `task` | `flag` comes before the task, as in `-p "Review the diff."`. With `stdin`, the command also reads the task from stdin when the flag isn't given. |
 | `env` | Variables the command reads from the caller's environment |
 | `envFile` | The dotenv file the secrets come from |

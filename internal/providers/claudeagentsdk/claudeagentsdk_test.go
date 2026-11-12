@@ -56,7 +56,7 @@ func load(t *testing.T, dir, env string) *resolve.Agent {
 // for the agent, then the diagnostics, with machine-specific paths
 // replaced. The launchers and preludes are the same for every agent, so
 // only their names are listed.
-func golden(b *bundle, root string) string {
+func golden(a *resolve.Agent, b *bundle, root string) string {
 	var s strings.Builder
 	shared := map[string][]byte{
 		"launch.mjs": launchJS, "launch.py": launchPython,
@@ -70,7 +70,7 @@ func golden(b *bundle, root string) string {
 		fmt.Fprintf(&s, "=== %s\n%s", name, b.Files[name])
 	}
 	if d := b.Docker; d != nil {
-		inv, _ := json.MarshalIndent(b.invocation(d.Argv, state.WorkspaceMount), "", "  ")
+		inv, _ := json.MarshalIndent(b.invocation(a, d.Argv, state.WorkspaceMount), "", "  ")
 		fmt.Fprintf(&s, "=== image\n%s for %s\n=== run\n%s\n=== invocation\n%s\n=== labels\n", d.Image, d.Platform, container.ShellCommand(d.Argv), inv)
 		for _, k := range slices.Sorted(maps.Keys(d.Labels)) {
 			fmt.Fprintf(&s, "%s=%s\n", k, d.Labels[k])
@@ -100,17 +100,25 @@ func TestRenderGolden(t *testing.T) {
 		{"python-docker", "python", "ci-docker"},
 		{"vault-docker", "vault", "ci-docker"},
 		{"srt", "full", "dev-srt"},
+		{"srt-read-only", "full", "srt-read-only"},
+		{"docker-read-only", "full", "docker-read-only"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if strings.HasSuffix(tc.name, "read-only") && runtime.GOOS == "windows" {
+				// The bound workspace is a native path, quoted differently
+				// on Windows; TestReadOnlyWorkspace covers it there.
+				t.Skip("the bound workspace path is native")
+			}
 			dir, err := filepath.Abs(filepath.Join("testdata", tc.fixture))
 			if err != nil {
 				t.Fatal(err)
 			}
-			b, err := render(load(t, dir, tc.env), testProviderDir)
+			a := load(t, dir, tc.env)
+			b, err := render(a, testProviderDir)
 			if err != nil {
 				t.Fatal(err)
 			}
-			got := golden(b, dir)
+			got := golden(a, b, dir)
 			path := filepath.Join("testdata", tc.name+".golden")
 			if *update {
 				if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
@@ -317,12 +325,13 @@ func TestLifecycle(t *testing.T) {
 	// The secrets come from the dotenv file, so only the API key is read
 	// from the caller's environment.
 	wantInv := &state.Invocation{
-		Argv:      []string{"node", filepath.Join(bundle, "launch.mjs")},
-		Workspace: state.WorkspaceCwd,
-		Task:      state.TaskInput{Flag: "-p", Stdin: true},
-		Env:       []string{"ANTHROPIC_API_KEY"},
-		EnvFile:   filepath.Join(a.EnvDir, ".env"),
-		Result:    ResultFormat,
+		Argv:            []string{"node", filepath.Join(bundle, "launch.mjs")},
+		Workspace:       state.WorkspaceCwd,
+		WorkspaceAccess: "read-write",
+		Task:            state.TaskInput{Flag: "-p", Stdin: true},
+		Env:             []string{"ANTHROPIC_API_KEY"},
+		EnvFile:         filepath.Join(a.EnvDir, ".env"),
+		Result:          ResultFormat,
 	}
 	if inv := entry.Binding.Invocation; !reflect.DeepEqual(inv, wantInv) {
 		t.Errorf("invocation = %+v, want %+v", inv, wantInv)
@@ -951,6 +960,55 @@ func TestSRT(t *testing.T) {
 	// A machine without srt fails plan.
 	h.programs = []string{"rg"}
 	if diags := diag.List(p.Validate(ctx, a)); !strings.Contains(diags.String(), "srt isn't on PATH") {
+		t.Errorf("validate without srt:\n%s", diags)
+	}
+}
+
+// TestReadOnlyWorkspace checks what a read-only, bound workspace changes on
+// each placement, on every operating system.
+func TestReadOnlyWorkspace(t *testing.T) {
+	dir, err := filepath.Abs(filepath.Join("testdata", "full"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	product := filepath.Join(dir, "product")
+
+	a := load(t, dir, "docker-read-only")
+	b, err := render(a, testProviderDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(b.Docker.Argv, product+":/workspace:ro") {
+		t.Errorf("docker argv doesn't mount %s read-only: %q", product, b.Docker.Argv)
+	}
+	inv := b.invocation(a, b.Docker.Argv, state.WorkspaceMount)
+	if inv.Workspace != state.WorkspaceBound || inv.WorkspacePath != product || inv.WorkspaceAccess != "read-only" {
+		t.Errorf("invocation workspace = %q %q %q", inv.Workspace, inv.WorkspacePath, inv.WorkspaceAccess)
+	}
+
+	a = load(t, dir, "srt-read-only")
+	if b, err = render(a, testProviderDir); err != nil {
+		t.Fatal(err)
+	}
+	var bf bundleFile
+	if err := json.Unmarshal(b.Files[optionsFile], &bf); err != nil {
+		t.Fatal(err)
+	}
+	if bf.Workspace != product || !slices.Contains(bf.Options.DisallowedTools, "Edit(./**)") {
+		t.Errorf("options: workspace %q, disallowedTools %v", bf.Workspace, bf.Options.DisallowedTools)
+	}
+	var s process.SRTSettings
+	if err := json.Unmarshal(b.Files[process.SRTSettingsFile], &s); err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(s.Filesystem.AllowWrite, product) || slices.Contains(s.Filesystem.AllowWrite, ".") {
+		t.Errorf("srt may write the read-only workspace: %v", s.Filesystem.AllowWrite)
+	}
+
+	// Without srt, process can't keep it read-only.
+	a.Env.Sandbox = nil
+	p := NewWithHost(provider.Options{Environment: "srt-read-only", WorkDir: t.TempDir()}, &fakeHost{version: "v22.3.0"}, nil, func() []string { return nil })
+	if diags := diag.List(p.Validate(context.Background(), a)); !strings.Contains(diags.String(), "error: Agent/reviewer on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only") {
 		t.Errorf("validate without srt:\n%s", diags)
 	}
 }

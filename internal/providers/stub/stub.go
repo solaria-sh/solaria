@@ -62,12 +62,13 @@ func (p *Provider) Placements() []string { return []string{PlacementFile} }
 // Capabilities accepts everything, so tests can use any card.
 func (p *Provider) Capabilities(string) provider.Capabilities {
 	return provider.Capabilities{
-		Fallback:      true,
-		MCPTransports: []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
-		SandboxImage:  true,
-		Approvals:     true,
-		OutputSchema:  true,
-		Destroy:       provider.DestroyDelete,
+		Fallback:       true,
+		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
+		SandboxImage:   true,
+		LocalWorkspace: true,
+		Approvals:      true,
+		OutputSchema:   true,
+		Destroy:        provider.DestroyDelete,
 	}
 }
 

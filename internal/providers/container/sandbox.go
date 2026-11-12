@@ -177,3 +177,19 @@ func ShellQuote(s string) string {
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
+
+// WorkspaceVolume is the docker run --volume value that mounts an agent's
+// workspace at /workspace: the folder the environment binds, or the one
+// the run starts in through state.WorkspacePlaceholder, read-only when the
+// agent may not change it (ADR 0017).
+func WorkspaceVolume(a *resolve.Agent) string {
+	src := a.WorkspacePath()
+	if src == "" {
+		src = state.WorkspacePlaceholder
+	}
+	v := src + ":/workspace"
+	if a.Definition.ReadOnlyWorkspace() {
+		v += ":ro"
+	}
+	return v
+}

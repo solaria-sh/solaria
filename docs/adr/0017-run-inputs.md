@@ -39,7 +39,7 @@ spec:
       access: read-only
 ```
 
-Both are part of the definition, so they're in `specDigest` and `resolvedDigest`.
+Both are part of the definition, so they're in `specDigest` and `resolvedDigest`. The workspace enters the digest input only when it's read-only, so agents that keep the default keep their digests (ADR 0008). An environment's override can make the workspace read-only, never writable again, like the other narrowing overrides.
 
 **Binding.** The Environment says where each one comes from:
 
@@ -47,7 +47,7 @@ Both are part of the definition, so they're in `specDigest` and `resolvedDigest`
 kind: Environment
 spec:
   inputs:
-    workspace: {path: .}                  # default: the folder the run starts in
+    workspace: {path: .}                  # relative to this file; default: the folder the run starts in
     repositories:
       product:
         url: https://dev.example.com/org/product.git
@@ -63,12 +63,12 @@ spec:
 |---|---|---|
 | `process` | The working directory; read-only only with srt isolation (below) | The launcher clones each one before the run |
 | `docker` | Mounted `:ro` or read-write | The launcher clones each one inside the container |
-| `managed-agents` / `self-hosted` | The worker's workspace | The worker container clones each one |
-| `managed-agents` / `cloud` | What the caller attaches | GitHub: a `github_repository` resource listed in the invocation for the caller to attach. Any other git host fails plan, naming the repository: no Solaria code runs there |
+| `managed-agents` / `self-hosted` | The session's; read-only, or a bound folder, fails plan | The worker container clones each one |
+| `managed-agents` / `cloud` | What the caller attaches; read-only, or a bound folder, fails plan | GitHub: a `github_repository` resource listed in the invocation for the caller to attach. Any other git host fails plan, naming the repository: no Solaria code runs there |
 
 A cloned repository lands at `repositories/<name>` inside the workspace. A read-only repository is cloned, then made unwritable the same way as a read-only workspace. Credentials reach the clone through the Vault credential and never appear in a URL, a log or state.
 
-The invocation (ADR 0014) records each input: the workspace access, and each repository with its name, URL, ref and access, and, where the caller must attach it, how. `status -a` shows them.
+The invocation (ADR 0014) records each input: the workspace access (`workspaceAccess`), a bound folder (`workspace: path` and `workspacePath`), and each repository with its name, URL, ref and access, and, where the caller must attach it, how. `status -a` shows them.
 
 **Sandboxing the `process` placement.** A `process` run has no isolation of its own, so a read-only workspace can't be enforced there by default. An environment can opt in to Anthropic's sandbox-runtime (`srt`), which wraps the whole launcher, so the SDK, its tools and stdio MCP servers share one boundary:
 

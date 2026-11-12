@@ -45,6 +45,7 @@ Agents and the environment are named after their Solaria resources, behind the o
 | `skills` | custom skills, pinned by version |
 | `limits` | not enforced; plan warns. Session budgets cap cost. |
 | `output.schema` | not supported; plan fails |
+| `workspace.access` | `read-only` fails plan: a session's files belong to the host, which can't keep them from being written. An environment that binds `inputs.workspace.path` fails plan too, since runs don't work on a folder on your machine. |
 | `providers.managed-agents` on the Agent | sent in the request as they are, for fields Solaria has no word for, such as `multiagent`. Fields Solaria sets itself fail validation. |
 
 Managed Agents agents hold no credentials, and the host connects to MCP servers without custom headers: a session gets credentials from the [vaults](https://platform.claude.com/docs/en/managed-agents/vaults) attached when it starts. An agent whose MCP servers send a secret header and that lists no `vaults` gets a warning. A header with a plain value is left out, with a warning.

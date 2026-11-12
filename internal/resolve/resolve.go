@@ -55,6 +55,29 @@ type Agent struct {
 // ID returns the agent's logical ID.
 func (a *Agent) ID() string { return v1alpha1.KindAgent + "/" + a.Name }
 
+// WorkspacePath is the absolute path of the folder the environment binds
+// as the agent's workspace (spec.inputs.workspace.path), or "" when the
+// workspace is the folder the run starts in.
+func (a *Agent) WorkspacePath() string {
+	if in := a.Env.Inputs; in != nil && in.Workspace != nil && in.Workspace.Path != "" {
+		return InputPath(a.EnvDir, in.Workspace.Path)
+	}
+	return ""
+}
+
+// InputPath resolves an environment's input path, relative to the
+// environment's folder or absolute, to a clean absolute path.
+func InputPath(envDir, path string) string {
+	p := filepath.FromSlash(path)
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(envDir, p)
+	}
+	if abs, err := filepath.Abs(p); err == nil {
+		return abs
+	}
+	return filepath.Clean(p)
+}
+
 // SecretRefs lists the secrets a run must be given values for, sorted: the
 // values of SecretVars.
 func (a *Agent) SecretRefs() []string {
@@ -282,6 +305,7 @@ func definition(set *config.Set, r *config.Resource) (Definition, map[string]str
 		}
 		d.Output = &Output{Schema: schema}
 	}
+	d.Workspace = workspace(s.Workspace)
 	for name, fields := range s.Providers {
 		d.Providers[name] = mergePatch(nil, fields).(map[string]any)
 	}
@@ -325,6 +349,11 @@ func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 			return Definition{}, err
 		}
 		d.Limits = lim
+	}
+	if w := workspace(o.Workspace); w != nil {
+		// Only narrowing is allowed: validate fails on an override that
+		// makes a read-only workspace writable.
+		d.Workspace = w
 	}
 	if len(o.Providers) > 0 {
 		merged := maps.Clone(d.Providers)

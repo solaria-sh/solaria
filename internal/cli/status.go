@@ -426,11 +426,20 @@ func writeInvocation(b *strings.Builder, env string, as agentState) {
 	if len(task) > 0 {
 		fmt.Fprintf(b, "  task: %s\n", strings.Join(task, ", or "))
 	}
+	ws := ""
 	switch inv.Workspace {
 	case state.WorkspaceCwd:
-		b.WriteString("  workspace: the directory it runs in\n")
+		ws = "the directory it runs in"
 	case state.WorkspaceMount:
-		b.WriteString("  workspace: the directory it runs in, mounted into the container\n")
+		ws = "the directory it runs in, mounted into the container"
+	case state.WorkspaceBound:
+		ws = inv.WorkspacePath + ", wherever it runs"
+	}
+	if ws != "" {
+		if inv.WorkspaceAccess == string(v1alpha1.AccessReadOnly) {
+			ws += " (read-only)"
+		}
+		fmt.Fprintf(b, "  workspace: %s\n", ws)
 	}
 	if len(inv.Env) > 0 {
 		fmt.Fprintf(b, "  environment: %s\n", strings.Join(inv.Env, ", "))
