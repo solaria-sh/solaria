@@ -169,6 +169,5 @@ Nothing about the agents changes: specs, definitions and digests stay as they ar
 
 - [ADR 0004](0004-resource-model.md): the resource model. ADR 0006: placements, and "local" as an environment. [ADR 0007](0007-portable-sandbox-is-packages.md): the portable sandbox. ADR 0009: state per environment. [ADR 0012](0012-environment-level-host-objects.md): environment-level host objects. ADR 0013: the lock file. ADR 0016: vaults per environment. ADR 0017: input bindings. Each is revised when this is accepted.
 - [Managed Agents: environments](https://platform.claude.com/docs/en/managed-agents/environments), and the [Managed Agents spike](../spikes/2026-11-managed-agents-api.md).
-- To verify before acceptance:
-  - that a Managed Agents environment's `name` can be changed in place, which the upgrade relies on;
-  - the exact wording and position of the decode error for an old `kind: Environment`.
+- Verified on 2026-11-13 against the real API: a Managed Agents environment's `name` can be changed in place, which the upgrade relies on. `POST /v1/environments/{id}` with only a new `name` returned the same ID with the new name, and a later `GET` showed it. The API reference lists `name` as an updatable field, and the `managed-agents` provider already sends it on every update. The API doesn't document whether names must be unique, so a rename shouldn't count on it.
+- To verify before acceptance: the exact wording and position of the decode error for an old `kind: Environment`.
