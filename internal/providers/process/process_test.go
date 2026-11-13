@@ -82,19 +82,19 @@ func golden(t *testing.T, path string, got []byte) {
 func TestValidate(t *testing.T) {
 	a := agent(t.TempDir())
 	got := messages(Validate(a, Machine{}))
-	if len(got) != 1 || !strings.Contains(got[0], "sandbox.network is limited") {
+	if len(got) != 1 || !strings.Contains(got[0], "the sandbox's network is limited") {
 		t.Errorf("default sandbox: %q", got)
 	}
 
-	a.Env.Sandbox = &v1alpha1.SandboxSpec{
+	a.Sandbox = &v1alpha1.SandboxSpec{
 		Packages:  &v1alpha1.PackagesSpec{NPM: []string{"left-pad"}},
 		Network:   &v1alpha1.NetworkSpec{Mode: v1alpha1.NetworkUnrestricted},
 		Resources: &v1alpha1.ResourcesSpec{Memory: "4Gi"},
 	}
 	got = messages(Validate(a, Machine{Managed: []string{"/etc/claude-code/managed-settings.json"}}))
 	want := []string{
-		"sandbox.packages aren't installed on the process placement: the run uses the tools this machine has",
-		"sandbox.resources aren't enforced on the process placement",
+		"its Environment's spec.packages aren't installed on the process placement: the run uses the tools this machine has",
+		"its Environment's spec.resources aren't enforced on the process placement",
 		"managed settings in /etc/claude-code/managed-settings.json apply to every Claude Code process on this machine and can't be turned off on the process placement; use the docker placement to keep them out",
 	}
 	if !slices.Equal(got, want) {
@@ -529,11 +529,11 @@ func srtAgent() *resolve.Agent {
 	return &resolve.Agent{
 		Name: "triage",
 		Env: &v1alpha1.TargetSpec{
-			Sandbox: &v1alpha1.SandboxSpec{
-				Isolation: v1alpha1.IsolationSRT,
-				Network:   &v1alpha1.NetworkSpec{Allow: []string{"tracker.example.com"}},
-			},
 			Telemetry: &v1alpha1.TelemetrySpec{Endpoint: "http://localhost:4318"},
+		},
+		Sandbox: &v1alpha1.SandboxSpec{
+			Isolation: v1alpha1.IsolationSRT,
+			Network:   &v1alpha1.NetworkSpec{Allow: []string{"tracker.example.com"}},
 		},
 		Definition: resolve.Definition{Tools: resolve.Tools{MCP: map[string]resolve.MCPServer{
 			"docs":   {Spec: v1alpha1.McpServerSpec{Remotes: []v1alpha1.MCPRemote{{URL: "https://docs.example.com:8443/mcp"}}}},
@@ -571,7 +571,7 @@ func TestSRTFor(t *testing.T) {
 
 	a := srtAgent()
 	a.Env.Telemetry = nil
-	a.Env.Sandbox.Network.PackageManagers = true
+	a.Sandbox.Network.PackageManagers = true
 	s = SRTFor(a, "/cache", nil)
 	if s.Network.AllowLocalBinding || !slices.Contains(s.Network.AllowedDomains, "proxy.golang.org") {
 		t.Errorf("network = %+v", s.Network)
@@ -613,17 +613,17 @@ func TestValidateSRT(t *testing.T) {
 		}},
 		{"macos", nil, Machine{GOOS: "darwin", LookPath: only("srt", "rg")}, nil},
 		{"windows", nil, Machine{GOOS: "windows", LookPath: all}, []string{
-			"error: sandbox.isolation srt can't isolate runs on this machine: srt doesn't run on windows; use the docker placement instead",
+			"error: its Environment's spec.isolation srt can't isolate runs on this machine: srt doesn't run on windows; use the docker placement instead",
 		}},
 		{"no srt", nil, Machine{GOOS: "darwin", LookPath: only("rg")}, []string{
-			"error: sandbox.isolation srt can't isolate runs on this machine: srt isn't on PATH; install it with npm install -g @anthropic-ai/sandbox-runtime",
+			"error: its Environment's spec.isolation srt can't isolate runs on this machine: srt isn't on PATH; install it with npm install -g @anthropic-ai/sandbox-runtime",
 		}},
 		{"no deps", nil, Machine{GOOS: "linux", LookPath: only("srt", "rg")}, []string{
-			"error: sandbox.isolation srt can't isolate runs on this machine: srt needs bwrap and socat on PATH, which this machine doesn't have",
+			"error: its Environment's spec.isolation srt can't isolate runs on this machine: srt needs bwrap and socat on PATH, which this machine doesn't have",
 			"warning: srt runs the agent in its own network namespace on Linux, so hosts on this machine's loopback, such as a telemetry collector on localhost, may be unreachable",
 		}},
-		{"unrestricted", func(a *resolve.Agent) { a.Env.Sandbox.Network.Mode = v1alpha1.NetworkUnrestricted }, Machine{GOOS: "darwin", LookPath: all}, []string{
-			"error: sandbox.isolation srt limits the network to the hosts the agent needs, so it can't be combined with sandbox.network.mode unrestricted; list the extra hosts in sandbox.network.allow",
+		{"unrestricted", func(a *resolve.Agent) { a.Sandbox.Network.Mode = v1alpha1.NetworkUnrestricted }, Machine{GOOS: "darwin", LookPath: all}, []string{
+			"error: its Environment's spec.isolation srt limits the network to the hosts the agent needs, so it can't be combined with spec.network.mode unrestricted; list the extra hosts in spec.network.allow",
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

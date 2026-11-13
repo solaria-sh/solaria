@@ -30,15 +30,16 @@ const (
 	metaTarget         = "solaria_target"
 	metaSpecDigest     = "solaria_spec_digest"
 	metaResolvedDigest = "solaria_resolved_digest"
-
-	// metaEnvironment is the key metaTarget replaced (ADR 0020).
+	// metaEnvironment names the Environment an agent or environment is
+	// for (ADR 0020). Before then it named the target.
 	metaEnvironment = "solaria_environment"
 )
 
-// updateMetadata returns m for an update request. The host merges metadata
-// on update and deletes a key set to "", so this deletes the key objects
+// vaultUpdateMetadata returns a vault's metadata for an update request.
+// Vaults aren't for one Environment, and the host merges metadata on
+// update and deletes a key set to "", so this deletes the key vaults
 // applied before ADR 0020 still carry.
-func updateMetadata(m map[string]string) map[string]string {
+func vaultUpdateMetadata(m map[string]string) map[string]string {
 	out := maps.Clone(m)
 	if out == nil {
 		out = map[string]string{}
@@ -99,6 +100,7 @@ func renderAgent(a *resolve.Agent, s settings, skills map[string]skillRef) agent
 		Metadata: map[string]string{
 			metaLogicalID:      a.ID(),
 			metaTarget:         a.Target,
+			metaEnvironment:    a.Environment,
 			metaSpecDigest:     a.SpecDigest,
 			metaResolvedDigest: a.ResolvedDigest,
 		},
@@ -268,7 +270,7 @@ func (b agentBody) updateParams(version int64) anthropic.BetaAgentUpdateParams {
 		Version:     param.NewOpt(version),
 		MCPServers:  b.MCPServers,
 		Skills:      b.Skills,
-		Metadata:    updateMetadata(b.Metadata),
+		Metadata:    b.Metadata,
 		Tools:       []anthropic.BetaAgentUpdateParamsToolUnion{},
 	}
 	if p.MCPServers == nil {

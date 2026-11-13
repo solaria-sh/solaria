@@ -18,6 +18,7 @@ const ReferenceDir = "docs/resources"
 var referencePages = []struct{ kind, file string }{
 	{v1alpha1.KindAgent, "agent.md"},
 	{v1alpha1.KindTarget, "target.md"},
+	{v1alpha1.KindEnvironment, "environment.md"},
 	{v1alpha1.KindMcpServer, "mcp-server.md"},
 	{v1alpha1.KindVault, "vault.md"},
 }

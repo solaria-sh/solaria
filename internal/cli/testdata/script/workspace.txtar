@@ -34,7 +34,7 @@ stdout '"workspace": "path",\n +"workspacePath": "/work/product",\n +"workspaceA
 # workspace fails plan.
 [!exec:node] skip 'the process placement checks for node'
 ! exec solaria plan -t local-sdk
-stderr '^solaria.yaml: error: Agent/reader on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only$'
+stderr '^solaria.yaml: error: Agent/reader on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set spec.isolation: srt in its Environment or use the docker placement to keep the workspace read-only$'
 
 -- project/solaria.yaml --
 apiVersion: solaria.sh/v1alpha1

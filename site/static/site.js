@@ -46,7 +46,7 @@
     { k: "w", t: "agent.yaml: warning: limits aren't enforced on Managed Agents" },
     { t: "Target ma-cloud (managed-agents/cloud)" },
     { t: "" },
-    { k: "c", t: "  + Environment/ma-cloud" },
+    { k: "c", t: "  + Environment/review" },
     { t: "" },
     { k: "c", t: "  + Agent/reviewer" },
     { h: '      resolvedDigest: <span class="dg">sha256:ff171fe9c371</span>' },

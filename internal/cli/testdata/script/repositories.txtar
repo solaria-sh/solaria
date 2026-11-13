@@ -70,7 +70,7 @@ stderr '^solaria.yaml: error: Agent/builder on stub/file: repositories are clone
 # Without srt, a process run can write anywhere its user can.
 [!exec:node] skip 'the process placement checks for node'
 ! exec solaria plan -t local-sdk
-stderr '^solaria.yaml: error: Agent/builder on claude-agent-sdk/process: repository spec is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt to keep its clone read-only$'
+stderr '^solaria.yaml: error: Agent/builder on claude-agent-sdk/process: repository spec is read-only, and a process run can write anywhere its user can; set spec.isolation: srt in its Environment to keep its clone read-only$'
 
 -- project/solaria.yaml --
 apiVersion: solaria.sh/v1alpha1

@@ -39,6 +39,9 @@ func Validate(set *config.Set) diag.List {
 	for _, r := range set.Kind(v1alpha1.KindTarget) {
 		diags = append(diags, target(set, r)...)
 	}
+	for _, r := range set.Kind(v1alpha1.KindEnvironment) {
+		diags = append(diags, environment(set, r)...)
+	}
 	for _, r := range set.Kind(v1alpha1.KindVault) {
 		diags = append(diags, vault(set, r)...)
 	}
@@ -379,20 +382,89 @@ func target(set *config.Set, r *config.Resource) diag.List {
 		errorf(r.Pos("spec", "secrets", "path"), "spec.secrets.path only applies when source is dotenv")
 	}
 
-	if sb := spec.Sandbox; sb != nil {
-		if n := sb.Network; n != nil && n.Mode == v1alpha1.NetworkUnrestricted {
-			if len(n.Allow) > 0 {
-				warnf(r.Pos("spec", "sandbox", "network", "allow"), "spec.sandbox.network.allow is ignored when mode is unrestricted")
-			}
-			if n.PackageManagers {
-				warnf(r.Pos("spec", "sandbox", "network", "packageManagers"), "spec.sandbox.network.packageManagers is ignored when mode is unrestricted")
-			}
+	diags = append(diags, environments(set, r, selected)...)
+	return diags
+}
+
+// environments checks a target's spec.environments: each entry names an
+// Environment, at most one is the default, and every agent the target
+// receives gets exactly one Environment (ADR 0020).
+func environments(set *config.Set, r *config.Resource, selected map[string]bool) diag.List {
+	var diags diag.List
+	spec := r.Target().Spec
+	errorf := func(p diag.Pos, format string, args ...any) {
+		diags = append(diags, diag.Errorf(r.File, p, format, args...))
+	}
+	def := -1
+	for i, e := range spec.Environments {
+		at := func(path ...string) diag.Pos {
+			return r.Pos(append([]string{"spec", "environments", strconv.Itoa(i)}, path...)...)
 		}
-		if v1alpha1.IsDockerfilePath(sb.Image) {
-			if err := regularFile(r.Dir(), sb.Image); err != nil {
-				errorf(r.Pos("spec", "sandbox", "image"), "spec.sandbox.image: %v", err)
-			}
+		switch {
+		case e.Ref == v1alpha1.DefaultEnvironment:
+			errorf(at("ref"), "spec.environments[%d].ref: %s is the built-in sandbox, which agents get when spec.environments is omitted", i, e.Ref)
+		case !set.Exists(v1alpha1.KindEnvironment, e.Ref):
+			errorf(at("ref"), "spec.environments[%d].ref: no Environment named %q", i, e.Ref)
 		}
+		if e.Agents == nil {
+			if def >= 0 {
+				errorf(at(), "spec.environments[%d]: spec.environments[%d] is already the default; give one of them agents.selector", i, def)
+			}
+			def = i
+			continue
+		}
+		if !slices.ContainsFunc(sortedKeys(selected), func(name string) bool {
+			a := set.Lookup(v1alpha1.KindAgent, name)
+			return a != nil && resolve.Matches(e.Agents, a.Agent())
+		}) {
+			diags = append(diags, diag.Warnf(r.File, at("agents", "selector"),
+				"spec.environments[%d].agents.selector matches none of this target's agents", i))
+		}
+	}
+	for _, name := range sortedKeys(selected) {
+		a := set.Lookup(v1alpha1.KindAgent, name)
+		if a == nil {
+			continue
+		}
+		if _, err := resolve.EnvironmentFor(&spec, a.Agent()); err != nil {
+			errorf(r.Pos("spec", "environments"), "spec.environments: %v", err)
+		}
+	}
+	return diags
+}
+
+// environment checks an Environment: its name, its sandbox, and that a
+// target uses it.
+func environment(set *config.Set, r *config.Resource) diag.List {
+	var diags diag.List
+	errorf := func(p diag.Pos, format string, args ...any) {
+		diags = append(diags, diag.Errorf(r.File, p, format, args...))
+	}
+	warnf := func(p diag.Pos, format string, args ...any) {
+		diags = append(diags, diag.Warnf(r.File, p, format, args...))
+	}
+	if r.Name == v1alpha1.DefaultEnvironment {
+		errorf(r.Pos("metadata", "name"), "metadata.name: %s is reserved for the built-in sandbox", r.Name)
+	}
+	sb := r.Environment().Spec
+	if n := sb.Network; n != nil && n.Mode == v1alpha1.NetworkUnrestricted {
+		if len(n.Allow) > 0 {
+			warnf(r.Pos("spec", "network", "allow"), "spec.network.allow is ignored when mode is unrestricted")
+		}
+		if n.PackageManagers {
+			warnf(r.Pos("spec", "network", "packageManagers"), "spec.network.packageManagers is ignored when mode is unrestricted")
+		}
+	}
+	if v1alpha1.IsDockerfilePath(sb.Image) {
+		if err := regularFile(r.Dir(), sb.Image); err != nil {
+			errorf(r.Pos("spec", "image"), "spec.image: %v", err)
+		}
+	}
+	used := slices.ContainsFunc(set.Kind(v1alpha1.KindTarget), func(t *config.Resource) bool {
+		return slices.ContainsFunc(t.Target().Spec.Environments, func(e v1alpha1.EnvironmentAssignment) bool { return e.Ref == r.Name })
+	})
+	if !used {
+		warnf(r.Pos("metadata", "name"), "no Target references Environment %q", r.Name)
 	}
 	return diags
 }

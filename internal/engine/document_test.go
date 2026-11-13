@@ -53,11 +53,11 @@ func everyStep() *Plan {
 				Notes:  []string{"the host keeps the previous version"},
 			},
 		},
-		Host: &provider.EnvironmentPlan{
+		Environments: []*provider.EnvironmentPlan{{
 			ID: "Environment/dev", Action: provider.Update, Digest: digestOf('1'),
 			Prior:   &state.EnvironmentEntry{ID: "Environment/dev", Digest: digestOf('0')},
 			Changes: []provider.Change{{Path: "packages.apt", Old: `["git"]`, New: `["git","jq"]`}},
-		},
+		}},
 		Vaults: []*provider.VaultPlan{
 			{ID: "Vault/new", Action: provider.Create, Digest: digestOf('2')},
 			{
@@ -119,9 +119,9 @@ func TestDocumentDifferences(t *testing.T) {
 		{"serial", func(p *Plan) { p.state.Serial = 5 }, []string{"the state changed since the plan: serial 4 then, 5 now"}},
 		{"lineage", func(p *Plan) { p.state.Lineage = "other" }, []string{"the state was replaced since the plan: lineage 7e1d2c3b-4a5f-4e6d-8c7b-6a5f4e3d2c1b then, other now"}},
 		{"removed", func(p *Plan) { p.state.Serial = 0 }, []string{"the state was removed since the plan, which was made from serial 4"}},
-		{"host action", func(p *Plan) { p.Host.Action = provider.NoOp }, []string{"Environment/dev: the plan says update, and planning again says no-op"}},
-		{"host digest", func(p *Plan) { p.Host.Digest = digestOf('9') }, []string{"Environment/dev: the plan applies sha256:111111111111, and the configuration now gives sha256:999999999999"}},
-		{"host gone", func(p *Plan) { p.Host = nil }, []string{"Environment/dev is in the plan, and planning again doesn't find it"}},
+		{"host action", func(p *Plan) { p.Environments[0].Action = provider.NoOp }, []string{"Environment/dev: the plan says update, and planning again says no-op"}},
+		{"host digest", func(p *Plan) { p.Environments[0].Digest = digestOf('9') }, []string{"Environment/dev: the plan applies sha256:111111111111, and the configuration now gives sha256:999999999999"}},
+		{"host gone", func(p *Plan) { p.Environments = nil }, []string{"Environment/dev is in the plan, and planning again doesn't find it"}},
 		{"vault rotate", func(p *Plan) { p.Vaults[1].Rotate = false }, []string{"Vault/tracker: the plan and planning again differ on sending credential values again"}},
 		{"new vault", func(p *Plan) {
 			p.Vaults = append(p.Vaults, &provider.VaultPlan{ID: "Vault/z", Action: provider.Create, Digest: digestOf('4')})

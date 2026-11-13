@@ -15,13 +15,13 @@ cmp stdout ../self-hosted.txt
 cd ../other
 ! exec solaria plan -t ma-cloud
 stderr '^solaria.yaml: error: Agent/hello on managed-agents/cloud: model openai:gpt-6-astra isn''t available; this host runs anthropic models only$'
-stderr '^solaria.yaml: error: sandbox.packages need sandbox.network.packageManagers: true under limited networking'
+stderr '^solaria.yaml: error: Environment "ma-cloud": spec.packages need spec.network.packageManagers: true under limited networking'
 ! stdout .
 
 -- cloud.txt --
 Target ma-cloud (managed-agents/cloud)
 
-  + Environment/ma-cloud
+  + Environment/default
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158
@@ -30,7 +30,7 @@ Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.
 -- self-hosted.txt --
 Target ma-self-hosted (managed-agents/self-hosted)
 
-  + Environment/ma-self-hosted
+  + Environment/default
       note: the worker needs the environment's key in the environment variables as ANTHROPIC_ENVIRONMENT_KEY; apply creates the environment and then says how to get one
 
   + Agent/hello
@@ -53,4 +53,9 @@ metadata: {name: ma-cloud}
 spec:
   provider: managed-agents
   placement: cloud
-  sandbox: {packages: {pip: [ruff]}}
+  environments: [{ref: ma-cloud}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ma-cloud}
+spec: {packages: {pip: [ruff]}}

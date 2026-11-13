@@ -9,8 +9,13 @@ metadata: {name: local-gitagent}
 spec:
   provider: gitagent
   placement: docker
-  sandbox:
-    packages: {apt: [ripgrep]}
+  environments: [{ref: tools}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: tools}
+spec:
+  packages: {apt: [ripgrep]}
 ```
 
 **Needs:** the `docker` CLI with BuildKit (Docker Desktop, OrbStack, Colima and Podman's docker alias all work) for `apply`. `plan` needs nothing until there's state to refresh. Running the image needs the model provider's API key.
@@ -18,7 +23,7 @@ spec:
 ## What apply does
 
 1. Renders the agent into gitagent's config layer, `/root/.gitagent` in the image: `gitagent.yaml` (model, fallbacks, limits, MCP servers), `prompts/rules.md` (the instructions, which follow gitagent's own system prompt) and `skills/`.
-2. Generates a Dockerfile: gitagent compiled from a pinned commit, the [Solaria sandbox base](../concepts.md#the-sandbox) or `sandbox.image`, then the target's packages.
+2. Generates a Dockerfile: gitagent compiled from a pinned commit, the [Solaria sandbox base](../concepts.md#the-sandbox) or the [Environment](../concepts.md#the-sandbox)'s `spec.image`, then its packages.
 3. Builds `solaria/<target>/<agent>:<resolvedDigest[:12]>`, labeled with the logical ID and both digests, and removes the previous tag.
 4. Records a `docker run` command in the state. `apply` prints it, and `solaria status -t <target> -a <agent>` shows it with the variables it needs; the task goes after it with `-p`. `status -o json` gives it as an `invocation` (see [Starting an agent](../concepts.md#starting-an-agent)).
 

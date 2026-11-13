@@ -10,12 +10,12 @@ cp $EXAMPLES/reviewer/skills/review-rubric/SKILL.md reviewer/skills/review-rubri
 cd reviewer
 
 exec solaria validate
-stdout '^valid: 1 Agent, 3 Targets, 1 McpServer$'
+stdout '^valid: 1 Agent, 3 Targets, 1 Environment, 1 McpServer$'
 
 # Both Managed Agents placements deploy the same definition, so they share
 # a resolvedDigest. local-gitagent overrides the model, so its differs.
 exec solaria plan -t ma-cloud
-stdout '^  \+ Environment/ma-cloud$'
+stdout '^  \+ Environment/review$'
 stdout '^      resolvedDigest: sha256:ff171fe9c371$'
 stderr 'limits aren''t enforced on Managed Agents'
 

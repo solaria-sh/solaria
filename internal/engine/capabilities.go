@@ -14,8 +14,9 @@ import (
 
 // checkCapabilities reports what an agent needs that the host can't do,
 // before any host call. Errors stop the plan; warnings explain degraded
-// behavior.
-func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string) diag.List {
+// behavior. file is the agent's file, and envFile the file of the
+// Environment the target gives it, which sandbox problems are reported on.
+func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file, envFile string) diag.List {
 	var diags diag.List
 	where := fmt.Sprintf("%s on %s/%s", a.ID(), a.Provider, a.Placement)
 	errorf := func(format string, args ...any) {
@@ -23,6 +24,9 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string
 	}
 	warnf := func(format string, args ...any) {
 		diags = append(diags, diag.Warnf(file, diag.Pos{}, "%s: %s", where, fmt.Sprintf(format, args...)))
+	}
+	envErrorf := func(format string, args ...any) {
+		diags = append(diags, diag.Errorf(envFile, diag.Pos{}, "Environment %q for %s: %s", a.Environment, where, fmt.Sprintf(format, args...)))
 	}
 	d := a.Definition
 
@@ -50,8 +54,8 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string
 		}
 	}
 
-	if a.Env.Sandbox != nil && a.Env.Sandbox.Image != "" && !caps.SandboxImage {
-		errorf("sandbox.image isn't supported here; describe the sandbox with packages instead (ADR 0007)")
+	if a.Sandbox != nil && a.Sandbox.Image != "" && !caps.SandboxImage {
+		envErrorf("spec.image isn't supported here; describe the sandbox with packages instead (ADR 0007)")
 	}
 	if !caps.LocalWorkspace {
 		if d.ReadOnlyWorkspace() {
@@ -80,8 +84,8 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file string
 			errorf("repository %s is read-only, and this host can't keep its clone from being written (ADR 0017)", r.Name)
 		}
 	}
-	if sb := a.Env.Sandbox; sb != nil && sb.Isolation != "" && !slices.Contains(caps.Isolation, sb.Isolation) {
-		errorf("sandbox.isolation %s isn't supported here; it wraps runs on the process placement, and other placements run in a sandbox of their own (ADR 0017)", sb.Isolation)
+	if sb := a.Sandbox; sb != nil && sb.Isolation != "" && !slices.Contains(caps.Isolation, sb.Isolation) {
+		envErrorf("spec.isolation %s isn't supported here; it wraps runs on the process placement, and other placements run in a sandbox of their own (ADR 0017)", sb.Isolation)
 	}
 	if d.Output != nil && !caps.OutputSchema {
 		errorf("spec.output.schema can't be enforced here; this host doesn't support output schemas (ADR 0019)")

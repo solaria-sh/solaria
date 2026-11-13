@@ -2,7 +2,7 @@
 
 # Agent
 
-Describes an agent independently of the host it runs on. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Agent`. The other resources are [Target](target.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
+Describes an agent independently of the host it runs on. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Agent`. The other resources are [Target](target.md), [Environment](environment.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 

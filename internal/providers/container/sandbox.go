@@ -83,7 +83,7 @@ func SandboxBase(sb *v1alpha1.SandboxSpec, envDir, repository, platform string, 
 	file := filepath.Join(envDir, filepath.FromSlash(sb.Image))
 	content, err := resolve.ReadText(file)
 	if err != nil {
-		return "", nil, fmt.Errorf("sandbox.image: %w", err)
+		return "", nil, fmt.Errorf("spec.image: %w", err)
 	}
 	tag := repository + ":" + strings.TrimPrefix(digest.Bytes(content), "sha256:")[:12]
 	return tag, &BuildRequest{

@@ -35,9 +35,9 @@ type Document struct {
 	State DocumentState `json:"state"`
 	// Source is the checkout the plan was made from.
 	Source state.Source `json:"source"`
-	// Host is the target's own host object (ADR 0012), when the
-	// provider keeps one.
-	Host *HostStep `json:"host,omitempty"`
+	// Environments are the host objects of the Environments the target's
+	// agents use (ADR 0012, ADR 0020), when the provider keeps them.
+	Environments []HostStep `json:"environments,omitempty"`
 	// Vaults are host vaults (ADR 0016), when the provider keeps them.
 	Vaults []HostStep `json:"vaults,omitempty"`
 	// Agents has one step per agent in the configuration or the state,
@@ -85,7 +85,7 @@ type HostDigest struct {
 	Digest string `json:"digest"`
 }
 
-// HostStep is what the plan does to the target's host object or to a
+// HostStep is what the plan does to an Environment's host object or to a
 // host vault.
 type HostStep struct {
 	ID     string          `json:"id"`
@@ -147,12 +147,12 @@ func (e *Engine) Document(p *Plan) *Document {
 		}
 		d.Agents = append(d.Agents, step)
 	}
-	if h := p.Host; h != nil {
+	for _, h := range p.Environments {
 		step := hostStep(h.ID, h.Action, h.Digest, h.Changes, h.Reason, h.Notes)
 		if h.Prior != nil {
 			step.Before = &HostDigest{Digest: h.Prior.Digest}
 		}
-		d.Host = &step
+		d.Environments = append(d.Environments, step)
 	}
 	for _, v := range p.Vaults {
 		step := hostStep(v.ID, v.Action, v.Digest, v.Changes, v.Reason, v.Notes)
@@ -240,14 +240,7 @@ func (d *Document) Differences(fresh *Document) []string {
 		}
 	}
 
-	var savedHost, nowHost []HostStep
-	if d.Host != nil {
-		savedHost = []HostStep{*d.Host}
-	}
-	if fresh.Host != nil {
-		nowHost = []HostStep{*fresh.Host}
-	}
-	out = append(out, hostDifferences(savedHost, nowHost)...)
+	out = append(out, hostDifferences(d.Environments, fresh.Environments)...)
 	out = append(out, hostDifferences(d.Vaults, fresh.Vaults)...)
 	return out
 }

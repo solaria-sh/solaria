@@ -104,6 +104,27 @@
       ],
       "description": "Names one credential of a Vault."
     },
+    "EnvironmentAssignment": {
+      "properties": {
+        "ref": {
+          "type": "string",
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "The name of the Environment."
+        },
+        "agents": {
+          "$ref": "#/$defs/AgentSelection",
+          "description": "Which of the target's agents get this Environment. At most one entry may omit it; that entry is the default, for the agents no other entry selects."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "ref"
+      ],
+      "description": "Gives an Environment to some of a target's agents."
+    },
     "InputsSpec": {
       "properties": {
         "workspace": {
@@ -251,34 +272,6 @@
       "type": "object",
       "description": "Replaces some of an agent's model fields."
     },
-    "NetworkSpec": {
-      "properties": {
-        "mode": {
-          "type": "string",
-          "enum": [
-            "limited",
-            "unrestricted"
-          ],
-          "description": "limited (only allowed hosts) or unrestricted."
-        },
-        "allow": {
-          "items": {
-            "type": "string",
-            "pattern": "^(\\*\\.)?[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$"
-          },
-          "type": "array",
-          "uniqueItems": true,
-          "description": "Extra hosts the sandbox may reach in limited mode."
-        },
-        "packageManagers": {
-          "type": "boolean",
-          "description": "Allows the package managers' registries in limited mode."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "Controls outbound network access."
-    },
     "ObjectMeta": {
       "properties": {
         "name": {
@@ -318,61 +311,6 @@
         "name"
       ],
       "description": "Identifies a resource."
-    },
-    "PackagesSpec": {
-      "properties": {
-        "apt": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "uniqueItems": true,
-          "description": "APT packages."
-        },
-        "cargo": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "uniqueItems": true,
-          "description": "Cargo crates."
-        },
-        "gem": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "uniqueItems": true,
-          "description": "Ruby gems."
-        },
-        "go": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "uniqueItems": true,
-          "description": "Go modules, installed with go install."
-        },
-        "npm": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "uniqueItems": true,
-          "description": "npm packages, installed globally."
-        },
-        "pip": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "uniqueItems": true,
-          "description": "pip packages."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "Lists packages per package manager."
     },
     "PermissionsOverride": {
       "properties": {
@@ -416,54 +354,6 @@
         "url"
       ],
       "description": "Says where a repository comes from."
-    },
-    "ResourcesSpec": {
-      "properties": {
-        "memory": {
-          "type": "string",
-          "pattern": "^[0-9]+(Ki|Mi|Gi|Ti)?$",
-          "description": "Memory cap, such as 8Gi."
-        },
-        "disk": {
-          "type": "string",
-          "pattern": "^[0-9]+(Ki|Mi|Gi|Ti)?$",
-          "description": "Disk cap, such as 10Gi."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "Caps sandbox resources."
-    },
-    "SandboxSpec": {
-      "properties": {
-        "packages": {
-          "$ref": "#/$defs/PackagesSpec",
-          "description": "Packages to install, by package manager, in each manager's own pin syntax."
-        },
-        "network": {
-          "$ref": "#/$defs/NetworkSpec",
-          "description": "Outbound network access. When omitted, access is limited to the hosts the agents need."
-        },
-        "resources": {
-          "$ref": "#/$defs/ResourcesSpec",
-          "description": "Memory and disk caps, where the placement allows them."
-        },
-        "image": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Replaces the generated sandbox image: a container image reference, or a path to a Dockerfile relative to this file. Only container placements accept it."
-        },
-        "isolation": {
-          "type": "string",
-          "enum": [
-            "srt"
-          ],
-          "description": "Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "description": "Describes a sandbox in a form every placement understands."
     },
     "SecretsSpec": {
       "properties": {
@@ -518,9 +408,13 @@
           "$ref": "#/$defs/AgentSelection",
           "description": "Which agents this target receives. When omitted, it receives every agent."
         },
-        "sandbox": {
-          "$ref": "#/$defs/SandboxSpec",
-          "description": "The machine the agents' tools run on."
+        "environments": {
+          "items": {
+            "$ref": "#/$defs/EnvironmentAssignment"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "The Environments the agents' tools run in. Each entry gives one Environment to the agents its selector matches, and the entry without a selector is the default for every other agent. When omitted, every agent gets the built-in sandbox: the sandbox base image, with network access limited to the hosts the agents need."
         },
         "secrets": {
           "$ref": "#/$defs/SecretsSpec",
@@ -688,5 +582,5 @@
     "spec"
   ],
   "title": "Solaria Target",
-  "description": "Binds agents to a provider and placement, and says how their sandbox, secrets and telemetry are set up there."
+  "description": "Binds agents to a provider and placement, and says which sandboxes they get there and how their secrets and telemetry are set up."
 }

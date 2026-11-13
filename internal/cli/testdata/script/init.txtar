@@ -8,7 +8,7 @@ cmp hello/.gitignore want-gitignore
 # The project validates and plans with nothing installed.
 cd hello
 exec solaria validate
-stdout '^valid: 1 Agent, 2 Targets$'
+stdout '^valid: 1 Agent, 2 Targets, 1 Environment$'
 exec solaria plan -t local
 stdout '\+ Agent/hello'
 stdout 'Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.'

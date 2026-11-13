@@ -15,12 +15,13 @@ import (
 )
 
 // Format names the shape of a state file. v2 renamed environment to
-// target (ADR 0020).
+// target, and keeps one host object per Environment under environments
+// instead of a single host (ADR 0020).
 const Format = "solaria.sh/state/v2"
 
-// formatV1 is the state format before ADR 0020: the same shape, with the
-// target's name under environment. decode reads it, and the next write
-// stores it as v2.
+// formatV1 is the state format before ADR 0020: the target's name under
+// environment, and its host object under host. decode reads it, and the
+// next write stores it as v2.
 const formatV1 = "solaria.sh/state/v1"
 
 // State is one target's state.
@@ -33,22 +34,28 @@ type State struct {
 	// is refused, so a stale copy can't overwrite newer state.
 	Serial int    `json:"serial"`
 	Target string `json:"target"`
-	// Host is the target's own host object, for providers whose host
-	// keeps one that all agents share (ADR 0012).
-	Host *EnvironmentEntry `json:"host,omitempty"`
+	// Environments are host objects by logical ID, such as
+	// Environment/base, for providers whose host keeps one for each
+	// Environment the target's agents share (ADR 0012, ADR 0020).
+	Environments map[string]*EnvironmentEntry `json:"environments,omitempty"`
 	// Agents by logical ID, such as Agent/reviewer.
 	Agents map[string]*Entry `json:"agents"`
 	// Vaults are host vaults by logical ID, such as Vault/tracker, for
 	// providers whose host keeps credentials in vaults (ADR 0016). Their
 	// config names credentials and secrets, never values.
 	Vaults map[string]*VaultEntry `json:"vaults,omitempty"`
+
+	// legacyHost is the ID the single host object of state written before
+	// ADR 0020 is kept under, until the engine knows which Environment it
+	// belongs to.
+	legacyHost string
 }
 
-// VaultEntry is a host vault. It has the same shape as the target's
+// VaultEntry is a host vault. It has the same shape as an Environment's
 // host object: both are host objects the target's agents share.
 type VaultEntry = EnvironmentEntry
 
-// EnvironmentEntry is an environment's own host object, such as a Managed
+// EnvironmentEntry is an Environment's host object, such as a Managed
 // Agents environment.
 type EnvironmentEntry struct {
 	ID              string `json:"id"`
@@ -80,6 +87,41 @@ func (s *State) IDs() []string {
 	}
 	slices.Sort(ids)
 	return ids
+}
+
+// EnvironmentIDs returns the logical IDs of the state's Environment host
+// objects, sorted.
+func (s *State) EnvironmentIDs() []string {
+	ids := make([]string, 0, len(s.Environments))
+	for id := range s.Environments {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+// AdoptLegacyHost files the host object of state written before ADR 0020
+// under the Environment it now belongs to: the target's default
+// Environment, or its only one. Planning calls it once it knows which.
+// It does nothing for other state, or when that Environment already has
+// an entry.
+func (s *State) AdoptLegacyHost(environment string) {
+	id := s.legacyHost
+	if id == "" {
+		return
+	}
+	s.legacyHost = ""
+	to := "Environment/" + environment
+	if id == to {
+		return
+	}
+	if _, taken := s.Environments[to]; taken {
+		return
+	}
+	e := s.Environments[id]
+	delete(s.Environments, id)
+	e.ID = to
+	s.Environments[to] = e
 }
 
 // VaultIDs returns the logical IDs of the state's vaults, sorted.
@@ -233,6 +275,9 @@ func decode(b []byte, where string) (*State, error) {
 		State
 		// Environment is where v1 kept the target's name.
 		Environment string `json:"environment"`
+		// Host is where state before ADR 0020 kept the target's single
+		// host object.
+		Host *EnvironmentEntry `json:"host"`
 	}
 	if err := json.Unmarshal(b, &s); err != nil {
 		return nil, fmt.Errorf("read state %s: %w", where, err)
@@ -245,6 +290,17 @@ func decode(b []byte, where string) (*State, error) {
 	}
 	if s.Agents == nil {
 		s.Agents = map[string]*Entry{}
+	}
+	if h := s.Host; h != nil {
+		// Keep it under its old ID, Environment/<target>, until planning
+		// knows which Environment it belongs to (AdoptLegacyHost).
+		if s.Environments == nil {
+			s.Environments = map[string]*EnvironmentEntry{}
+		}
+		if _, taken := s.Environments[h.ID]; !taken {
+			s.Environments[h.ID] = h
+			s.legacyHost = h.ID
+		}
 	}
 	return &s.State, nil
 }

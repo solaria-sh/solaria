@@ -63,7 +63,7 @@ valid: 2 Agents, 2 McpServers, 1 Vault (1 warning)
 -- ma-plan.txt --
 Target ma-cloud (managed-agents/cloud)
 
-  + Environment/ma-cloud
+  + Environment/default
 
   + Vault/git-host
       note: stores 2 credentials from the environment variables

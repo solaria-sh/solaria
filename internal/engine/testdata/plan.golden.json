@@ -18,23 +18,25 @@
     "commit": "0123456789abcdef0123456789abcdef01234567",
     "dirty": true
   },
-  "host": {
-    "id": "Environment/dev",
-    "action": "update",
-    "before": {
-      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-    },
-    "after": {
-      "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
-    },
-    "changes": [
-      {
-        "path": "packages.apt",
-        "old": "[\"git\"]",
-        "new": "[\"git\",\"jq\"]"
-      }
-    ]
-  },
+  "environments": [
+    {
+      "id": "Environment/dev",
+      "action": "update",
+      "before": {
+        "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "after": {
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "changes": [
+        {
+          "path": "packages.apt",
+          "old": "[\"git\"]",
+          "new": "[\"git\",\"jq\"]"
+        }
+      ]
+    }
+  ],
   "vaults": [
     {
       "id": "Vault/new",

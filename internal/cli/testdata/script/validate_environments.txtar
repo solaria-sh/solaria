@@ -1,0 +1,109 @@
+# A target's spec.environments gives each of its agents one Environment
+# (ADR 0020).
+exec solaria validate ok
+stdout '^valid: 2 Agents, 1 Target, 2 Environments$'
+
+# Every way to get it wrong, in one target.
+! exec solaria validate bad
+cmp stdout want.txt
+
+-- ok/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec: {instructions: [role.md], model: {preferred: anthropic:claude-sonnet-5-5}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: analyst, labels: {sandbox: data}}
+spec: {instructions: [role.md], model: {preferred: anthropic:claude-sonnet-5-5}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: dev}
+spec:
+  provider: stub
+  placement: file
+  environments:
+    - ref: base
+    - ref: data
+      agents: {selector: {matchLabels: {sandbox: data}}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: base}
+spec: {}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: data}
+spec: {packages: {pip: [duckdb]}}
+-- ok/role.md --
+Review.
+-- bad/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: reviewer}
+spec: {instructions: [role.md], model: {preferred: anthropic:claude-sonnet-5-5}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: analyst, labels: {sandbox: data, team: ml}}
+spec: {instructions: [role.md], model: {preferred: anthropic:claude-sonnet-5-5}}
+---
+# No default, so reviewer gets nothing; analyst matches two selectors.
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: dev}
+spec:
+  provider: stub
+  placement: file
+  environments:
+    - ref: data
+      agents: {selector: {matchLabels: {sandbox: data}}}
+    - ref: ml
+      agents: {selector: {matchLabels: {team: ml}}}
+    - ref: gpu
+      agents: {selector: {matchLabels: {sandbox: gpu}}}
+---
+# Two defaults, one of them the built-in sandbox's name.
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: prod}
+spec:
+  provider: stub
+  placement: file
+  environments:
+    - ref: data
+    - ref: default
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: data}
+spec: {}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ml}
+spec: {}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: default}
+spec: {}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: spare}
+spec: {}
+-- bad/role.md --
+Review.
+-- want.txt --
+bad/solaria.yaml:19:5: error: spec.environments: Agent/analyst matches the selectors of two spec.environments entries, data and ml; an agent gets one Environment
+bad/solaria.yaml:19:5: error: spec.environments: no spec.environments entry selects Agent/reviewer, and none is a default without agents
+bad/solaria.yaml:23:12: error: spec.environments[2].ref: no Environment named "gpu"
+bad/solaria.yaml:24:26: warning: spec.environments[2].agents.selector matches none of this target's agents
+bad/solaria.yaml:35:7: error: spec.environments[1]: spec.environments[0] is already the default; give one of them agents.selector
+bad/solaria.yaml:35:12: error: spec.environments[1].ref: default is the built-in sandbox, which agents get when spec.environments is omitted
+bad/solaria.yaml:49:18: error: metadata.name: default is reserved for the built-in sandbox
+bad/solaria.yaml:54:18: warning: no Target references Environment "spare"

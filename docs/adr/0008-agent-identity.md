@@ -6,7 +6,7 @@ decision-makers: Renan Tarouco da Fonseca
 
 # Agent identity: logical ID, two digests, host binding
 
-> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. The identity names it as `SOLARIA_TARGET`, `solaria.target` and the Managed Agents metadata key `solaria_target`.
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. The identity names it as `SOLARIA_TARGET`, `solaria.target` and the Managed Agents metadata key `solaria_target`; `solaria_environment` names the agent's Environment, the sandbox that ADR 0020 made a kind of its own, which stays out of the digests as the sandbox always has.
 
 ## Context and problem statement
 

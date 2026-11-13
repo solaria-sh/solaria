@@ -201,4 +201,4 @@ solaria/ci-docker/helper-sandbox:a54c06c78810 from $ROOT/sandbox.Dockerfile
 
 === diagnostics
 warning: Agent/helper on claude-agent-sdk/docker: providers.claude-agent-sdk.colour isn't a setting of this provider and is ignored; it has no per-agent settings
-warning: Agent/helper on claude-agent-sdk/docker: sandbox.image replaces the Solaria sandbox base, so it must have python3 3.10 or later with venv, and uvx for the agent's MCP servers
+warning: Agent/helper on claude-agent-sdk/docker: its Environment's spec.image replaces the Solaria sandbox base, so it must have python3 3.10 or later with venv, and uvx for the agent's MCP servers

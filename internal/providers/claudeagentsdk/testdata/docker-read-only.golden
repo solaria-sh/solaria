@@ -301,4 +301,4 @@ DOCS_TOKEN,GITHUB_TOKEN
 === diagnostics
 warning: Agent/reviewer on claude-agent-sdk/docker: the SDK treats format in spec.output.schema as an annotation and doesn't check it
 warning: Agent/reviewer on claude-agent-sdk/docker: allowTools on github: the other tools of these servers are denied when called, but the agent still sees them
-warning: Agent/reviewer on claude-agent-sdk/docker: sandbox.network is limited, but docker doesn't enforce host lists yet: the container can reach any host
+warning: Agent/reviewer on claude-agent-sdk/docker: the sandbox's network is limited, but docker doesn't enforce host lists yet: the container can reach any host

@@ -56,37 +56,38 @@ const (
 
 const labelPrefix = "sh.solaria."
 
-// ValidateEnvironment reports what the host can't take from the
-// target, once for all its agents.
+// ValidateEnvironment reports what the host can't take from one of the
+// target's Environments, once for all the agents it's given to. The
+// engine drops the problems every Environment repeats, such as settings.
 func (p *Provider) ValidateEnvironment(_ context.Context, e *provider.Environment) []diag.Diagnostic {
 	_, diags := readSettings(e.Spec, e.Spec.Placement)
 	errorf := func(format string, args ...any) {
-		diags = append(diags, diag.Errorf("", diag.Pos{}, format, args...))
+		diags = append(diags, diag.Errorf("", diag.Pos{}, "Environment %q: %s", e.Name, fmt.Sprintf(format, args...)))
 	}
 	warnf := func(format string, args ...any) {
-		diags = append(diags, diag.Warnf("", diag.Pos{}, format, args...))
+		diags = append(diags, diag.Warnf("", diag.Pos{}, "Environment %q: %s", e.Name, fmt.Sprintf(format, args...)))
 	}
-	sb := e.Spec.Sandbox
+	sb := e.Sandbox
 	limited := sb == nil || sb.Network == nil || sb.Network.Mode != v1alpha1.NetworkUnrestricted
 	if e.Spec.Telemetry != nil {
-		warnf("telemetry is ignored: Managed Agents doesn't export to an OTLP endpoint; its sessions are traced in the Console")
+		diags = append(diags, diag.Warnf("", diag.Pos{}, "telemetry is ignored: Managed Agents doesn't export to an OTLP endpoint; its sessions are traced in the Console"))
 	}
 
 	if e.Spec.Placement == PlacementSelfHosted {
 		if limited {
-			warnf("sandbox.network is limited, but docker doesn't enforce host lists yet: the worker container can reach any host")
+			warnf("network is limited, but docker doesn't enforce host lists yet: the worker container can reach any host")
 		}
 		if sb != nil && sb.Resources != nil && sb.Resources.Disk != "" {
-			warnf("sandbox.resources.disk isn't enforced on docker")
+			warnf("spec.resources.disk isn't enforced on docker")
 		}
 		for _, pkg := range container.OptionLikePackages(sb) {
-			errorf("sandbox package %q starts with '-'; package managers would read it as an option", pkg)
+			errorf("package %q starts with '-'; package managers would read it as an option", pkg)
 		}
 		return diags
 	}
 
 	if pk := container.Packages(sb); pk != nil && hasPackages(pk) && limited && (sb.Network == nil || !sb.Network.PackageManagers) {
-		errorf("sandbox.packages need sandbox.network.packageManagers: true under limited networking, or the cloud sandbox can't install them")
+		errorf("spec.packages need spec.network.packageManagers: true under limited networking, or the cloud sandbox can't install them")
 	}
 	if sb != nil && sb.Resources != nil {
 		for _, r := range []struct {
@@ -97,9 +98,9 @@ func (p *Provider) ValidateEnvironment(_ context.Context, e *provider.Environmen
 				continue
 			}
 			if n, ok := parseSize(r.value); ok && n > r.limit {
-				errorf("sandbox.resources.%s is %s, above the cloud sandbox's fixed %dGi", r.field, r.value, r.limit>>30)
+				errorf("spec.resources.%s is %s, above the cloud sandbox's fixed %dGi", r.field, r.value, r.limit>>30)
 			} else {
-				warnf("sandbox.resources.%s is ignored: the cloud sandbox has fixed limits of 8Gi memory and 10Gi disk", r.field)
+				warnf("spec.resources.%s is ignored: the cloud sandbox has fixed limits of 8Gi memory and 10Gi disk", r.field)
 			}
 		}
 	}
@@ -111,7 +112,7 @@ func (p *Provider) ValidateEnvironment(_ context.Context, e *provider.Environmen
 			}
 		}
 		if len(web) > 0 {
-			warnf("sandbox.network is limited, so web_fetch and web_search reach only sandbox.network.allow hosts (used by %s)", strings.Join(web, ", "))
+			warnf("network is limited, so web_fetch and web_search reach only spec.network.allow hosts (used by %s)", strings.Join(web, ", "))
 		}
 	}
 	return diags
@@ -139,13 +140,13 @@ func (p *Provider) PlanEnvironment(ctx context.Context, e *provider.Environment,
 
 	s, _ := readSettings(e.Spec, e.Spec.Placement)
 	src := secrets.For(e.Spec.Secrets, e.Dir)
-	if _, ok, err := src.Lookup(s.keySecret); err != nil {
+	if _, ok, err := src.Lookup(keySecret(e, s)); err != nil {
 		return nil, err
 	} else if !ok {
-		pl.Notes = append(pl.Notes, fmt.Sprintf("the worker needs the environment's key in %s as %s; apply creates the environment and then says how to get one", src.Describe, s.keySecret))
+		pl.Notes = append(pl.Notes, fmt.Sprintf("the worker needs the environment's key in %s as %s; apply creates the environment and then says how to get one", src.Describe, keySecret(e, s)))
 	}
 	if pl.Action == provider.NoOp {
-		c, err := p.docker.InspectContainer(ctx, workerName(e.Name))
+		c, err := p.docker.InspectContainer(ctx, workerName(e))
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +164,7 @@ func (p *Provider) PlanEnvironment(ctx context.Context, e *provider.Environment,
 func (p *Provider) ApplyEnvironment(ctx context.Context, pl *provider.EnvironmentPlan) (*provider.Applied, error) {
 	e := pl.Desired
 	s, _ := readSettings(e.Spec, e.Spec.Placement)
-	name := s.namePrefix + e.Name
+	name := s.namePrefix + hostName(e)
 	var env *anthropic.BetaEnvironment
 	var err error
 	if pl.Action == provider.Update {
@@ -173,7 +174,7 @@ func (p *Provider) ApplyEnvironment(ctx context.Context, pl *provider.Environmen
 			Name:        param.NewOpt(name),
 			Description: param.NewOpt(description(e)),
 			Config:      anthropic.BetaEnvironmentUpdateParamsConfigUnion{OfCloud: cloudConfig(e), OfSelfHosted: selfHostedConfig(e)},
-			Metadata:    updateMetadata(environmentMetadata(e)),
+			Metadata:    environmentMetadata(e),
 		})
 	} else {
 		p.logf("Creating environment %s\n", name)
@@ -193,6 +194,16 @@ func (p *Provider) ApplyEnvironment(ctx context.Context, pl *provider.Environmen
 	}
 	if e.Spec.Placement != PlacementSelfHosted {
 		return applied, nil
+	}
+	if pl.Prior != nil {
+		// The worker's name follows the target's default Environment, so a
+		// change of default renames it; remove the old container.
+		if old := pl.Prior.Binding.Outputs[outWorkerContainer]; old != "" && old != workerName(e) {
+			p.logf("Removing the worker container %s\n", old)
+			if err := p.docker.RemoveContainer(ctx, old); err != nil {
+				return applied, err
+			}
+		}
 	}
 	return applied, p.startWorker(ctx, e, s, env.ID, applied.Binding.Outputs)
 }
@@ -219,7 +230,14 @@ func (p *Provider) ReadEnvironment(ctx context.Context, e *state.EnvironmentEntr
 // archived instead.
 func (p *Provider) DestroyEnvironment(ctx context.Context, e *state.EnvironmentEntry) error {
 	if e.Placement == PlacementSelfHosted {
-		name := workerName(strings.TrimPrefix(e.ID, provider.HostKind+"/"))
+		name := e.Binding.Outputs[outWorkerContainer]
+		if name == "" {
+			// The worker never started; remove one that might have.
+			name = "solaria-" + p.env + "-worker"
+			if n := strings.TrimPrefix(e.ID, v1alpha1.KindEnvironment+"/"); n != v1alpha1.DefaultEnvironment {
+				name = "solaria-" + p.env + "-" + n + "-worker"
+			}
+		}
 		p.logf("Removing the worker container %s\n", name)
 		if err := p.docker.RemoveContainer(ctx, name); err != nil {
 			return err
@@ -254,21 +272,21 @@ func (p *Provider) DestroyEnvironment(ctx context.Context, e *state.EnvironmentE
 // needs the environment's key.
 func (p *Provider) startWorker(ctx context.Context, e *provider.Environment, s settings, envID string, outputs map[string]string) error {
 	src := secrets.For(e.Spec.Secrets, e.Dir)
-	key, ok, err := src.Lookup(s.keySecret)
+	key, ok, err := src.Lookup(keySecret(e, s))
 	if err != nil {
 		return err
 	}
 	if !ok {
 		return fmt.Errorf("environment %s (%s) exists, but its worker can't start without the environment's key: "+
 			"generate one in the Claude Console, under Managed Agents > Environments > %s, store it in %s as %s, and run apply again",
-			s.namePrefix+e.Name, envID, s.namePrefix+e.Name, src.Describe, s.keySecret)
+			s.namePrefix+hostName(e), envID, s.namePrefix+hostName(e), src.Describe, keySecret(e, s))
 	}
 
 	w, err := renderWorker(e, s)
 	if err != nil {
 		return err
 	}
-	dir := filepath.Join(p.workDir, ".solaria", Name, e.Name, "worker")
+	dir := filepath.Join(p.workDir, ".solaria", Name, hostName(e), "worker")
 	if err := writeWorkerContext(dir, w.files); err != nil {
 		return fmt.Errorf("write the worker's build context: %w", err)
 	}
@@ -292,7 +310,7 @@ func (p *Provider) startWorker(ctx context.Context, e *provider.Environment, s s
 	}
 	outputs[outWorkerImage] = w.image
 
-	name := workerName(e.Name)
+	name := workerName(e)
 	p.logf("Starting the worker container %s\n", name)
 	if err := p.docker.RemoveContainer(ctx, name); err != nil {
 		return err
@@ -301,7 +319,7 @@ func (p *Provider) startWorker(ctx context.Context, e *provider.Environment, s s
 		Name:     name,
 		Image:    w.image,
 		Platform: s.platform,
-		Memory:   container.Memory(e.Spec.Sandbox),
+		Memory:   container.Memory(e.Sandbox),
 		Env:      map[string]string{"ANTHROPIC_ENVIRONMENT_ID": envID},
 		Secrets:  map[string]string{"ANTHROPIC_ENVIRONMENT_KEY": key},
 		Labels:   w.labels,
@@ -325,23 +343,24 @@ type worker struct {
 // sandbox stages with the environment's packages, plus the worker binary.
 func renderWorker(e *provider.Environment, s settings) (*worker, error) {
 	labels := map[string]string{
-		labelPrefix + "target": e.Name,
-		labelPrefix + "object": e.ID(),
+		labelPrefix + "target":      e.Target,
+		labelPrefix + "environment": e.Name,
+		labelPrefix + "object":      e.ID(),
 	}
-	base, build, err := container.SandboxBase(e.Spec.Sandbox, e.Dir, "solaria/"+e.Name+"/worker-sandbox", s.platform, labels)
+	base, build, err := container.SandboxBase(e.Sandbox, e.SandboxDir, "solaria/"+hostName(e)+"/worker-sandbox", s.platform, labels)
 	if err != nil {
 		return nil, err
 	}
 	var b strings.Builder
 	b.WriteString("# syntax=docker/dockerfile:1\n")
-	b.WriteString("# Generated by Solaria: the Managed Agents self-hosted worker for target " + e.Name + ".\n\n")
+	b.WriteString("# Generated by Solaria: the Managed Agents self-hosted worker for Environment " + e.Name + " of target " + e.Target + ".\n\n")
 	b.WriteString("# The worker, cross-compiled on the build machine.\n")
 	fmt.Fprintf(&b, "FROM --platform=$BUILDPLATFORM %s AS worker\n", golangImage)
 	b.WriteString("ARG TARGETOS TARGETARCH\n")
 	b.WriteString("WORKDIR /src\n")
 	b.WriteString("COPY go.mod go.sum main.go ./\n")
 	b.WriteString("RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -o /solaria-worker .\n\n")
-	container.WriteSandboxStages(&b, base, container.Packages(e.Spec.Sandbox))
+	container.WriteSandboxStages(&b, base, container.Packages(e.Sandbox))
 	b.WriteString("# Tools run in /workspace; memory stores mount under /mnt/memory.\n")
 	b.WriteString("FROM sandbox\n")
 	b.WriteString("COPY --from=worker /solaria-worker /usr/local/bin/solaria-worker\n")
@@ -362,7 +381,7 @@ func renderWorker(e *provider.Environment, s settings) (*worker, error) {
 	labels[labelPrefix+"build-digest"] = dg
 	return &worker{
 		files:  files,
-		image:  "solaria/" + e.Name + "/worker:" + strings.TrimPrefix(dg, "sha256:")[:12],
+		image:  "solaria/" + hostName(e) + "/worker:" + strings.TrimPrefix(dg, "sha256:")[:12],
 		base:   build,
 		labels: labels,
 	}, nil
@@ -388,7 +407,7 @@ func writeWorkerContext(dir string, files map[string][]byte) error {
 func (p *Provider) environmentConfig(e *provider.Environment) (map[string]any, error) {
 	s, _ := readSettings(e.Spec, e.Spec.Placement)
 	cfg := map[string]any{
-		"name":        s.namePrefix + e.Name,
+		"name":        s.namePrefix + hostName(e),
 		"description": description(e),
 		"metadata":    environmentMetadata(e),
 	}
@@ -418,8 +437,8 @@ func (p *Provider) environmentConfig(e *provider.Environment) (map[string]any, e
 	cfg["worker"] = map[string]any{
 		"image":     w.image,
 		"platform":  s.platform,
-		"memory":    container.Memory(e.Spec.Sandbox),
-		"keySecret": s.keySecret,
+		"memory":    container.Memory(e.Sandbox),
+		"keySecret": keySecret(e, s),
 	}
 	if w.base != nil {
 		cfg["worker"].(map[string]any)["sandboxImage"] = w.base.Tag
@@ -433,7 +452,7 @@ func cloudConfig(e *provider.Environment) *anthropic.BetaCloudConfigParams {
 	if e.Spec.Placement == PlacementSelfHosted {
 		return nil
 	}
-	sb := e.Spec.Sandbox
+	sb := e.Sandbox
 	pk := container.Packages(sb)
 	if pk == nil {
 		pk = &v1alpha1.PackagesSpec{}
@@ -469,15 +488,39 @@ func selfHostedConfig(e *provider.Environment) *anthropic.BetaSelfHostedConfigPa
 }
 
 func description(e *provider.Environment) string {
-	return "Solaria target " + e.Name
+	if e.Name == v1alpha1.DefaultEnvironment {
+		return "Solaria target " + e.Target + ", built-in sandbox"
+	}
+	return "Solaria target " + e.Target + ", Environment " + e.Name
 }
 
 func environmentMetadata(e *provider.Environment) map[string]string {
-	return map[string]string{metaTarget: e.Name}
+	return map[string]string{metaTarget: e.Target, metaEnvironment: e.Name}
 }
 
-// workerName names a target's worker container.
-func workerName(env string) string { return "solaria-" + env + "-worker" }
+// hostName is what the host's objects for an Environment are named after:
+// the target for its default Environment, which keeps the names it had
+// before ADR 0020, and the target and Environment for the others.
+func hostName(e *provider.Environment) string {
+	if e.Name == resolve.DefaultEnvironment(e.Spec) {
+		return e.Target
+	}
+	return e.Target + "-" + e.Name
+}
+
+// keySecret is the secret that holds a self-hosted Environment's key:
+// environmentKeySecret for the target's default Environment, and with the
+// Environment's name added, as in ANTHROPIC_ENVIRONMENT_KEY_DATA, for the
+// others.
+func keySecret(e *provider.Environment, s settings) string {
+	if e.Name == resolve.DefaultEnvironment(e.Spec) {
+		return s.keySecret
+	}
+	return s.keySecret + "_" + strings.ToUpper(strings.ReplaceAll(e.Name, "-", "_"))
+}
+
+// workerName names an Environment's worker container.
+func workerName(e *provider.Environment) string { return "solaria-" + hostName(e) + "-worker" }
 
 func hasPackages(p *v1alpha1.PackagesSpec) bool {
 	return len(p.APT)+len(p.Cargo)+len(p.Gem)+len(p.Go)+len(p.NPM)+len(p.Pip) > 0

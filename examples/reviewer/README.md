@@ -8,7 +8,7 @@ A code review agent, deployed unchanged to three targets:
 | `ma-cloud` | Claude Managed Agents | Anthropic's cloud sandbox | `ANTHROPIC_API_KEY` |
 | `ma-self-hosted` | Claude Managed Agents | a worker container here | `ANTHROPIC_API_KEY`, Docker, an environment key |
 
-[`agent.yaml`](agent.yaml) holds the agent and the MCP server it uses. [`targets.yaml`](targets.yaml) holds the three targets. Moving the agent between hosts means choosing another target, not editing the card.
+[`agent.yaml`](agent.yaml) holds the agent and the MCP server it uses. [`targets.yaml`](targets.yaml) holds the three targets and the Environment they share, the sandbox its tools run in. Moving the agent between hosts means choosing another target, not editing the card.
 
 ## Plan
 
@@ -16,7 +16,7 @@ Planning needs no credentials, Docker or network, because there's no state yet:
 
 ```console
 $ solaria validate
-valid: 1 Agent, 3 Targets, 1 McpServer
+valid: 1 Agent, 3 Targets, 1 Environment, 1 McpServer
 $ solaria plan -t local-gitagent
 $ solaria plan -t ma-cloud
 $ solaria plan -t ma-self-hosted

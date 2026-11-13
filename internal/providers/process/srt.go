@@ -45,7 +45,7 @@ var packageManagerHosts = []string{
 
 // Isolated reports whether an agent's runs are wrapped in srt.
 func Isolated(a *resolve.Agent) bool {
-	return a.Env.Sandbox != nil && a.Env.Sandbox.Isolation == v1alpha1.IsolationSRT
+	return a.Sandbox != nil && a.Sandbox.Isolation == v1alpha1.IsolationSRT
 }
 
 // SRTSettings is srt's settings file. Every list is written, even empty:
@@ -141,7 +141,7 @@ func NeededHosts(a *resolve.Agent, modelHosts []string) (hosts []string, loopbac
 	if t := a.Env.Telemetry; t != nil {
 		add(urlHost(t.Endpoint))
 	}
-	if sb := a.Env.Sandbox; sb != nil && sb.Network != nil {
+	if sb := a.Sandbox; sb != nil && sb.Network != nil {
 		for _, h := range sb.Network.Allow {
 			add(h)
 		}

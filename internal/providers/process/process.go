@@ -198,32 +198,32 @@ func Validate(a *resolve.Agent, m Machine) diag.List {
 	warn := func(format string, args ...any) {
 		diags = append(diags, diag.Warnf("", diag.Pos{}, format, args...))
 	}
-	sb := a.Env.Sandbox
+	sb := a.Sandbox
 	limited := sb == nil || sb.Network == nil || sb.Network.Mode != v1alpha1.NetworkUnrestricted
 	if sb != nil && sb.Packages != nil {
-		warn("sandbox.packages aren't installed on the process placement: the run uses the tools this machine has")
+		warn("its Environment's spec.packages aren't installed on the process placement: the run uses the tools this machine has")
 	}
 	switch {
 	case Isolated(a):
 		if !limited {
-			diags = append(diags, diag.Errorf("", diag.Pos{}, "sandbox.isolation srt limits the network to the hosts the agent needs, so it can't be combined with sandbox.network.mode unrestricted; list the extra hosts in sandbox.network.allow"))
+			diags = append(diags, diag.Errorf("", diag.Pos{}, "its Environment's spec.isolation srt limits the network to the hosts the agent needs, so it can't be combined with spec.network.mode unrestricted; list the extra hosts in spec.network.allow"))
 		}
 		if why := checkSRT(m.GOOS, m.LookPath); why != "" {
-			diags = append(diags, diag.Errorf("", diag.Pos{}, "sandbox.isolation srt can't isolate runs on this machine: %s", why))
+			diags = append(diags, diag.Errorf("", diag.Pos{}, "its Environment's spec.isolation srt can't isolate runs on this machine: %s", why))
 		}
 		if _, loopback := NeededHosts(a, nil); loopback && m.GOOS == "linux" {
 			warn("srt runs the agent in its own network namespace on Linux, so hosts on this machine's loopback, such as a telemetry collector on localhost, may be unreachable")
 		}
 	case limited:
-		warn("sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can; set sandbox.isolation: srt to enforce it")
+		warn("the sandbox's network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can; set spec.isolation: srt in its Environment to enforce it")
 	}
 	if a.Definition.ReadOnlyWorkspace() && !Isolated(a) {
-		diags = append(diags, diag.Errorf("", diag.Pos{}, "workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only"))
+		diags = append(diags, diag.Errorf("", diag.Pos{}, "workspace.access is read-only, and a process run can write anywhere its user can; set spec.isolation: srt in its Environment or use the docker placement to keep the workspace read-only"))
 	}
 	if !Isolated(a) {
 		for _, r := range a.Repositories() {
 			if r.Access == v1alpha1.AccessReadOnly {
-				diags = append(diags, diag.Errorf("", diag.Pos{}, "repository %s is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt to keep its clone read-only", r.Name))
+				diags = append(diags, diag.Errorf("", diag.Pos{}, "repository %s is read-only, and a process run can write anywhere its user can; set spec.isolation: srt in its Environment to keep its clone read-only", r.Name))
 			}
 		}
 	}
@@ -233,7 +233,7 @@ func Validate(a *resolve.Agent, m Machine) diag.List {
 		}
 	}
 	if sb != nil && sb.Resources != nil && (sb.Resources.Memory != "" || sb.Resources.Disk != "") {
-		warn("sandbox.resources aren't enforced on the process placement")
+		warn("its Environment's spec.resources aren't enforced on the process placement")
 	}
 	for _, f := range m.Managed {
 		warn("managed settings in %s apply to every Claude Code process on this machine and can't be turned off on the process placement; use the docker placement to keep them out", f)

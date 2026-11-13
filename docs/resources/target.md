@@ -2,7 +2,7 @@
 
 # Target
 
-Describes where and how agents run. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Target`. The other resources are [Agent](agent.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
+Describes where and how agents run. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Target`. The other resources are [Agent](agent.md), [Environment](environment.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 
@@ -22,23 +22,11 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.agents` | object |  | Which agents this target receives. When omitted, it receives every agent. |
 | `spec.agents.selector` | object | yes | Matches agents by label. |
 | `spec.agents.selector.matchLabels` | map of strings | yes | Selects resources that have all these labels. |
-| `spec.sandbox` | object |  | The machine the agents' tools run on. |
-| `spec.sandbox.packages` | object |  | Packages to install, by package manager, in each manager's own pin syntax. |
-| `spec.sandbox.packages.apt` | list of strings |  | APT packages. |
-| `spec.sandbox.packages.cargo` | list of strings |  | Cargo crates. |
-| `spec.sandbox.packages.gem` | list of strings |  | Ruby gems. |
-| `spec.sandbox.packages.go` | list of strings |  | Go modules, installed with go install. |
-| `spec.sandbox.packages.npm` | list of strings |  | npm packages, installed globally. |
-| `spec.sandbox.packages.pip` | list of strings |  | pip packages. |
-| `spec.sandbox.network` | object |  | Outbound network access. When omitted, access is limited to the hosts the agents need. |
-| `spec.sandbox.network.mode` | `limited` or `unrestricted` |  | limited (only allowed hosts) or unrestricted. |
-| `spec.sandbox.network.allow` | list of strings |  | Extra hosts the sandbox may reach in limited mode. Each matches `^(\*\.)?[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$`. |
-| `spec.sandbox.network.packageManagers` | boolean |  | Allows the package managers' registries in limited mode. |
-| `spec.sandbox.resources` | object |  | Memory and disk caps, where the placement allows them. |
-| `spec.sandbox.resources.memory` | string |  | Memory cap, such as 8Gi. Matches `^[0-9]+(Ki\|Mi\|Gi\|Ti)?$`. |
-| `spec.sandbox.resources.disk` | string |  | Disk cap, such as 10Gi. Matches `^[0-9]+(Ki\|Mi\|Gi\|Ti)?$`. |
-| `spec.sandbox.image` | string |  | Replaces the generated sandbox image: a container image reference, or a path to a Dockerfile relative to this file. Only container placements accept it. |
-| `spec.sandbox.isolation` | `srt` |  | Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only. |
+| `spec.environments` | list of objects |  | The Environments the agents' tools run in. Each entry gives one Environment to the agents its selector matches, and the entry without a selector is the default for every other agent. When omitted, every agent gets the built-in sandbox: the sandbox base image, with network access limited to the hosts the agents need. At least 1. |
+| `spec.environments[].ref` | string | yes | The name of the Environment. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
+| `spec.environments[].agents` | object |  | Which of the target's agents get this Environment. At most one entry may omit it; that entry is the default, for the agents no other entry selects. |
+| `spec.environments[].agents.selector` | object | yes | Matches agents by label. |
+| `spec.environments[].agents.selector.matchLabels` | map of strings | yes | Selects resources that have all these labels. |
 | `spec.secrets` | object |  | Where secret values are read from when applying. |
 | `spec.secrets.source` | `env` or `dotenv` | yes | env (the process environment) or dotenv (a .env file). |
 | `spec.secrets.path` | string |  | Path of the dotenv file, relative to this file. Defaults to .env. |

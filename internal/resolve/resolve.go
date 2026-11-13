@@ -33,11 +33,20 @@ type Agent struct {
 	Target    string
 	Provider  string
 	Placement string
-	// Env is the target's own spec: sandbox, secrets, telemetry.
+	// Env is the target's own spec: secrets, telemetry, inputs.
 	Env *v1alpha1.TargetSpec
 	// EnvDir is the folder of the target's file, which relative paths
-	// in Env (sandbox.image, secrets.path) start from.
+	// in Env (secrets.path, inputs) start from.
 	EnvDir string
+	// Environment names the Environment the target gives the agent, or
+	// v1alpha1.DefaultEnvironment for the built-in sandbox (ADR 0020). Like
+	// Target, it isn't part of either digest.
+	Environment string
+	// Sandbox is that Environment's spec, or nil for the built-in sandbox.
+	Sandbox *v1alpha1.SandboxSpec
+	// SandboxDir is the folder of the Environment's file, which a relative
+	// Sandbox.Image starts from.
+	SandboxDir string
 	// SkillDirs maps each skill's name to its folder, for providers that
 	// copy skills to the host. The files to copy are the keys of
 	// Definition.Skills[name].Files; read them with ReadText so they match
@@ -233,15 +242,70 @@ func SpecDigest(set *config.Set, name string) (string, error) {
 
 // Selected reports whether a target receives an agent.
 func Selected(env *v1alpha1.TargetSpec, a *v1alpha1.Agent) bool {
-	if env.Agents == nil {
+	return Matches(env.Agents, a)
+}
+
+// Matches reports whether a selection takes an agent; a nil one takes
+// every agent.
+func Matches(sel *v1alpha1.AgentSelection, a *v1alpha1.Agent) bool {
+	if sel == nil {
 		return true
 	}
-	for k, v := range env.Agents.Selector.MatchLabels {
+	for k, v := range sel.Selector.MatchLabels {
 		if a.Metadata.Labels[k] != v {
 			return false
 		}
 	}
 	return true
+}
+
+// DefaultEnvironment names the Environment a target gives the agents no
+// selector picks: its entry without agents, or its only one, or else
+// v1alpha1.DefaultEnvironment, the built-in sandbox. Hosts keep the names
+// they used before ADR 0020 for it, and state from before then kept its one
+// host object for it.
+func DefaultEnvironment(env *v1alpha1.TargetSpec) string {
+	for _, e := range env.Environments {
+		if e.Agents == nil {
+			return e.Ref
+		}
+	}
+	if len(env.Environments) == 1 {
+		return env.Environments[0].Ref
+	}
+	return v1alpha1.DefaultEnvironment
+}
+
+// EnvironmentFor returns the index of the entry in a target's
+// spec.environments that gives an agent its Environment: the entry whose
+// selector matches the agent, or else the entry without one. It returns -1
+// when spec.environments is omitted, which gives the agent the built-in
+// sandbox. An agent two selectors match, or none when there's no default,
+// is an error that names the entries.
+func EnvironmentFor(env *v1alpha1.TargetSpec, a *v1alpha1.Agent) (int, error) {
+	if len(env.Environments) == 0 {
+		return -1, nil
+	}
+	found, def := -1, -1
+	for i, e := range env.Environments {
+		switch {
+		case e.Agents == nil:
+			def = i
+		case Matches(e.Agents, a):
+			if found >= 0 {
+				return 0, fmt.Errorf("%s/%s matches the selectors of two spec.environments entries, %s and %s; an agent gets one Environment",
+					v1alpha1.KindAgent, a.Metadata.Name, env.Environments[found].Ref, e.Ref)
+			}
+			found = i
+		}
+	}
+	if found < 0 {
+		found = def
+	}
+	if found < 0 {
+		return 0, fmt.Errorf("no spec.environments entry selects %s/%s, and none is a default without agents", v1alpha1.KindAgent, a.Metadata.Name)
+	}
+	return found, nil
 }
 
 func agent(set *config.Set, r *config.Resource, env *v1alpha1.Target) (Agent, error) {
@@ -264,18 +328,33 @@ func agent(set *config.Set, r *config.Resource, env *v1alpha1.Target) (Agent, er
 	if err != nil {
 		return Agent{}, err
 	}
-	return Agent{
+	out := Agent{
 		Name:           r.Name,
 		Target:         env.Metadata.Name,
 		Provider:       env.Spec.Provider,
 		Placement:      env.Spec.Placement,
 		Env:            &env.Spec,
 		EnvDir:         filepath.Dir(set.Lookup(v1alpha1.KindTarget, env.Metadata.Name).File),
+		Environment:    v1alpha1.DefaultEnvironment,
 		SkillDirs:      skillDirs,
 		Definition:     resolved,
 		SpecDigest:     specDigest,
 		ResolvedDigest: resolvedDigest,
-	}, nil
+	}
+	i, err := EnvironmentFor(&env.Spec, r.Agent())
+	if err != nil {
+		return Agent{}, err
+	}
+	if i >= 0 {
+		ref := env.Spec.Environments[i].Ref
+		er := set.Lookup(v1alpha1.KindEnvironment, ref)
+		if er == nil {
+			return Agent{}, fmt.Errorf("no Environment named %q", ref)
+		}
+		sb := er.Environment().Spec
+		out.Environment, out.Sandbox, out.SandboxDir = ref, &sb, er.Dir()
+	}
+	return out, nil
 }
 
 // definition builds the normalized definition of an agent as written.

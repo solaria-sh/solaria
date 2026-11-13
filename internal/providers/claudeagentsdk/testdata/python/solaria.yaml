@@ -28,11 +28,16 @@ metadata: {name: ci}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    packages: {apt: [jq]}
-    resources: {memory: 2Gi}
+  environments: [{ref: ci}]
   providers:
     claude-agent-sdk: {runtime: python, version: 0.2.170}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci}
+spec:
+  packages: {apt: [jq]}
+  resources: {memory: 2Gi}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target
@@ -40,8 +45,13 @@ metadata: {name: ci-docker}
 spec:
   provider: claude-agent-sdk
   placement: docker
-  sandbox:
-    image: ./sandbox.Dockerfile
-    network: {mode: unrestricted}
+  environments: [{ref: ci-docker}]
   providers:
     claude-agent-sdk: {runtime: python}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-docker}
+spec:
+  image: ./sandbox.Dockerfile
+  network: {mode: unrestricted}

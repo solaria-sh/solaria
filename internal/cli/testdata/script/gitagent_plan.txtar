@@ -55,4 +55,9 @@ metadata: {name: local-gitagent}
 spec:
   provider: gitagent
   placement: docker
-  sandbox: {network: {mode: unrestricted}}
+  environments: [{ref: local-gitagent}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec: {network: {mode: unrestricted}}

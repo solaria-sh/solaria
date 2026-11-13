@@ -115,7 +115,7 @@ func (r *renderer) render() error {
 		Target:    a.Target,
 		Commit:    b.Commit,
 		Base:      base,
-		Packages:  container.Packages(a.Env.Sandbox),
+		Packages:  container.Packages(a.Sandbox),
 		Allow:     allow,
 		Deny:      deny,
 	})
@@ -133,7 +133,7 @@ func (r *renderer) render() error {
 		b.Labels["org.opencontainers.image.description"] = d
 	}
 
-	if b.SandboxDigest, err = digest.Of(map[string]any{"sandbox": a.Env.Sandbox, "platform": b.Platform, "base": base}); err != nil {
+	if b.SandboxDigest, err = digest.Of(map[string]any{"sandbox": a.Sandbox, "platform": b.Platform, "base": base}); err != nil {
 		return err
 	}
 	files := map[string]string{}
@@ -386,7 +386,7 @@ func (r *renderer) tools() (allow, deny []string) {
 // base returns the FROM line's image, building a sandbox Dockerfile first
 // when the target names one.
 func (r *renderer) base() (string, error) {
-	image, build, err := container.SandboxBase(r.a.Env.Sandbox, r.a.EnvDir,
+	image, build, err := container.SandboxBase(r.a.Sandbox, r.a.SandboxDir,
 		"solaria/"+r.a.Target+"/"+r.a.Name+"-sandbox", r.b.Platform,
 		map[string]string{labelPrefix + "target": r.a.Target})
 	if build != nil {
@@ -396,12 +396,12 @@ func (r *renderer) base() (string, error) {
 }
 
 func (r *renderer) sandboxWarnings() {
-	sb := r.a.Env.Sandbox
+	sb := r.a.Sandbox
 	if sb == nil || sb.Network == nil || sb.Network.Mode != v1alpha1.NetworkUnrestricted {
-		r.warnf("sandbox.network is limited, but docker doesn't enforce host lists yet: the container can reach any host")
+		r.warnf("the sandbox's network is limited, but docker doesn't enforce host lists yet: the container can reach any host")
 	}
 	if sb != nil && sb.Resources != nil && sb.Resources.Disk != "" {
-		r.warnf("sandbox.resources.disk isn't enforced on docker")
+		r.warnf("its Environment's spec.resources.disk isn't enforced on docker")
 	}
 	for _, pkg := range container.OptionLikePackages(sb) {
 		r.errorf("sandbox package %q starts with '-'; package managers would read it as an option", pkg)
@@ -415,7 +415,7 @@ func (r *renderer) invocation() *state.Invocation {
 	a := r.a
 	inv := &state.Invocation{Task: state.TaskInput{Flag: "-p"}}
 	provider.SetWorkspace(inv, a, state.WorkspaceMount)
-	parts := []string{"docker", "run", "--rm", "--platform", r.b.Platform, "--memory", container.Memory(a.Env.Sandbox)}
+	parts := []string{"docker", "run", "--rm", "--platform", r.b.Platform, "--memory", container.Memory(a.Sandbox)}
 	parts = append(parts, "--volume", container.WorkspaceVolume(a))
 
 	secrets := a.SecretRefs()

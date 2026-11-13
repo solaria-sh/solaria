@@ -6,6 +6,7 @@
 - Resources, every field of each kind, generated from the schema:
   - [`Agent`](resources/agent.md): what the agent is, independently of any host;
   - [`Target`](resources/target.md): where agents run, and everything about that place;
+  - [`Environment`](resources/environment.md): a sandbox that targets give their agents;
   - [`McpServer`](resources/mcp-server.md): an MCP server that agents refer to by name;
   - [`Vault`](resources/vault.md): credentials that agents use by reference.
 - Providers:

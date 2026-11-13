@@ -27,7 +27,7 @@ stdout 'note: writes a bundle to \.solaria/claude-agent-sdk/local-sdk/hello/[0-9
 cd ../other
 ! exec solaria plan -t dev
 stderr 'error: Agent/hello on claude-agent-sdk/process: model openai:gpt-6-astra isn''t available; this host runs anthropic models only'
-stderr 'error: Agent/hello on claude-agent-sdk/process: sandbox.image isn''t supported here'
+stderr 'error: Environment "dev" for Agent/hello on claude-agent-sdk/process: spec.image isn''t supported here'
 stderr 'error: Agent/hello on claude-agent-sdk/process: Target providers.claude-agent-sdk.runtime must be node or python, not deno'
 ! stdout .
 ! exists .solaria/claude-agent-sdk
@@ -49,7 +49,12 @@ metadata: {name: sdk-docker}
 spec:
   provider: claude-agent-sdk
   placement: docker
-  sandbox: {network: {mode: unrestricted}}
+  environments: [{ref: sdk-docker}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: sdk-docker}
+spec: {network: {mode: unrestricted}}
 -- other/instructions.md --
 Say hello.
 -- other/sandbox.Dockerfile --
@@ -69,6 +74,11 @@ metadata: {name: dev}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox: {image: ./sandbox.Dockerfile}
+  environments: [{ref: dev}]
   providers:
     claude-agent-sdk: {runtime: deno}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev}
+spec: {image: ./sandbox.Dockerfile}

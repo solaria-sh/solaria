@@ -48,8 +48,7 @@ metadata: {name: dev}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    network: {mode: unrestricted}
+  environments: [{ref: dev}]
   secrets: {source: dotenv}
   telemetry:
     endpoint: http://localhost:4318
@@ -58,18 +57,29 @@ spec:
     resourceAttributes: {service.namespace: platform, team: "code review, core"}
 ---
 apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev}
+spec:
+  network: {mode: unrestricted}
+---
+apiVersion: solaria.sh/v1alpha1
 kind: Target
 metadata: {name: dev-docker}
 spec:
   provider: claude-agent-sdk
   placement: docker
-  sandbox:
-    packages: {apt: [jq], cargo: [ripgrep@14.1.0]}
-    resources: {memory: 4Gi, disk: 20Gi}
+  environments: [{ref: dev-docker}]
   secrets: {source: dotenv}
   telemetry: {endpoint: "http://localhost:4318"}
   providers:
     claude-agent-sdk: {platform: linux/arm64}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev-docker}
+spec:
+  packages: {apt: [jq], cargo: [ripgrep@14.1.0]}
+  resources: {memory: 4Gi, disk: 20Gi}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target
@@ -77,11 +87,16 @@ metadata: {name: dev-srt}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    isolation: srt
-    network: {allow: [git.example.com]}
+  environments: [{ref: dev-srt}]
   secrets: {source: dotenv}
   telemetry: {endpoint: "http://localhost:4318"}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev-srt}
+spec:
+  isolation: srt
+  network: {allow: [git.example.com]}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target
@@ -89,12 +104,17 @@ metadata: {name: srt-read-only}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox: {isolation: srt}
+  environments: [{ref: srt-read-only}]
   inputs:
     workspace: {path: product}
   overrides:
     reviewer:
       workspace: {access: read-only}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: srt-read-only}
+spec: {isolation: srt}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target

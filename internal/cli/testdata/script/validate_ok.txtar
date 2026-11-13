@@ -9,7 +9,7 @@ exec solaria validate -o json
 cmp stdout want.json
 
 -- want.txt --
-valid: 1 Agent, 2 Targets, 1 McpServer, 1 Vault
+valid: 1 Agent, 2 Targets, 1 Environment, 1 McpServer, 1 Vault
 -- want.json --
 {
   "valid": true,
@@ -21,6 +21,11 @@ valid: 1 Agent, 2 Targets, 1 McpServer, 1 Vault
     },
     {
       "kind": "Target",
+      "name": "local-gitagent",
+      "file": "environments/local.yaml"
+    },
+    {
+      "kind": "Environment",
       "name": "local-gitagent",
       "file": "environments/local.yaml"
     },
@@ -102,16 +107,21 @@ metadata: {name: local-gitagent}
 spec:
   provider: gitagent
   placement: docker
-  sandbox:
-    packages: {apt: [ripgrep], npm: [pnpm]}
-    network: {mode: limited, allow: [git.example.com, "*.npmjs.org"], packageManagers: true}
-    resources: {memory: 8Gi, disk: 10Gi}
+  environments: [{ref: local-gitagent}]
   secrets: {source: dotenv, path: ../.env}
   telemetry: {endpoint: "http://localhost:4318"}
   overrides:
     reviewer:
       model: {preferred: anthropic:claude-haiku-5-5}
       limits: {maxTurns: 10}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-gitagent}
+spec:
+  packages: {apt: [ripgrep], npm: [pnpm]}
+  network: {mode: limited, allow: [git.example.com, "*.npmjs.org"], packageManagers: true}
+  resources: {memory: 8Gi, disk: 10Gi}
 -- environments/cloud.yaml --
 apiVersion: solaria.sh/v1alpha1
 kind: Target

@@ -17,11 +17,16 @@ const (
 
 // Kinds known to this API version.
 const (
-	KindAgent     = "Agent"
-	KindTarget    = "Target"
-	KindMcpServer = "McpServer"
-	KindVault     = "Vault"
+	KindAgent       = "Agent"
+	KindTarget      = "Target"
+	KindEnvironment = "Environment"
+	KindMcpServer   = "McpServer"
+	KindVault       = "Vault"
 )
 
+// DefaultEnvironment names the built-in sandbox a target's agents get when
+// no Environment is assigned to them. No Environment may take the name.
+const DefaultEnvironment = "default"
+
 // Kinds lists every kind in this API version, in documentation order.
-var Kinds = []string{KindAgent, KindTarget, KindMcpServer, KindVault}
+var Kinds = []string{KindAgent, KindTarget, KindEnvironment, KindMcpServer, KindVault}

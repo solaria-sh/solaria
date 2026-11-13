@@ -2,7 +2,7 @@
 --- plan
 Target ma-self-hosted (managed-agents/self-hosted)
 
-  + Environment/ma-self-hosted
+  + Environment/tools
       note: the worker needs the environment's key in the environment variables as SOLARIA_TEST_ENVIRONMENT_KEY; apply creates the environment and then says how to get one
 
   + Agent/reviewer
@@ -15,20 +15,21 @@ POST /v1/environments
     "config": {
       "type": "self_hosted"
     },
-    "description": "Solaria target ma-self-hosted",
+    "description": "Solaria target ma-self-hosted, Environment tools",
     "metadata": {
+      "solaria_environment": "tools",
       "solaria_target": "ma-self-hosted"
     },
     "name": "ma-self-hosted"
   }
 --- error
-create Environment/ma-self-hosted: environment ma-self-hosted (env_01) exists, but its worker can't start without the environment's key: generate one in the Claude Console, under Managed Agents > Environments > ma-self-hosted, store it in the environment variables as SOLARIA_TEST_ENVIRONMENT_KEY, and run apply again
+create Environment/tools: environment ma-self-hosted (env_01) exists, but its worker can't start without the environment's key: generate one in the Claude Console, under Managed Agents > Environments > ma-self-hosted, store it in the environment variables as SOLARIA_TEST_ENVIRONMENT_KEY, and run apply again
 
 ### start the worker
 --- plan
 Target ma-self-hosted (managed-agents/self-hosted)
 
-  ~ Environment/ma-self-hosted (the worker container isn't running)
+  ~ Environment/tools (the worker container isn't running)
 
   + Agent/reviewer
       resolvedDigest: sha256:e5264a3555c6
@@ -42,9 +43,9 @@ POST /v1/environments/env_01
     "config": {
       "type": "self_hosted"
     },
-    "description": "Solaria target ma-self-hosted",
+    "description": "Solaria target ma-self-hosted, Environment tools",
     "metadata": {
-      "solaria_environment": "",
+      "solaria_environment": "tools",
       "solaria_target": "ma-self-hosted"
     },
     "name": "ma-self-hosted"
@@ -69,6 +70,7 @@ POST /v1/agents
       }
     ],
     "metadata": {
+      "solaria_environment": "tools",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:e5264a3555c672c006435903f3271411dd509c553a63f51150aa6433b2c49ed4",
       "solaria_spec_digest": "sha256:e5264a3555c672c006435903f3271411dd509c553a63f51150aa6433b2c49ed4",
@@ -146,9 +148,9 @@ POST /v1/agents
     ]
   }
 --- docker
-build solaria/ma-self-hosted/worker:e74c5473c5be --platform linux/amd64
+build solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64
 rm solaria-ma-self-hosted-worker
-run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:e74c5473c5be --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
+run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
 
 ### unchanged
 --- plan
@@ -164,7 +166,7 @@ GET /v1/environments/env_01
 --- plan
 Target ma-self-hosted (managed-agents/self-hosted)
 
-  ~ Environment/ma-self-hosted (the worker container isn't running)
+  ~ Environment/tools (the worker container isn't running)
 
 Plan: 0 to create, 1 to update, 0 to replace, 0 to delete or archive.
 --- refresh requests
@@ -176,17 +178,17 @@ POST /v1/environments/env_01
     "config": {
       "type": "self_hosted"
     },
-    "description": "Solaria target ma-self-hosted",
+    "description": "Solaria target ma-self-hosted, Environment tools",
     "metadata": {
-      "solaria_environment": "",
+      "solaria_environment": "tools",
       "solaria_target": "ma-self-hosted"
     },
     "name": "ma-self-hosted"
   }
 --- docker
-build solaria/ma-self-hosted/worker:e74c5473c5be --platform linux/amd64
+build solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64
 rm solaria-ma-self-hosted-worker
-run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:e74c5473c5be --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
+run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
 
 ### destroy
 --- plan
@@ -195,7 +197,7 @@ Target ma-self-hosted (managed-agents/self-hosted)
   -/archive Agent/reviewer
       host: agent_05 version 1
 
-  - Environment/ma-self-hosted
+  - Environment/tools
       host: env_01
 
 Plan: 0 to create, 0 to update, 0 to replace, 2 to delete or archive.
@@ -210,5 +212,5 @@ DELETE /v1/skills/skill_03
 DELETE /v1/environments/env_01
 --- docker
 rm solaria-ma-self-hosted-worker
-rmi solaria/ma-self-hosted/worker:e74c5473c5be
+rmi solaria/ma-self-hosted/worker:543487924d6e
 

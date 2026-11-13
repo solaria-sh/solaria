@@ -1,0 +1,81 @@
+# status lists each Environment's host object and the agents it's for, and
+# -a gives the environment ID to start an agent's sessions in (ADR 0020).
+# The state is written by hand, the way Solaria wrote it before ADR 0020:
+# one host object, under host, which belongs to the target's default
+# Environment, here the built-in sandbox.
+cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md .
+mkdir .solaria/state
+cp ma-cloud.json .solaria/state/ma-cloud.json
+
+exec solaria status -t ma-cloud
+cmp stdout status.txt
+exec solaria status -t ma-cloud -a hello
+stdout '^  environment: start sessions in env_01 \(Environment default\)$'
+exec solaria status -t ma-cloud -a hello -o json
+cmp stdout status.json
+
+-- status.txt --
+Target ma-cloud (state serial 3)
+  OBJECT               PROVIDER              HOST ID   VERSION  DIGEST               APPLIED           CONFIGURATION
+  Environment/default  managed-agents/cloud  env_01    -        sha256:111111111111  2026-11-01 10:00  for Agent/hello
+  Agent/hello          managed-agents/cloud  agent_01  1        sha256:08ffaed7b158  2026-11-01 10:00  up to date
+-- status.json --
+{
+  "targets": [
+    {
+      "name": "ma-cloud",
+      "serial": 3,
+      "inConfiguration": true,
+      "locked": false,
+      "agents": [
+        {
+          "logicalId": "Agent/hello",
+          "provider": "managed-agents",
+          "placement": "cloud",
+          "hostId": "agent_01",
+          "version": "1",
+          "specDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+          "resolvedDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+          "appliedAt": "2026-11-01T10:00:00Z",
+          "configuration": "upToDate",
+          "environment": {
+            "name": "default",
+            "hostId": "env_01"
+          }
+        }
+      ]
+    }
+  ]
+}
+-- ma-cloud.json --
+{
+  "format": "solaria.sh/state/v1",
+  "lineage": "6f1c2d3e-0000-4000-8000-000000000003",
+  "serial": 3,
+  "environment": "ma-cloud",
+  "host": {
+    "id": "Environment/ma-cloud",
+    "provider": "managed-agents",
+    "providerVersion": "0.4.0",
+    "placement": "cloud",
+    "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "binding": {"hostId": "env_01"},
+    "remoteHash": "2026-11-01T10:00:00Z",
+    "source": {},
+    "appliedAt": "2026-11-01T10:00:00Z"
+  },
+  "agents": {
+    "Agent/hello": {
+      "id": "Agent/hello",
+      "provider": "managed-agents",
+      "providerVersion": "0.4.0",
+      "placement": "cloud",
+      "specDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+      "resolvedDigest": "sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26ffe2f",
+      "binding": {"hostId": "agent_01", "version": "1"},
+      "definition": {},
+      "source": {},
+      "appliedAt": "2026-11-01T10:00:00Z"
+    }
+  }
+}

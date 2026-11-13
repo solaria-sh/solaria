@@ -34,7 +34,7 @@ type Resource struct {
 	// forward slashes on every OS.
 	File string
 	// Object is a *v1alpha1.Agent, *v1alpha1.Target,
-	// *v1alpha1.McpServer or *v1alpha1.Vault.
+	// *v1alpha1.Environment, *v1alpha1.McpServer or *v1alpha1.Vault.
 	Object any
 
 	node *yaml.Node
@@ -43,9 +43,12 @@ type Resource struct {
 // Agent returns the resource as an Agent, or nil if it is another kind.
 func (r *Resource) Agent() *v1alpha1.Agent { a, _ := r.Object.(*v1alpha1.Agent); return a }
 
-// Target returns the resource as an Target, or nil.
-func (r *Resource) Target() *v1alpha1.Target {
-	e, _ := r.Object.(*v1alpha1.Target)
+// Target returns the resource as a Target, or nil.
+func (r *Resource) Target() *v1alpha1.Target { t, _ := r.Object.(*v1alpha1.Target); return t }
+
+// Environment returns the resource as an Environment, or nil.
+func (r *Resource) Environment() *v1alpha1.Environment {
+	e, _ := r.Object.(*v1alpha1.Environment)
 	return e
 }
 
@@ -275,11 +278,8 @@ func loadDocument(sch *compiled, path string, doc *yaml.Node) (*Resource, diag.L
 	if !ok {
 		return nil, diag.List{diag.Errorf(path, pos(root), "missing required field \"kind\"")}
 	}
-	if kv.Value == "Environment" {
-		// Before ADR 0020 this kind was the target. Say how to fix it
-		// rather than call the kind unknown.
-		return nil, diag.List{diag.Errorf(path, pos(kv),
-			"kind Environment is now called Target (ADR 0020); change this document's kind to Target")}
+	if d := renamed(path, root, kv); d != nil {
+		return nil, diag.List{*d}
 	}
 	if kv.Kind != yaml.ScalarNode || !slices.Contains(v1alpha1.Kinds, kv.Value) {
 		return nil, diag.List{diag.Errorf(path, pos(kv),
@@ -323,12 +323,38 @@ func documentID(doc *yaml.Node) string {
 	return kv.Value + "/" + nv.Value
 }
 
+// renamed reports a document written for the kinds before ADR 0020, when
+// Environment was the target and held its sandbox, with how to fix it,
+// rather than let schema validation call it unknown.
+func renamed(path string, root, kind *yaml.Node) *diag.Diagnostic {
+	switch kind.Value {
+	case v1alpha1.KindEnvironment:
+		if _, _, ok := locate(root, []string{"spec", "provider"}); ok {
+			msg := "an Environment with spec.provider is now a Target (ADR 0020); change this document's kind to Target"
+			if _, _, ok := locate(root, []string{"spec", "sandbox"}); ok {
+				msg += ", and move spec.sandbox into an Environment that spec.environments references"
+			}
+			d := diag.Errorf(path, pos(kind), "%s", msg)
+			return &d
+		}
+	case v1alpha1.KindTarget:
+		if k, _, ok := locate(root, []string{"spec", "sandbox"}); ok {
+			d := diag.Errorf(path, pos(k),
+				"a Target has no spec.sandbox since ADR 0020; move it into the spec of an Environment, and reference that Environment from spec.environments")
+			return &d
+		}
+	}
+	return nil
+}
+
 func newObject(kind string) any {
 	switch kind {
 	case v1alpha1.KindAgent:
 		return &v1alpha1.Agent{}
 	case v1alpha1.KindTarget:
 		return &v1alpha1.Target{}
+	case v1alpha1.KindEnvironment:
+		return &v1alpha1.Environment{}
 	case v1alpha1.KindVault:
 		return &v1alpha1.Vault{}
 	default:

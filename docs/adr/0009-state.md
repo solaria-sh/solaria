@@ -6,7 +6,7 @@ decision-makers: Renan Tarouco da Fonseca
 
 # State: local per environment, locking, backend interface
 
-> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. State format `solaria.sh/state/v2` names it in `target`, and v1 state is read and upgraded.
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. State format `solaria.sh/state/v2` names it in `target`, keeps one host object per Environment under `environments` rather than one under `host`, and v1 state is read and upgraded.
 
 ## Context and problem statement
 
