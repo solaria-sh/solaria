@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -36,7 +37,7 @@ func TestWriteAndRead(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(b.Dir, "..", ".gitignore")); err != nil {
 		t.Errorf("no .solaria/.gitignore: %v", err)
 	}
-	envs, err := b.Environments()
+	envs, err := b.Targets()
 	if err != nil || len(envs) != 1 || envs[0] != "dev" {
 		t.Errorf("Environments = %v, %v; want [dev]", envs, err)
 	}
@@ -128,5 +129,36 @@ func TestNewUUID(t *testing.T) {
 	}
 	if newUUID() == u {
 		t.Error("two UUIDs are equal")
+	}
+}
+
+// TestReadV1 reads state written before ADR 0020, which named the target
+// under environment, and checks the next write stores it as v2.
+func TestReadV1(t *testing.T) {
+	b := &Local{Dir: filepath.Join(t.TempDir(), ".solaria", "state")}
+	if err := os.MkdirAll(b.Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	v1 := `{"format": "solaria.sh/state/v1", "lineage": "c16b2f6e-7d6b-4a43-9d36-7a1f0b5c2e11", "serial": 3, "environment": "dev",
+  "agents": {"Agent/a": {"id": "Agent/a", "resolvedDigest": "sha256:1"}}}`
+	if err := os.WriteFile(b.statePath("dev"), []byte(v1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := b.Read("dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Format != Format || got.Target != "dev" || got.Serial != 3 || got.Agents["Agent/a"] == nil {
+		t.Fatalf("Read of v1 state = format %q, target %q, serial %d, agents %v", got.Format, got.Target, got.Serial, got.Agents)
+	}
+	if err := b.Write(got); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(b.statePath("dev"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s := string(raw); !strings.Contains(s, `"format": "solaria.sh/state/v2"`) || !strings.Contains(s, `"target": "dev"`) || strings.Contains(s, `"environment"`) {
+		t.Errorf("state after writing upgraded v1:\n%s", s)
 	}
 }

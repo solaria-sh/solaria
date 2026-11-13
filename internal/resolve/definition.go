@@ -45,7 +45,7 @@ type Definition struct {
 	Workspace *Workspace `json:"workspace,omitempty"`
 	// Repositories the agent works on, sorted by name. Left out when there
 	// are none, so other agents keep their digests (ADR 0017). Where each
-	// comes from belongs to the environment, so it isn't here.
+	// comes from belongs to the target, so it isn't here.
 	Repositories []Repository `json:"repositories,omitempty"`
 }
 

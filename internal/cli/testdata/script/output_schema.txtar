@@ -14,17 +14,17 @@ stdout 'agents.yaml:7:20: error: spec.output.schema: must be a path to a JSON or
 # any host call where it doesn't.
 cd ../valid
 exec solaria validate
-stdout '^valid: 2 Agents, 4 Environments$'
-exec solaria plan -e local
+stdout '^valid: 2 Agents, 4 Targets$'
+exec solaria plan -t local
 stdout '^  \+ Agent/triage$'
-exec solaria plan -e sdk-docker
+exec solaria plan -t sdk-docker
 stderr 'warning: Agent/triage on claude-agent-sdk/docker: the SDK treats format in spec.output.schema as an annotation and doesn''t check it'
 env ANTHROPIC_API_KEY=
-! exec solaria plan -e ma-cloud
+! exec solaria plan -t ma-cloud
 stderr 'error: Agent/triage on managed-agents/cloud: spec.output.schema can''t be enforced here; this host doesn''t support output schemas \(ADR 0019\)'
 stderr 'error: Agent/summary on managed-agents/cloud: spec.output.schema can''t be enforced here'
 ! stdout .
-! exec solaria plan -e local-gitagent
+! exec solaria plan -t local-gitagent
 stderr 'error: Agent/triage on gitagent/docker: spec.output.schema can''t be enforced here'
 ! stdout .
 
@@ -137,21 +137,21 @@ properties:
 required: [severity]
 -- valid/environments.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec: {provider: stub, placement: file}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: sdk-docker}
 spec: {provider: claude-agent-sdk, placement: docker}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ma-cloud}
 spec: {provider: managed-agents, placement: cloud}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-gitagent}
 spec: {provider: gitagent, placement: docker}

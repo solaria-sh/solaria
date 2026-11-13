@@ -42,7 +42,7 @@
         },
         "output": {
           "$ref": "#/$defs/OutputSpec",
-          "description": "What the agent's final answer must look like. Part of the agent's identity: environments can't change it."
+          "description": "What the agent's final answer must look like. Part of the agent's identity: targets can't change it."
         },
         "vaults": {
           "items": {
@@ -53,14 +53,14 @@
         },
         "workspace": {
           "$ref": "#/$defs/WorkspaceSpec",
-          "description": "The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace."
+          "description": "The folder the agent works on, and whether it may change it. Each target says which folder, in spec.inputs.workspace."
         },
         "repositories": {
           "items": {
             "$ref": "#/$defs/RepositoryNeed"
           },
           "type": "array",
-          "description": "Git repositories the agent works on. Each environment binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/\u003cname\u003e in the workspace before a run."
+          "description": "Git repositories the agent works on. Each target binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/\u003cname\u003e in the workspace before a run."
         },
         "providers": {
           "additionalProperties": {
@@ -175,7 +175,7 @@
             "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
           },
           "type": "object",
-          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+          "description": "Labels for selecting resources, for example from a Target's agents.selector."
         },
         "annotations": {
           "additionalProperties": {
@@ -244,7 +244,7 @@
           "type": "string",
           "maxLength": 63,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "description": "Name the environment binds the repository under, and its folder in the workspace: repositories/\u003cname\u003e."
+          "description": "Name the target binds the repository under, and its folder in the workspace: repositories/\u003cname\u003e."
         },
         "access": {
           "type": "string",
@@ -353,5 +353,5 @@
     "spec"
   ],
   "title": "Solaria Agent",
-  "description": "Declares what an agent is: its instructions, model, tools, skills and limits. Where it runs is decided by an Environment."
+  "description": "Declares what an agent is: its instructions, model, tools, skills and limits. Where it runs is decided by a Target."
 }

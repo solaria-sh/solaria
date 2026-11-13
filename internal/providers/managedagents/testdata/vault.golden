@@ -1,6 +1,6 @@
 ### create
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   + Environment/ma-cloud
 
@@ -37,9 +37,9 @@ POST /v1/environments
       },
       "type": "cloud"
     },
-    "description": "Solaria environment ma-cloud",
+    "description": "Solaria target ma-cloud",
     "metadata": {
-      "solaria_environment": "ma-cloud"
+      "solaria_target": "ma-cloud"
     },
     "name": "solaria-test-ma-cloud"
   }
@@ -47,8 +47,8 @@ POST /v1/vaults
   {
     "display_name": "solaria-test-ma-cloud/tools",
     "metadata": {
-      "solaria_environment": "ma-cloud",
-      "solaria_logical_id": "Vault/tools"
+      "solaria_logical_id": "Vault/tools",
+      "solaria_target": "ma-cloud"
     }
   }
 POST /v1/vaults/vlt_02/credentials
@@ -101,10 +101,10 @@ POST /v1/agents
       }
     ],
     "metadata": {
-      "solaria_environment": "ma-cloud",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:7b4060c52b2c5a4e1501e661a68a5539afa87f456b4ead9e47407397ea11e7ce",
-      "solaria_spec_digest": "sha256:7b4060c52b2c5a4e1501e661a68a5539afa87f456b4ead9e47407397ea11e7ce"
+      "solaria_spec_digest": "sha256:7b4060c52b2c5a4e1501e661a68a5539afa87f456b4ead9e47407397ea11e7ce",
+      "solaria_target": "ma-cloud"
     },
     "model": {
       "effort": "high",
@@ -180,9 +180,9 @@ POST /v1/agents
 
 ### unchanged
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
-No changes. The environment matches the configuration.
+No changes. The target matches the configuration.
 --- refresh requests
 GET /v1/agents/agent_07
 GET /v1/environments/env_01
@@ -192,7 +192,7 @@ GET /v1/vaults/vlt_02/credentials
 
 ### rotate
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   ~ Vault/tools (sends every credential's value again)
       note: sessions of Agent/reviewer attach it when they start
@@ -222,7 +222,7 @@ GET /v1/vaults/vlt_02/credentials
 
 ### change the variable and its secret
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   ~ Vault/tools
       ~ credentials.gh.secretRef: "GH_PAT" -> "GH_PAT_2"
@@ -270,10 +270,11 @@ POST /v1/agents/agent_07
       }
     ],
     "metadata": {
-      "solaria_environment": "ma-cloud",
+      "solaria_environment": "",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:85ed76a9cbdfc651ddfc6e583ab0ee0a4f9a5cf08ab8a14440f6da8aab9a4c0a",
-      "solaria_spec_digest": "sha256:85ed76a9cbdfc651ddfc6e583ab0ee0a4f9a5cf08ab8a14440f6da8aab9a4c0a"
+      "solaria_spec_digest": "sha256:85ed76a9cbdfc651ddfc6e583ab0ee0a4f9a5cf08ab8a14440f6da8aab9a4c0a",
+      "solaria_target": "ma-cloud"
     },
     "model": {
       "effort": "high",
@@ -350,7 +351,7 @@ POST /v1/agents/agent_07
 
 ### rotate without a secret
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   ~ Vault/tools (sends every credential's value again)
       note: sessions of Agent/reviewer attach it when they start
@@ -367,7 +368,7 @@ update Vault/tools: secrets not set in the environment variables: DOCS_TOKEN
 
 ### deleted outside Solaria
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   + Vault/tools (deleted outside Solaria; it will be created again)
       note: stores 2 credentials from the environment variables
@@ -383,8 +384,8 @@ POST /v1/vaults
   {
     "display_name": "solaria-test-ma-cloud/tools",
     "metadata": {
-      "solaria_environment": "ma-cloud",
-      "solaria_logical_id": "Vault/tools"
+      "solaria_logical_id": "Vault/tools",
+      "solaria_target": "ma-cloud"
     }
   }
 POST /v1/vaults/vlt_11/credentials
@@ -420,7 +421,7 @@ GET /v1/vaults/vlt_11/credentials
 
 ### destroy
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   -/archive Agent/reviewer
       host: agent_07 version 2

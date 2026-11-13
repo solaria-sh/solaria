@@ -1,5 +1,5 @@
 // Package lockfile reads, writes and checks solaria.lock, the committed file
-// that pins the digests each environment may run (ADR 0013).
+// that pins the digests each target may run (ADR 0013).
 package lockfile
 
 import (
@@ -20,8 +20,13 @@ import (
 	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
-// Format identifies this version of the lock file format.
-const Format = "solaria.sh/lock/v1"
+// Format identifies this version of the lock file format. v2 renamed
+// environments to targets (ADR 0020).
+const Format = "solaria.sh/lock/v2"
+
+// formatV1 is the format before ADR 0020: the same shape, with targets
+// under environments. Read accepts it, and the next write stores v2.
+const formatV1 = "solaria.sh/lock/v1"
 
 // DefaultPath is where the lock file lives, relative to the working
 // directory.
@@ -33,12 +38,12 @@ type File struct {
 	Format string `json:"format"`
 	// DefinitionFormat is resolve.Format when the file was written. Digests
 	// from another format can't be compared.
-	DefinitionFormat string                  `json:"definitionFormat"`
-	Environments     map[string]*Environment `json:"environments"`
+	DefinitionFormat string             `json:"definitionFormat"`
+	Targets          map[string]*Target `json:"targets"`
 }
 
-// Environment holds the pinned agents of one environment.
-type Environment struct {
+// Target holds the pinned agents of one target.
+type Target struct {
 	// Agents is keyed by logical ID (Agent/<name>).
 	Agents map[string]Entry `json:"agents"`
 }
@@ -54,7 +59,7 @@ type Entry struct {
 
 // New returns an empty lock file in the current formats.
 func New() *File {
-	return &File{Format: Format, DefinitionFormat: resolve.Format, Environments: map[string]*Environment{}}
+	return &File{Format: Format, DefinitionFormat: resolve.Format, Targets: map[string]*Target{}}
 }
 
 var (
@@ -63,7 +68,7 @@ var (
 )
 
 // Read reads the lock file at path. A missing file is not an error: it
-// returns nil, and no environment is locked.
+// returns nil, and no target is locked.
 func Read(path string) (*File, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -74,15 +79,28 @@ func Read(path string) (*File, error) {
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
-	var f File
-	if err := dec.Decode(&f); err != nil {
+	var raw struct {
+		File
+		// Environments is where v1 kept the targets.
+		Environments map[string]*Target `json:"environments"`
+	}
+	if err := dec.Decode(&raw); err != nil {
 		return nil, fmt.Errorf("%s: not a valid lock file: %w", path, err)
+	}
+	f := raw.File
+	switch {
+	case f.Format == formatV1 && f.Targets != nil:
+		return nil, fmt.Errorf("%s: format %s keeps targets under environments, not targets", path, formatV1)
+	case f.Format == formatV1:
+		f.Format, f.Targets = Format, raw.Environments
+	case raw.Environments != nil:
+		return nil, fmt.Errorf("%s: format %s keeps targets under targets; environments is the v1 name", path, Format)
 	}
 	if err := f.check(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	if f.Environments == nil {
-		f.Environments = map[string]*Environment{}
+	if f.Targets == nil {
+		f.Targets = map[string]*Target{}
 	}
 	return &f, nil
 }
@@ -94,20 +112,20 @@ func (f *File) check() error {
 	if f.DefinitionFormat == "" {
 		return errors.New("definitionFormat is missing")
 	}
-	for env, e := range f.Environments {
+	for env, e := range f.Targets {
 		if e == nil {
-			return fmt.Errorf("environments.%s is null", env)
+			return fmt.Errorf("targets.%s is null", env)
 		}
 		for id, a := range e.Agents {
 			name, ok := strings.CutPrefix(id, v1alpha1.KindAgent+"/")
 			if !ok || name == "" {
-				return fmt.Errorf("environments.%s.agents: %q is not a logical ID like Agent/<name>", env, id)
+				return fmt.Errorf("targets.%s.agents: %q is not a logical ID like Agent/<name>", env, id)
 			}
 			if !digestRE.MatchString(a.SpecDigest) || !digestRE.MatchString(a.ResolvedDigest) {
-				return fmt.Errorf("environments.%s.agents.%s: specDigest and resolvedDigest must be sha256:<64 hex digits>", env, id)
+				return fmt.Errorf("targets.%s.agents.%s: specDigest and resolvedDigest must be sha256:<64 hex digits>", env, id)
 			}
 			if a.Commit != "" && !commitRE.MatchString(a.Commit) {
-				return fmt.Errorf("environments.%s.agents.%s: commit %q is not a full commit hash", env, id, a.Commit)
+				return fmt.Errorf("targets.%s.agents.%s: commit %q is not a full commit hash", env, id, a.Commit)
 			}
 		}
 	}
@@ -116,10 +134,10 @@ func (f *File) check() error {
 
 // Write writes the file to path, replacing it atomically.
 func Write(path string, f *File) error {
-	if f.Environments == nil {
-		f.Environments = map[string]*Environment{}
+	if f.Targets == nil {
+		f.Targets = map[string]*Target{}
 	}
-	for _, e := range f.Environments {
+	for _, e := range f.Targets {
 		if e.Agents == nil {
 			e.Agents = map[string]Entry{}
 		}
@@ -157,38 +175,38 @@ func Write(path string, f *File) error {
 
 // Locked reports whether env is pinned.
 func (f *File) Locked(env string) bool {
-	return f != nil && f.Environments[env] != nil
+	return f != nil && f.Targets[env] != nil
 }
 
-// Validate checks the file against the configuration: every environment it
+// Validate checks the file against the configuration: every target it
 // pins must exist.
 func (f *File) Validate(path string, set *config.Set) diag.List {
 	if f == nil {
 		return nil
 	}
 	var diags diag.List
-	for _, env := range sortedKeys(f.Environments) {
-		if set.Lookup(v1alpha1.KindEnvironment, env) == nil {
+	for _, env := range sortedKeys(f.Targets) {
+		if set.Lookup(v1alpha1.KindTarget, env) == nil {
 			diags = append(diags, diag.Errorf(path, diag.Pos{},
-				"locks Environment %q, which isn't in the configuration; run %s to unpin it",
+				"locks Target %q, which isn't in the configuration; run %s to unpin it",
 				env, Command(path, env, "--remove")))
 		}
 	}
 	return diags
 }
 
-// Check compares the agents an environment resolves to with its pins. It
-// returns nothing for an environment that isn't locked.
+// Check compares the agents a target resolves to with its pins. It
+// returns nothing for a target that isn't locked.
 func (f *File) Check(path, env string, agents []resolve.Agent) diag.List {
 	if !f.Locked(env) {
 		return nil
 	}
 	if f.DefinitionFormat != resolve.Format {
 		return diag.List{diag.Errorf(path, diag.Pos{},
-			"written for definition format %s, but this Solaria computes digests in %s, so every digest has changed; run %s for each environment in it",
-			f.DefinitionFormat, resolve.Format, Command(path, "<environment>"))}
+			"written for definition format %s, but this Solaria computes digests in %s, so every digest has changed; run %s for each target in it",
+			f.DefinitionFormat, resolve.Format, Command(path, "<target>"))}
 	}
-	pins := f.Environments[env].Agents
+	pins := f.Targets[env].Agents
 	var diags diag.List
 	selected := map[string]bool{}
 	for i := range agents {
@@ -198,11 +216,11 @@ func (f *File) Check(path, env string, agents []resolve.Agent) diag.List {
 		switch {
 		case !ok:
 			diags = append(diags, diag.Errorf(path, diag.Pos{},
-				"Environment %q selects %s, which the lock doesn't list yet (resolvedDigest %s); run %s to promote it",
+				"Target %q selects %s, which the lock doesn't list yet (resolvedDigest %s); run %s to promote it",
 				env, a.ID(), a.ResolvedDigest, Command(path, env, "-a", a.Name)))
 		case pin.ResolvedDigest != a.ResolvedDigest:
 			diags = append(diags, diag.Errorf(path, diag.Pos{},
-				"Environment %q is locked to %s at resolvedDigest %s, but the configuration resolves to %s; run %s to promote it",
+				"Target %q is locked to %s at resolvedDigest %s, but the configuration resolves to %s; run %s to promote it",
 				env, a.ID(), pin.ResolvedDigest, a.ResolvedDigest, Command(path, env, "-a", a.Name)))
 		}
 	}
@@ -212,7 +230,7 @@ func (f *File) Check(path, env string, agents []resolve.Agent) diag.List {
 		}
 		name := strings.TrimPrefix(id, v1alpha1.KindAgent+"/")
 		diags = append(diags, diag.Errorf(path, diag.Pos{},
-			"Environment %q is locked with %s, which it no longer selects; run %s to promote its removal",
+			"Target %q is locked with %s, which it no longer selects; run %s to promote its removal",
 			env, id, Command(path, env, "-a", name)))
 	}
 	return diags
@@ -221,7 +239,7 @@ func (f *File) Check(path, env string, agents []resolve.Agent) diag.List {
 // Command returns the solaria lock command for env with extra arguments,
 // naming the lock file when it isn't the default.
 func Command(path, env string, args ...string) string {
-	parts := []string{"solaria", "lock", "-e", env}
+	parts := []string{"solaria", "lock", "-t", env}
 	parts = append(parts, args...)
 	if filepath.Clean(path) != DefaultPath {
 		parts = append(parts, "--lock-file", path)
@@ -246,9 +264,9 @@ type Change struct {
 }
 
 // Lock pins env's agents to their current digests. With no names, it pins
-// every agent the environment selects and drops the others. With names, it
+// every agent the target selects and drops the others. With names, it
 // updates only those: a selected agent is pinned, and an agent the
-// environment no longer selects is unpinned. A pin whose digests haven't
+// target no longer selects is unpinned. A pin whose digests haven't
 // changed is kept as it is, commit included, so moving HEAD alone changes
 // nothing. It returns the changes, sorted by logical ID.
 func (f *File) Lock(env string, agents []resolve.Agent, names []string, commit string) ([]Change, error) {
@@ -256,9 +274,9 @@ func (f *File) Lock(env string, agents []resolve.Agent, names []string, commit s
 	for i := range agents {
 		byName[agents[i].Name] = &agents[i]
 	}
-	e := f.Environments[env]
+	e := f.Targets[env]
 	if e == nil {
-		e = &Environment{Agents: map[string]Entry{}}
+		e = &Target{Agents: map[string]Entry{}}
 	}
 	if e.Agents == nil {
 		e.Agents = map[string]Entry{}
@@ -278,7 +296,7 @@ func (f *File) Lock(env string, agents []resolve.Agent, names []string, commit s
 	for _, n := range targets {
 		if byName[n] == nil {
 			if _, ok := e.Agents[v1alpha1.KindAgent+"/"+n]; !ok {
-				return nil, fmt.Errorf("Environment %q doesn't select an Agent named %q, and the lock doesn't list one", env, n)
+				return nil, fmt.Errorf("Target %q doesn't select an Agent named %q, and the lock doesn't list one", env, n)
 			}
 		}
 	}
@@ -303,20 +321,20 @@ func (f *File) Lock(env string, agents []resolve.Agent, names []string, commit s
 			changes = append(changes, c)
 		}
 	}
-	f.Environments[env] = e
+	f.Targets[env] = e
 	f.DefinitionFormat = resolve.Format
 	slices.SortFunc(changes, func(a, b Change) int { return strings.Compare(a.ID, b.ID) })
 	return changes, nil
 }
 
-// Stale returns the environments, other than env, whose pins were written
+// Stale returns the targets, other than env, whose pins were written
 // in another definition format and so need locking again.
 func (f *File) Stale(oldFormat, env string) []string {
 	if oldFormat == resolve.Format {
 		return nil
 	}
 	var out []string
-	for _, name := range sortedKeys(f.Environments) {
+	for _, name := range sortedKeys(f.Targets) {
 		if name != env {
 			out = append(out, name)
 		}

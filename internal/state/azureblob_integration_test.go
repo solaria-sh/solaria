@@ -58,7 +58,7 @@ func TestAzureBlobIntegration(t *testing.T) {
 	if err != nil || got == nil || got.Serial != 1 {
 		t.Fatalf("Read = %+v, %v; want serial 1", got, err)
 	}
-	if envs, err := mine.Environments(); err != nil || len(envs) != 1 || envs[0] != "it" {
+	if envs, err := mine.Targets(); err != nil || len(envs) != 1 || envs[0] != "it" {
 		t.Errorf("Environments = %v, %v; want [it]", envs, err)
 	}
 

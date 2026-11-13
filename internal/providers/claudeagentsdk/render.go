@@ -37,7 +37,7 @@ type bundle struct {
 	// run is given, and those that authenticate its clones.
 	Secrets []string
 	// Dotenv is the absolute path of the dotenv file the secrets come
-	// from, when the environment has one.
+	// from, when the target has one.
 	Dotenv string
 	// SRT means the launcher starts the run inside srt, with the bundle's
 	// srt-settings.json (sandbox.isolation: srt, ADR 0017).
@@ -52,7 +52,7 @@ type bundle struct {
 func (b *bundle) ID() string { return strings.TrimPrefix(b.BuildDigest, digest.Prefix)[:12] }
 
 // Runtimes and the SDK package each installs, at the version Solaria was
-// tested with. An Environment can pick another version with
+// tested with. A Target can pick another version with
 // providers.claude-agent-sdk.version.
 const (
 	RuntimeNode   = "node"
@@ -73,7 +73,7 @@ const (
 	pluginDir        = "plugin"
 	// cacheDir is the package cache shared by every bundle of the
 	// provider, relative to a bundle: .solaria/claude-agent-sdk/.cache. Its
-	// leading dot keeps it apart from environment names.
+	// leading dot keeps it apart from target names.
 	cacheDir = "../../../.cache"
 )
 
@@ -127,7 +127,7 @@ type bundleFile struct {
 	TimeoutMS int64  `json:"timeoutMs,omitempty"`
 	// SystemPromptFile is relative to the bundle.
 	SystemPromptFile string `json:"systemPromptFile,omitempty"`
-	// Workspace is the absolute path of the folder the environment binds
+	// Workspace is the absolute path of the folder the target binds
 	// as the workspace, on process; the run works on it wherever it
 	// starts.
 	Workspace string `json:"workspace,omitempty"`
@@ -139,7 +139,7 @@ type bundleFile struct {
 
 type agentInfo struct {
 	LogicalID      string `json:"logicalId"`
-	Environment    string `json:"environment"`
+	Target         string `json:"target"`
 	ResolvedDigest string `json:"resolvedDigest"`
 }
 
@@ -203,7 +203,7 @@ func (r *renderer) render() error {
 
 	opts := r.options()
 	bf := bundleFile{
-		Agent:    agentInfo{LogicalID: a.ID(), Environment: a.Environment, ResolvedDigest: a.ResolvedDigest},
+		Agent:    agentInfo{LogicalID: a.ID(), Target: a.Target, ResolvedDigest: a.ResolvedDigest},
 		SDK:      sdkInfo{Runtime: b.Runtime, Package: sdkPackage(b.Runtime), Version: b.SDKVersion},
 		CacheDir: cacheDir,
 		Options:  opts,
@@ -319,7 +319,7 @@ func sdkPackage(runtime string) string {
 	return NodePackage
 }
 
-// settings reads the environment's providers.claude-agent-sdk and checks
+// settings reads the target's providers.claude-agent-sdk and checks
 // the agent's own.
 func (r *renderer) settings() {
 	b := r.b
@@ -333,14 +333,14 @@ func (r *renderer) settings() {
 		case "runtime":
 			s, _ := v.(string)
 			if s != RuntimeNode && s != RuntimePython {
-				r.errorf("Environment providers.%s.runtime must be node or python, not %v", Name, v)
+				r.errorf("Target providers.%s.runtime must be node or python, not %v", Name, v)
 				continue
 			}
 			b.Runtime = s
 		case "version":
 			s, _ := v.(string)
 			if !versionPattern.MatchString(s) {
-				r.errorf("Environment providers.%s.version must be an exact package version, such as %s, not %v", Name, DefaultNodeVersion, v)
+				r.errorf("Target providers.%s.version must be an exact package version, such as %s, not %v", Name, DefaultNodeVersion, v)
 				continue
 			}
 			version = s
@@ -348,14 +348,14 @@ func (r *renderer) settings() {
 			s, _ := v.(string)
 			switch {
 			case !r.docker():
-				r.warnf("Environment providers.%s.platform only applies to the docker placement and is ignored", Name)
+				r.warnf("Target providers.%s.platform only applies to the docker placement and is ignored", Name)
 			case !slices.Contains(platforms, s):
-				r.errorf("Environment providers.%s.platform must be %s, not %v", Name, strings.Join(platforms, " or "), v)
+				r.errorf("Target providers.%s.platform must be %s, not %v", Name, strings.Join(platforms, " or "), v)
 			default:
 				r.platform = s
 			}
 		default:
-			r.warnf("Environment providers.%s.%s isn't a setting of this provider and is ignored; the settings are: runtime, version, platform", Name, k)
+			r.warnf("Target providers.%s.%s isn't a setting of this provider and is ignored; the settings are: runtime, version, platform", Name, k)
 		}
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.a.Definition.Providers[Name])) {
@@ -564,7 +564,7 @@ func binaries(o sdkOptions) []string {
 
 // env is what every run sets: Claude Code's switches that keep it from
 // reading memory and instruction files or reaching services the card
-// doesn't name, the agent's identity, and the environment's telemetry.
+// doesn't name, the agent's identity, and the target's telemetry.
 func (r *renderer) env() map[string]string {
 	a := r.a
 	env := map[string]string{

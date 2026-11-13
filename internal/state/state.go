@@ -1,5 +1,5 @@
 // Package state records what Solaria deployed where (ADR 0009): one state
-// per environment, holding each agent's digests, host binding and history.
+// per target, holding each agent's digests, host binding and history.
 // State never holds secret values, only reference names.
 package state
 
@@ -14,10 +14,16 @@ import (
 	"github.com/solaria-sh/solaria/internal/resolve"
 )
 
-// Format names the shape of a state file.
-const Format = "solaria.sh/state/v1"
+// Format names the shape of a state file. v2 renamed environment to
+// target (ADR 0020).
+const Format = "solaria.sh/state/v2"
 
-// State is one environment's state.
+// formatV1 is the state format before ADR 0020: the same shape, with the
+// target's name under environment. decode reads it, and the next write
+// stores it as v2.
+const formatV1 = "solaria.sh/state/v1"
+
+// State is one target's state.
 type State struct {
 	Format string `json:"format"`
 	// Lineage is fixed when the state is created. A write with another
@@ -25,9 +31,9 @@ type State struct {
 	Lineage string `json:"lineage"`
 	// Serial increases with every write. A write based on an older serial
 	// is refused, so a stale copy can't overwrite newer state.
-	Serial      int    `json:"serial"`
-	Environment string `json:"environment"`
-	// Host is the environment's own host object, for providers whose host
+	Serial int    `json:"serial"`
+	Target string `json:"target"`
+	// Host is the target's own host object, for providers whose host
 	// keeps one that all agents share (ADR 0012).
 	Host *EnvironmentEntry `json:"host,omitempty"`
 	// Agents by logical ID, such as Agent/reviewer.
@@ -38,8 +44,8 @@ type State struct {
 	Vaults map[string]*VaultEntry `json:"vaults,omitempty"`
 }
 
-// VaultEntry is a host vault. It has the same shape as the environment's
-// host object: both are host objects the environment's agents share.
+// VaultEntry is a host vault. It has the same shape as the target's
+// host object: both are host objects the target's agents share.
 type VaultEntry = EnvironmentEntry
 
 // EnvironmentEntry is an environment's own host object, such as a Managed
@@ -61,9 +67,9 @@ type EnvironmentEntry struct {
 	AppliedBy  string         `json:"appliedBy,omitempty"`
 }
 
-// New returns an empty state for an environment, with a fresh lineage.
-func New(environment string) *State {
-	return &State{Format: Format, Lineage: newUUID(), Environment: environment, Agents: map[string]*Entry{}}
+// New returns an empty state for a target, with a fresh lineage.
+func New(target string) *State {
+	return &State{Format: Format, Lineage: newUUID(), Target: target, Agents: map[string]*Entry{}}
 }
 
 // IDs returns the logical IDs in the state, sorted.
@@ -137,10 +143,10 @@ type Invocation struct {
 	Argv []string `json:"argv"`
 	// Workspace says how the agent finds the folder it works on: "cwd" when
 	// the command runs in it, "mount" when Argv mounts it through
-	// WorkspacePlaceholder, "path" when the environment binds a folder,
+	// WorkspacePlaceholder, "path" when the target binds a folder,
 	// WorkspacePath, which the command works on wherever it starts.
 	Workspace string `json:"workspace"`
-	// WorkspacePath is the folder the environment binds as the workspace.
+	// WorkspacePath is the folder the target binds as the workspace.
 	WorkspacePath string `json:"workspacePath,omitempty"`
 	// WorkspaceAccess is read-only or read-write: what the agent may do to
 	// its workspace, which the host enforces.
@@ -223,9 +229,16 @@ func checkWrite(current, s *State, where string) error {
 
 // decode parses a state read from where, a path or URL for messages.
 func decode(b []byte, where string) (*State, error) {
-	var s State
+	var s struct {
+		State
+		// Environment is where v1 kept the target's name.
+		Environment string `json:"environment"`
+	}
 	if err := json.Unmarshal(b, &s); err != nil {
 		return nil, fmt.Errorf("read state %s: %w", where, err)
+	}
+	if s.Format == formatV1 {
+		s.Format, s.Target = Format, s.Environment
 	}
 	if s.Format != Format {
 		return nil, fmt.Errorf("state %s has format %q; this version of solaria reads %s", where, s.Format, Format)
@@ -233,19 +246,19 @@ func decode(b []byte, where string) (*State, error) {
 	if s.Agents == nil {
 		s.Agents = map[string]*Entry{}
 	}
-	return &s, nil
+	return &s.State, nil
 }
 
-// LockedError means another process holds an environment's lock.
+// LockedError means another process holds a target's lock.
 type LockedError struct {
-	Environment string
-	Holder      LockInfo
+	Target string
+	Holder LockInfo
 }
 
 func (e *LockedError) Error() string {
 	h := e.Holder
-	return fmt.Sprintf("environment %q is locked by %s (%s, since %s, lock %s); if no one is using it, run: solaria force-unlock -e %s %s",
-		e.Environment, h.Who, h.Operation, h.Created.Format(time.RFC3339), h.Nonce, e.Environment, h.Nonce)
+	return fmt.Sprintf("target %q is locked by %s (%s, since %s, lock %s); if no one is using it, run: solaria force-unlock -t %s %s",
+		e.Target, h.Who, h.Operation, h.Created.Format(time.RFC3339), h.Nonce, e.Target, h.Nonce)
 }
 
 // LockInfo describes who holds a lock.
@@ -259,19 +272,19 @@ type LockInfo struct {
 // Backend stores states: Local in a directory, AzureBlob in an Azure
 // Storage container (ADR 0009).
 type Backend interface {
-	// Lock takes the environment's lock and returns its nonce.
+	// Lock takes the target's lock and returns its nonce.
 	Lock(env string, info LockInfo) (nonce string, err error)
 	// Unlock releases a lock this process holds.
 	Unlock(env, nonce string) error
 	// ForceUnlock releases a lock whatever holds it, if the nonce matches.
 	ForceUnlock(env, nonce string) error
-	// Read returns the environment's state, or nil if it has none.
+	// Read returns the target's state, or nil if it has none.
 	Read(env string) (*State, error)
 	// Write stores s, which must have been read (or created) from the
 	// current state: same lineage and serial. It increments s.Serial.
 	Write(s *State) error
-	// Environments lists the environments that have state, sorted.
-	Environments() ([]string, error)
+	// Targets lists the targets that have state, sorted.
+	Targets() ([]string, error)
 }
 
 func newUUID() string {

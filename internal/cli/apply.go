@@ -27,9 +27,9 @@ func newPlanCommand() *cobra.Command {
 		out      string
 	)
 	cmd := &cobra.Command{
-		Use:   "plan -e <environment> [path...]",
+		Use:   "plan -t <target> [path...]",
 		Short: "Show what apply would change",
-		Long: `Plan resolves every agent the environment receives, checks it against the
+		Long: `Plan resolves every agent the target receives, checks it against the
 provider's capabilities, refreshes the state from the host, and shows what
 apply would create, update, replace or delete. It changes nothing.
 
@@ -81,7 +81,7 @@ since (ADR 0018).`,
 	registerLockFile(cmd, &f.lockFile)
 	cmd.Flags().BoolVar(&refresh, "refresh", true, "ask the host for the current state of every agent first")
 	cmd.Flags().BoolVar(&detailed, "detailed-exitcode", false, "exit 0 for no changes, 2 for changes, 1 for errors")
-	cmd.Flags().BoolVar(&destroy, "destroy", false, "plan the removal of everything in the environment")
+	cmd.Flags().BoolVar(&destroy, "destroy", false, "plan the removal of everything in the target")
 	cmd.Flags().BoolVar(&rotate, "rotate-secrets", false, rotateUsage)
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
 	cmd.Flags().StringVar(&out, "out", "", "also save the plan to this file, for apply <file>")
@@ -96,12 +96,12 @@ func newApplyCommand() *cobra.Command {
 		rotate      bool
 	)
 	cmd := &cobra.Command{
-		Use:   "apply (-e <environment> | <plan-file>) [path...]",
-		Short: "Deploy the configuration to an environment",
+		Use:   "apply (-t <target> | <plan-file>) [path...]",
+		Short: "Deploy the configuration to a target",
 		Long: `Apply plans like plan does, asks for confirmation, and then makes the changes.
-It holds the environment's lock throughout and records the result in state.
+It holds the target's lock throughout and records the result in state.
 
-Given a file saved by plan --out instead of -e, apply plans again with the
+Given a file saved by plan --out instead of -t, apply plans again with the
 plan's options and applies without asking, but only if the result matches
 the file: the same state serial, Solaria version, and every step's action
 and digests (ADR 0018). Otherwise it changes nothing and says what differs.`,
@@ -114,17 +114,17 @@ and digests (ADR 0018). Otherwise it changes nothing and says what differs.`,
 			opts := engine.PlanOptions{Refresh: refresh, RotateSecrets: rotate}
 			switch {
 			case saved != nil && f.env != "":
-				return fmt.Errorf("%s names its environment, %s; leave out -e", args[0], saved.Environment)
+				return fmt.Errorf("%s names its target, %s; leave out -t", args[0], saved.Target)
 			case saved != nil:
 				for _, flag := range []string{"refresh", "rotate-secrets"} {
 					if cmd.Flags().Changed(flag) {
 						return fmt.Errorf("--%s comes from the plan in %s; leave it out", flag, args[0])
 					}
 				}
-				file, f.env, args = args[0], saved.Environment, args[1:]
+				file, f.env, args = args[0], saved.Target, args[1:]
 				opts = engine.PlanOptions(saved.Options)
 			case f.env == "":
-				return errors.New(`required flag(s) "environment" not set`)
+				return errors.New(`required flag(s) "target" not set`)
 			}
 			set, err := loadProject(cmd, args)
 			if err != nil {
@@ -162,11 +162,11 @@ func newDestroyCommand() *cobra.Command {
 		autoApprove bool
 	)
 	cmd := &cobra.Command{
-		Use:   "destroy -e <environment> [path...]",
-		Short: "Remove every agent Solaria deployed to an environment",
+		Use:   "destroy -t <target> [path...]",
+		Short: "Remove every agent Solaria deployed to a target",
 		Long: `Destroy removes, or on some hosts archives, every agent recorded in the
-environment's state, then empties the state. It works even after the
-environment was removed from the configuration.`,
+target's state, then empties the state. It works even after the
+target was removed from the configuration.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			set, err := loadProject(cmd, args)
 			if err != nil {
@@ -201,7 +201,7 @@ func makePlan(cmd *cobra.Command, e *engine.Engine, env string, opts engine.Plan
 	return plan, printDiagnostics(cmd.ErrOrStderr(), plan.Diagnostics)
 }
 
-// run locks the environment, plans, confirms and applies.
+// run locks the target, plans, confirms and applies.
 func run(cmd *cobra.Command, e *engine.Engine, env, operation string, opts engine.PlanOptions, autoApprove bool) error {
 	return lockAndApply(cmd, e, env, operation, opts, autoApprove, nil, "")
 }
@@ -209,7 +209,7 @@ func run(cmd *cobra.Command, e *engine.Engine, env, operation string, opts engin
 // runSaved applies a plan saved by plan --out: it plans again under the
 // lock and applies, without asking, only what the saved plan showed.
 func runSaved(cmd *cobra.Command, e *engine.Engine, operation string, opts engine.PlanOptions, saved *engine.Document, file string) error {
-	return lockAndApply(cmd, e, saved.Environment, operation, opts, true, saved, file)
+	return lockAndApply(cmd, e, saved.Target, operation, opts, true, saved, file)
 }
 
 func lockAndApply(cmd *cobra.Command, e *engine.Engine, env, operation string, opts engine.PlanOptions, autoApprove bool, saved *engine.Document, file string) (err error) {
@@ -332,8 +332,8 @@ func savedPlan(args []string) (*engine.Document, error) {
 	if err := json.Unmarshal(b, &doc); err != nil {
 		return nil, fmt.Errorf("%s: %w", args[0], err)
 	}
-	if doc.Environment == "" {
-		return nil, fmt.Errorf("%s: the plan names no environment", args[0])
+	if doc.Target == "" {
+		return nil, fmt.Errorf("%s: the plan names no target", args[0])
 	}
 	return &doc, nil
 }
@@ -370,6 +370,6 @@ func (e *stalePlanError) Error() string {
 	for _, d := range e.diffs {
 		fmt.Fprintf(&b, "  - %s\n", d)
 	}
-	fmt.Fprintf(&b, "Plan again with: solaria plan -e %s --out %s", e.env, e.file)
+	fmt.Fprintf(&b, "Plan again with: solaria plan -t %s --out %s", e.env, e.file)
 	return b.String()
 }

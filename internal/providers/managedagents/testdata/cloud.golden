@@ -1,6 +1,6 @@
 ### create
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   + Environment/ma-cloud
 
@@ -33,9 +33,9 @@ POST /v1/environments
       },
       "type": "cloud"
     },
-    "description": "Solaria environment ma-cloud",
+    "description": "Solaria target ma-cloud",
     "metadata": {
-      "solaria_environment": "ma-cloud"
+      "solaria_target": "ma-cloud"
     },
     "name": "solaria-test-ma-cloud"
   }
@@ -59,10 +59,10 @@ POST /v1/agents
       }
     ],
     "metadata": {
-      "solaria_environment": "ma-cloud",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:e5264a3555c672c006435903f3271411dd509c553a63f51150aa6433b2c49ed4",
-      "solaria_spec_digest": "sha256:e5264a3555c672c006435903f3271411dd509c553a63f51150aa6433b2c49ed4"
+      "solaria_spec_digest": "sha256:e5264a3555c672c006435903f3271411dd509c553a63f51150aa6433b2c49ed4",
+      "solaria_target": "ma-cloud"
     },
     "model": {
       "effort": "high",
@@ -138,9 +138,9 @@ POST /v1/agents
 
 ### unchanged
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
-No changes. The environment matches the configuration.
+No changes. The target matches the configuration.
 --- refresh requests
 GET /v1/agents/agent_04
 GET /v1/environments/env_01
@@ -148,7 +148,7 @@ GET /v1/environments/env_01
 
 ### edit the instructions and the skill
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   ~ Agent/reviewer
       ~ instructions[0]: text changed (1 line -> 1 line)
@@ -180,10 +180,11 @@ POST /v1/agents/agent_04
       }
     ],
     "metadata": {
-      "solaria_environment": "ma-cloud",
+      "solaria_environment": "",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d",
-      "solaria_spec_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d"
+      "solaria_spec_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d",
+      "solaria_target": "ma-cloud"
     },
     "model": {
       "effort": "high",
@@ -260,7 +261,7 @@ POST /v1/agents/agent_04
 
 ### changed outside Solaria
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   ~ Agent/reviewer (changed outside Solaria since the last apply)
 
@@ -280,10 +281,11 @@ POST /v1/agents/agent_04
       }
     ],
     "metadata": {
-      "solaria_environment": "ma-cloud",
+      "solaria_environment": "",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d",
-      "solaria_spec_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d"
+      "solaria_spec_digest": "sha256:8e3dd40de83ca8368d2f916a26d3314d71cd51edaf2daffaa861f2f726a9fc3d",
+      "solaria_target": "ma-cloud"
     },
     "model": {
       "effort": "high",
@@ -360,7 +362,7 @@ POST /v1/agents/agent_04
 
 ### stale plan
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   ~ Agent/reviewer
       ~ instructions[0]: text changed (1 line -> 1 line)
@@ -380,10 +382,11 @@ POST /v1/agents/agent_04
       }
     ],
     "metadata": {
-      "solaria_environment": "ma-cloud",
+      "solaria_environment": "",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:69db323e544a7852782d7a689f282d2707bc8146fdbfaae280f79de09051e521",
-      "solaria_spec_digest": "sha256:69db323e544a7852782d7a689f282d2707bc8146fdbfaae280f79de09051e521"
+      "solaria_spec_digest": "sha256:69db323e544a7852782d7a689f282d2707bc8146fdbfaae280f79de09051e521",
+      "solaria_target": "ma-cloud"
     },
     "model": {
       "effort": "high",
@@ -463,7 +466,7 @@ update Agent/reviewer: agent_04 changed on the host since it was planned; plan a
 
 ### drop the skill
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   ~ Agent/reviewer (changed outside Solaria since the last apply)
       ~ instructions[0]: text changed (1 line -> 1 line)
@@ -487,10 +490,11 @@ POST /v1/agents/agent_04
       }
     ],
     "metadata": {
-      "solaria_environment": "ma-cloud",
+      "solaria_environment": "",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:dca3a601547bc6728c75b7a7e7671c9775dc043f80ad1d82c8f4e91f7e6206f3",
-      "solaria_spec_digest": "sha256:dca3a601547bc6728c75b7a7e7671c9775dc043f80ad1d82c8f4e91f7e6206f3"
+      "solaria_spec_digest": "sha256:dca3a601547bc6728c75b7a7e7671c9775dc043f80ad1d82c8f4e91f7e6206f3",
+      "solaria_target": "ma-cloud"
     },
     "model": {
       "effort": "high",
@@ -565,7 +569,7 @@ DELETE /v1/skills/skill_02
 
 ### destroy
 --- plan
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   -/archive Agent/reviewer
       host: agent_04 version 6

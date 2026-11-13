@@ -25,7 +25,7 @@ import (
 // directory.
 const defaultStateDir = ".solaria/state"
 
-// projectFlags are shared by the commands that work on an environment.
+// projectFlags are shared by the commands that work on a target.
 type projectFlags struct {
 	env      string
 	stateDir string
@@ -34,10 +34,10 @@ type projectFlags struct {
 }
 
 func (f *projectFlags) register(cmd *cobra.Command, envRequired bool) {
-	cmd.Flags().StringVarP(&f.env, "environment", "e", "", "environment to work on")
+	cmd.Flags().StringVarP(&f.env, "target", "t", "", "target to work on")
 	cmd.Flags().StringVar(&f.stateDir, "state-dir", defaultStateDir, "directory holding local state")
 	if envRequired {
-		_ = cmd.MarkFlagRequired("environment")
+		_ = cmd.MarkFlagRequired("target")
 	}
 }
 
@@ -97,8 +97,8 @@ func newEngine(cmd *cobra.Command, set *config.Set, f *projectFlags) (*engine.En
 }
 
 // stateBackend returns where env's state is kept: the backend its
-// Environment names in spec.state (ADR 0009), or local files in stateDir.
-// An environment that has left the configuration has local state.
+// Target names in spec.state (ADR 0009), or local files in stateDir.
+// A target that has left the configuration has local state.
 func stateBackend(set *config.Set, env, stateDir string) (state.Backend, error) {
 	if a := remoteState(set, env); a != nil {
 		return state.NewAzureBlob(state.AzureBlobConfig{Account: a.Account, Container: a.Container, Prefix: a.Prefix})
@@ -112,18 +112,18 @@ func remoteState(set *config.Set, env string) *v1alpha1.AzureBlobState {
 	if set == nil {
 		return nil
 	}
-	r := set.Lookup(v1alpha1.KindEnvironment, env)
-	if r == nil || r.Environment().Spec.State == nil {
+	r := set.Lookup(v1alpha1.KindTarget, env)
+	if r == nil || r.Target().Spec.State == nil {
 		return nil
 	}
-	return r.Environment().Spec.State.AzureBlob
+	return r.Target().Spec.State.AzureBlob
 }
 
-// environmentsWithState lists the environments that have state: those with
-// local state files, except environments the configuration keeps
+// targetsWithState lists the targets that have state: those with
+// local state files, except targets the configuration keeps
 // elsewhere, and those whose remote state exists.
-func environmentsWithState(set *config.Set, stateDir string) ([]string, error) {
-	local, err := (&state.Local{Dir: stateDir}).Environments()
+func targetsWithState(set *config.Set, stateDir string) ([]string, error) {
+	local, err := (&state.Local{Dir: stateDir}).Targets()
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func environmentsWithState(set *config.Set, stateDir string) ([]string, error) {
 			envs = append(envs, env)
 		}
 	}
-	for _, r := range set.Kind(v1alpha1.KindEnvironment) {
+	for _, r := range set.Kind(v1alpha1.KindTarget) {
 		if remoteState(set, r.Name) == nil {
 			continue
 		}

@@ -23,14 +23,14 @@ const (
 )
 
 // WriteSandboxStages writes the two stages every Solaria container image
-// shares: base, which is the Solaria sandbox base or the environment's own
-// image, and sandbox, which adds the environment's packages. The image's own
+// shares: base, which is the Solaria sandbox base or the target's own
+// image, and sandbox, which adds the target's packages. The image's own
 // stage then starts FROM sandbox. Package names reach commands as exec-form
 // arguments, never through a shell's parsing.
 func WriteSandboxStages(b *strings.Builder, base string, p *v1alpha1.PackagesSpec) {
 	w := func(format string, args ...any) { fmt.Fprintf(b, format, args...) }
 	if base != "" {
-		w("# The environment's own sandbox image.\n")
+		w("# The target's own sandbox image.\n")
 		w("FROM %s AS base\n\n", base)
 	} else {
 		w("# The Solaria sandbox base: the cloud sandbox's OS and runtimes (ADR 0007).\n")
@@ -49,7 +49,7 @@ func WriteSandboxStages(b *strings.Builder, base string, p *v1alpha1.PackagesSpe
 		w("ENV GOPATH=/opt/go GOBIN=/usr/local/bin CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH\n\n")
 	}
 
-	w("# The environment's packages.\n")
+	w("# The target's packages.\n")
 	w("FROM base AS sandbox\n")
 	if p != nil {
 		run := func(cmd []string, pkgs []string) {
@@ -70,7 +70,7 @@ func WriteSandboxStages(b *strings.Builder, base string, p *v1alpha1.PackagesSpe
 }
 
 // SandboxBase returns the image the sandbox stage starts from: empty for
-// the Solaria sandbox base, the environment's image reference, or, for a
+// the Solaria sandbox base, the target's image reference, or, for a
 // Dockerfile, the tag repository:<hash> along with the build that makes it.
 // The build must run before the image that uses it.
 func SandboxBase(sb *v1alpha1.SandboxSpec, envDir, repository, platform string, labels map[string]string) (string, *BuildRequest, error) {
@@ -179,7 +179,7 @@ func ShellQuote(s string) string {
 }
 
 // WorkspaceVolume is the docker run --volume value that mounts an agent's
-// workspace at /workspace: the folder the environment binds, or the one
+// workspace at /workspace: the folder the target binds, or the one
 // the run starts in through state.WorkspacePlaceholder, read-only when the
 // agent may not change it (ADR 0017).
 func WorkspaceVolume(a *resolve.Agent) string {

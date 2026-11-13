@@ -2,10 +2,10 @@
 // the agent loop on Anthropic's side (ADR 0011). It calls the API through
 // the Go SDK.
 //
-// Each Solaria environment becomes one Managed Agents environment, which
+// Each Solaria target becomes one Managed Agents environment, which
 // all its agents share (ADR 0012):
 //
-//   - placement cloud: Anthropic runs the sandbox, from the environment's
+//   - placement cloud: Anthropic runs the sandbox, from the target's
 //     packages and networking (ADR 0007);
 //   - placement self-hosted: the sandbox is a worker container on this
 //     machine. Apply builds it on the Solaria sandbox base and runs it,
@@ -16,7 +16,7 @@
 // every change. Its skills are uploaded as custom skills and pinned by
 // version. Destroy archives agents, which the host can't delete.
 //
-// Environments can set providers.managed-agents:
+// Targets can set providers.managed-agents:
 //
 //   - namePrefix: put before every name Solaria gives a host object;
 //   - environmentKeySecret: the secret holding a self-hosted environment's
@@ -96,7 +96,7 @@ func NewWithClient(opts provider.Options, client anthropic.Client, d Docker) *Pr
 	if log == nil {
 		log = io.Discard
 	}
-	return &Provider{env: opts.Environment, workDir: opts.WorkDir, log: log, client: client, docker: d}
+	return &Provider{env: opts.Target, workDir: opts.WorkDir, log: log, client: client, docker: d}
 }
 
 // Provider is the managed-agents provider.
@@ -142,7 +142,7 @@ func repositories(placement string) string {
 	return ""
 }
 
-// Validate reports what the host can't take from an agent. Environment-wide
+// Validate reports what the host can't take from an agent. Target-wide
 // problems are reported by ValidateEnvironment.
 func (p *Provider) Validate(_ context.Context, a *resolve.Agent) []diag.Diagnostic {
 	s, _ := readSettings(a.Env, a.Placement)
@@ -432,7 +432,7 @@ func (p *Provider) logf(format string, args ...any) {
 	_, _ = fmt.Fprintf(p.log, format, args...)
 }
 
-// settings are the environment's providers.managed-agents.
+// settings are the target's providers.managed-agents.
 type settings struct {
 	namePrefix string
 	keySecret  string
@@ -445,8 +445,8 @@ var (
 	platforms         = []string{"linux/amd64", "linux/arm64"}
 )
 
-// readSettings reads and checks an environment's providers.managed-agents.
-func readSettings(env *v1alpha1.EnvironmentSpec, placement string) (settings, diag.List) {
+// readSettings reads and checks a target's providers.managed-agents.
+func readSettings(env *v1alpha1.TargetSpec, placement string) (settings, diag.List) {
 	s := settings{keySecret: "ANTHROPIC_ENVIRONMENT_KEY", platform: platforms[0]}
 	var diags diag.List
 	errorf := func(format string, args ...any) {

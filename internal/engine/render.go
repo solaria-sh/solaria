@@ -20,9 +20,9 @@ var symbols = map[provider.Action]string{
 // it; callers print them separately.
 func Render(w io.Writer, plan *Plan) error {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Environment %s (%s/%s)\n", plan.Environment, plan.Provider, plan.Placement)
+	fmt.Fprintf(&b, "Target %s (%s/%s)\n", plan.Target, plan.Provider, plan.Placement)
 	if !plan.HasChanges() {
-		b.WriteString("\nNo changes. The environment matches the configuration.\n")
+		b.WriteString("\nNo changes. The target matches the configuration.\n")
 		_, err := io.WriteString(w, b.String())
 		return err
 	}
@@ -83,7 +83,7 @@ func renderStep(b *strings.Builder, plan *Plan, s *provider.Plan) {
 		if old != cur {
 			fmt.Fprintf(b, "      resolvedDigest: %s -> %s", provider.ShortDigest(old), provider.ShortDigest(cur))
 			if s.Prior.SpecDigest == s.Desired.SpecDigest {
-				b.WriteString(" (specDigest unchanged: only this environment's overrides differ)")
+				b.WriteString(" (specDigest unchanged: only this target's overrides differ)")
 			}
 			b.WriteString("\n")
 		}
@@ -93,7 +93,7 @@ func renderStep(b *strings.Builder, plan *Plan, s *provider.Plan) {
 	}
 }
 
-// renderHost writes the step for the environment's own host object.
+// renderHost writes the step for the target's own host object.
 func renderHost(b *strings.Builder, h *provider.EnvironmentPlan) {
 	fmt.Fprintf(b, "\n  %s %s", symbols[h.Action], h.ID)
 	if h.Reason != "" {

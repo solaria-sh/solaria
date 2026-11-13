@@ -16,7 +16,7 @@ spec:
   remotes: [{type: streamable-http, url: "https://notes.example.com/mcp"}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: dev}
 spec:
   provider: gitagent

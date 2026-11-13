@@ -22,19 +22,19 @@ func newLockCommand() *cobra.Command {
 		lockPath string
 	)
 	cmd := &cobra.Command{
-		Use:   "lock -e <environment> [-a <agent>]... [path...]",
-		Short: "Pin an environment's agents to their current digests",
-		Long: `Lock records the digests each agent of an environment resolves to in the lock
-file (solaria.lock by default), which you commit. Once an environment is in
+		Use:   "lock -t <target> [-a <agent>]... [path...]",
+		Short: "Pin a target's agents to their current digests",
+		Long: `Lock records the digests each agent of a target resolves to in the lock
+file (solaria.lock by default), which you commit. Once a target is in
 the lock, plan and apply refuse to deploy anything else to it: promoting a
 change means running lock, committing, and having the diff reviewed.
 
-Without -a, lock pins every agent the environment selects and drops pins for
+Without -a, lock pins every agent the target selects and drops pins for
 agents it no longer selects. With -a, it updates only those agents. A pin
 whose digests haven't changed is left as it is.
 
 Lock reads only the configuration: no state, no host. --remove takes the
-environment out of the lock, so it's no longer checked.`,
+target out of the lock, so it's no longer checked.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f, err := lockfile.Read(lockPath)
 			if err != nil {
@@ -46,17 +46,17 @@ environment out of the lock, so it's no longer checked.`,
 			out := cmd.OutOrStdout()
 			if remove {
 				if len(agents) > 0 {
-					return fmt.Errorf("--remove unpins the whole environment; it doesn't take -a")
+					return fmt.Errorf("--remove unpins the whole target; it doesn't take -a")
 				}
 				if !f.Locked(env) {
-					_, err := fmt.Fprintf(out, "Environment %q isn't in %s; nothing to do.\n", env, lockPath)
+					_, err := fmt.Fprintf(out, "Target %q isn't in %s; nothing to do.\n", env, lockPath)
 					return err
 				}
-				delete(f.Environments, env)
+				delete(f.Targets, env)
 				if err := lockfile.Write(lockPath, f); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(out, "Removed Environment %q from %s. Plan and apply no longer check it.\n", env, lockPath)
+				_, err := fmt.Fprintf(out, "Removed Target %q from %s. Plan and apply no longer check it.\n", env, lockPath)
 				return err
 			}
 
@@ -64,7 +64,7 @@ environment out of the lock, so it's no longer checked.`,
 			if err != nil {
 				return err
 			}
-			resolved, err := resolve.Environment(set, env)
+			resolved, err := resolve.Target(set, env)
 			if err != nil {
 				return err
 			}
@@ -80,7 +80,7 @@ environment out of the lock, so it's no longer checked.`,
 				return err
 			}
 			if wasLocked && len(changes) == 0 && oldFormat == resolve.Format {
-				_, err := fmt.Fprintf(out, "%s already pins Environment %q to its current digests; nothing changed.\n", lockPath, env)
+				_, err := fmt.Fprintf(out, "%s already pins Target %q to its current digests; nothing changed.\n", lockPath, env)
 				return err
 			}
 			if err := lockfile.Write(lockPath, f); err != nil {
@@ -91,7 +91,7 @@ environment out of the lock, so it's no longer checked.`,
 			}
 			errOut := cmd.ErrOrStderr()
 			if stale := f.Stale(oldFormat, env); len(stale) > 0 {
-				if _, err := fmt.Fprintf(errOut, "warning: %s was written for definition format %s; lock these environments again too: %s\n",
+				if _, err := fmt.Fprintf(errOut, "warning: %s was written for definition format %s; lock these targets again too: %s\n",
 					lockPath, oldFormat, strings.Join(stale, ", ")); err != nil {
 					return err
 				}
@@ -104,17 +104,17 @@ environment out of the lock, so it's no longer checked.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&env, "environment", "e", "", "environment to lock")
-	_ = cmd.MarkFlagRequired("environment")
+	cmd.Flags().StringVarP(&env, "target", "t", "", "target to lock")
+	_ = cmd.MarkFlagRequired("target")
 	cmd.Flags().StringArrayVarP(&agents, "agent", "a", nil, "lock only this agent (repeatable)")
-	cmd.Flags().BoolVar(&remove, "remove", false, "take the environment out of the lock file")
+	cmd.Flags().BoolVar(&remove, "remove", false, "take the target out of the lock file")
 	registerLockFile(cmd, &lockPath)
 	return cmd
 }
 
 // registerLockFile adds the --lock-file flag.
 func registerLockFile(cmd *cobra.Command, path *string) {
-	cmd.Flags().StringVar(path, "lock-file", lockfile.DefaultPath, "lock file that pins environments' digests")
+	cmd.Flags().StringVar(path, "lock-file", lockfile.DefaultPath, "lock file that pins targets' digests")
 }
 
 func pinned(changes []lockfile.Change) bool {
@@ -129,11 +129,11 @@ func pinned(changes []lockfile.Change) bool {
 func writeLockChanges(w io.Writer, path, env string, changes []lockfile.Change) error {
 	var b strings.Builder
 	if len(changes) == 0 {
-		fmt.Fprintf(&b, "Locked Environment %q in %s; its pins didn't change.\n", env, path)
+		fmt.Fprintf(&b, "Locked Target %q in %s; its pins didn't change.\n", env, path)
 		_, err := io.WriteString(w, b.String())
 		return err
 	}
-	fmt.Fprintf(&b, "Locked Environment %q in %s:\n", env, path)
+	fmt.Fprintf(&b, "Locked Target %q in %s:\n", env, path)
 	// Writes to a strings.Builder can't fail.
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
 	for _, c := range changes {

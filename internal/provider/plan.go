@@ -78,7 +78,7 @@ func Diff(before, after *resolve.Definition) []Change {
 }
 
 // DiffConfig lists the fields that differ between any two values that
-// encode as JSON objects, such as an environment's host config.
+// encode as JSON objects, such as a target's host config.
 func DiffConfig(before, after any) []Change {
 	var ov, nv any
 	mustRoundTrip(before, &ov)

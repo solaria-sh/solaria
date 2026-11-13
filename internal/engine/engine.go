@@ -1,4 +1,4 @@
-// Package engine plans and applies an environment: it resolves agents,
+// Package engine plans and applies a target: it resolves agents,
 // checks them against their provider's capabilities, refreshes state from
 // the host, compares the two, and drives the provider to close the gap
 // (ADR 0006, ADR 0009).
@@ -25,7 +25,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/state"
 )
 
-// Engine plans and applies environments of one project.
+// Engine plans and applies targets of one project.
 type Engine struct {
 	Set     *config.Set
 	Backend state.Backend
@@ -40,7 +40,7 @@ type Engine struct {
 	Who    string
 	// Now defaults to time.Now.
 	Now func() time.Time
-	// LockFile pins the digests environments may run (ADR 0013); nil means
+	// LockFile pins the digests targets may run (ADR 0013); nil means
 	// none are pinned. LockFilePath names it in diagnostics.
 	LockFile     *lockfile.File
 	LockFilePath string
@@ -57,19 +57,19 @@ type PlanOptions struct {
 	RotateSecrets bool
 }
 
-// Plan is what an apply would do to one environment.
+// Plan is what an apply would do to one target.
 type Plan struct {
-	Environment string
-	Provider    string
-	Placement   string
+	Target    string
+	Provider  string
+	Placement string
 	// Options are the options the plan was made with.
 	Options PlanOptions
-	// Capabilities of the environment's provider and placement.
+	// Capabilities of the target's provider and placement.
 	Capabilities provider.Capabilities
 	// Steps for every agent in the configuration or the state, sorted by
 	// ID. No-op steps are included.
 	Steps []*provider.Plan
-	// Host is the step for the environment's own host object, or nil when
+	// Host is the step for the target's own host object, or nil when
 	// the provider has none (ADR 0012).
 	Host *provider.EnvironmentPlan
 	// Vaults are the steps for host vaults, sorted by ID, for providers
@@ -84,7 +84,7 @@ type Plan struct {
 }
 
 // Counts returns how many steps create, update, replace and delete,
-// counting the environment's host object and vaults with the agents.
+// counting the target's host object and vaults with the agents.
 func (p *Plan) Counts() (create, update, replace, del int) {
 	actions := make([]provider.Action, 0, len(p.Steps)+len(p.Vaults)+1)
 	for _, s := range p.Steps {
@@ -131,7 +131,7 @@ func (e *FailedError) Error() string {
 	return fmt.Sprintf("plan failed with %d errors", n)
 }
 
-// Lock takes the environment's lock for a write operation. Call the
+// Lock takes the target's lock for a write operation. Call the
 // returned function to release it.
 func (e *Engine) Lock(env, operation string) (unlock func() error, err error) {
 	nonce, err := e.Backend.Lock(env, state.LockInfo{Operation: operation, Who: e.Who, Created: e.now()})
@@ -157,15 +157,15 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 	if st == nil {
 		st = state.New(env)
 	}
-	plan := &Plan{Environment: env, Options: opts, state: st, providers: map[string]provider.Provider{}}
+	plan := &Plan{Target: env, Options: opts, state: st, providers: map[string]provider.Provider{}}
 
-	envRes := e.Set.Lookup(v1alpha1.KindEnvironment, env)
+	envRes := e.Set.Lookup(v1alpha1.KindTarget, env)
 	switch {
 	case envRes != nil:
-		spec := envRes.Environment().Spec
+		spec := envRes.Target().Spec
 		plan.Provider, plan.Placement = spec.Provider, spec.Placement
 	case opts.Destroy && len(st.Agents) > 0:
-		// The environment left the configuration, but its state still
+		// The target left the configuration, but its state still
 		// says what to clean up and with which provider.
 		first := st.Agents[st.IDs()[0]]
 		plan.Provider, plan.Placement = first.Provider, first.Placement
@@ -175,7 +175,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 		first := st.Vaults[st.VaultIDs()[0]]
 		plan.Provider, plan.Placement = first.Provider, first.Placement
 	default:
-		return nil, fmt.Errorf("no Environment named %q", env)
+		return nil, fmt.Errorf("no Target named %q", env)
 	}
 
 	prov, err := e.provider(plan, plan.Provider)
@@ -191,11 +191,11 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 	var want *provider.Environment // the host's view, for providers with environment objects
 	var vaults []*provider.Vault   // host vaults, for providers that keep them
 	if !opts.Destroy {
-		desired, err = resolve.Environment(e.Set, env)
+		desired, err = resolve.Target(e.Set, env)
 		if err != nil {
 			return nil, err
 		}
-		// A locked environment takes only the digests in the lock. This
+		// A locked target takes only the digests in the lock. This
 		// needs only the configuration, so it runs before any host call.
 		diags := e.LockFile.Check(e.LockFilePath, env, desired)
 		if diags.HasErrors() {
@@ -203,7 +203,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 		}
 		if host, ok := prov.(provider.EnvironmentHost); ok && len(desired) > 0 {
 			want = &provider.Environment{Name: env, Dir: filepath.Dir(envRes.File)}
-			spec := envRes.Environment().Spec
+			spec := envRes.Target().Spec
 			want.Spec = &spec
 			for i := range desired {
 				want.Agents = append(want.Agents, &desired[i])
@@ -216,7 +216,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 			}
 		}
 		if vh, ok := prov.(provider.VaultHost); ok {
-			spec := envRes.Environment().Spec
+			spec := envRes.Target().Spec
 			view := &provider.Environment{Name: env, Dir: filepath.Dir(envRes.File), Spec: &spec}
 			vaults = e.desiredVaults(desired, view, plan.Placement)
 			for _, v := range vaults {
@@ -280,7 +280,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 		switch {
 		case opts.Destroy:
 		case e.Set.Lookup(v1alpha1.KindAgent, name(id)) != nil:
-			step.Reason = "no longer selected by this environment"
+			step.Reason = "no longer selected by this target"
 		default:
 			step.Reason = "no longer in the configuration"
 		}
@@ -292,7 +292,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 	slices.SortFunc(plan.Steps, func(a, b *provider.Plan) int { return cmp.Compare(a.ID, b.ID) })
 
 	if err := e.planHost(ctx, plan, prov, want, opts.Refresh); err != nil {
-		return nil, fmt.Errorf("plan %s/%s: %w", v1alpha1.KindEnvironment, env, err)
+		return nil, fmt.Errorf("plan %s/%s: %w", v1alpha1.KindTarget, env, err)
 	}
 	if err := e.planVaults(ctx, plan, prov, vaults, opts); err != nil {
 		return nil, err
@@ -300,7 +300,7 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 	return plan, nil
 }
 
-// desiredVaults collects the Vaults the environment's agents reference,
+// desiredVaults collects the Vaults the target's agents reference,
 // with the McpServers their credentials are for. A credential for a git
 // host authenticates clones, which the host's vaults have no part in, so
 // it's left out, and so is a vault that holds nothing else.
@@ -339,7 +339,7 @@ func (e *Engine) desiredVaults(agents []resolve.Agent, env *provider.Environment
 }
 
 // planVaults plans the host vaults (ADR 0016): one for each Vault the
-// environment's agents reference, while its provider keeps vaults.
+// target's agents reference, while its provider keeps vaults.
 func (e *Engine) planVaults(ctx context.Context, plan *Plan, prov provider.Provider, desired []*provider.Vault, opts PlanOptions) error {
 	st := plan.state
 	vh, _ := prov.(provider.VaultHost)
@@ -401,7 +401,7 @@ func (e *Engine) planVaults(ctx context.Context, plan *Plan, prov provider.Provi
 		switch {
 		case opts.Destroy:
 		case e.Set.Lookup(v1alpha1.KindVault, name(id)) != nil:
-			step.Reason = "no agent in this environment references it"
+			step.Reason = "no agent in this target references it"
 		default:
 			step.Reason = "no longer in the configuration"
 		}
@@ -411,11 +411,11 @@ func (e *Engine) planVaults(ctx context.Context, plan *Plan, prov provider.Provi
 	return nil
 }
 
-// planHost plans the environment's own host object (ADR 0012): it exists
-// while the environment has agents on a provider that keeps one.
+// planHost plans the target's own host object (ADR 0012): it exists
+// while the target has agents on a provider that keeps one.
 func (e *Engine) planHost(ctx context.Context, plan *Plan, prov provider.Provider, want *provider.Environment, refresh bool) error {
 	prior := plan.state.Host
-	id := v1alpha1.KindEnvironment + "/" + plan.Environment
+	id := provider.HostKind + "/" + plan.Target
 	host, _ := prov.(provider.EnvironmentHost)
 
 	if prior != nil && (prior.Provider != plan.Provider || prior.Placement != plan.Placement) {
@@ -500,8 +500,8 @@ func (e *Engine) planAgent(ctx context.Context, prov provider.Provider, a *resol
 	return step, nil
 }
 
-// Apply carries out a plan made under the environment's lock. It deletes
-// agents first, then creates or updates the environment's host object and
+// Apply carries out a plan made under the target's lock. It deletes
+// agents first, then creates or updates the target's host object and
 // its vaults, applies the other agent steps by ID, and deletes vaults and
 // then the host object last. It writes the state once at the end, including
 // after a failure, so completed steps are recorded.
@@ -626,7 +626,7 @@ func (e *Engine) applyStep(ctx context.Context, plan *Plan, step *provider.Plan)
 	return nil
 }
 
-// applyHost carries out the environment host object's step.
+// applyHost carries out the target host object's step.
 func (e *Engine) applyHost(ctx context.Context, plan *Plan, step *provider.EnvironmentPlan) error {
 	st := plan.state
 	switch step.Action {
@@ -752,7 +752,7 @@ func (e *Engine) provider(plan *Plan, name string) (provider.Provider, error) {
 	if p, ok := plan.providers[name]; ok {
 		return p, nil
 	}
-	p, err := e.NewProvider(name, provider.Options{Environment: plan.Environment, WorkDir: e.WorkDir, Log: e.Log})
+	p, err := e.NewProvider(name, provider.Options{Target: plan.Target, WorkDir: e.WorkDir, Log: e.Log})
 	if err != nil {
 		return nil, err
 	}
@@ -776,7 +776,7 @@ func joinReason(a, b string) string {
 // which after Apply is the newly written one.
 func (p *Plan) Entry(id string) *state.Entry { return p.state.Agents[id] }
 
-// HostEntry returns the environment's host object as it stands in the
+// HostEntry returns the target's host object as it stands in the
 // plan's state, or nil.
 func (p *Plan) HostEntry() *state.EnvironmentEntry { return p.state.Host }
 

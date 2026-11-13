@@ -41,7 +41,7 @@ spec:
       headers: [{name: Authorization, secretRef: DOCS_TOKEN}, {name: X-Team, value: platform}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-gitagent}
 spec:
   provider: gitagent

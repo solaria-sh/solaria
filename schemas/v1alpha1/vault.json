@@ -13,7 +13,7 @@
         "secretRef": {
           "type": "string",
           "pattern": "^[A-Z_][A-Z0-9_]*$",
-          "description": "Name of the secret that holds the value, in the environment's secret source (a variable or a dotenv entry)."
+          "description": "Name of the secret that holds the value, in the target's secret source (a variable or a dotenv entry)."
         },
         "for": {
           "$ref": "#/$defs/CredentialTarget",
@@ -87,7 +87,7 @@
             "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
           },
           "type": "object",
-          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+          "description": "Labels for selecting resources, for example from a Target's agents.selector."
         },
         "annotations": {
           "additionalProperties": {
@@ -173,5 +173,5 @@
     "spec"
   ],
   "title": "Solaria Vault",
-  "description": "A set of credentials that agents use by reference. A credential says what it unlocks; its value comes from the environment's secret source when the agent runs, and is never written to a Vault."
+  "description": "A set of credentials that agents use by reference. A credential says what it unlocks; its value comes from the target's secret source when the agent runs, and is never written to a Vault."
 }

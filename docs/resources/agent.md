@@ -2,7 +2,7 @@
 
 # Agent
 
-Describes an agent independently of the host it runs on. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Agent`. The other resources are [Environment](environment.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
+Describes an agent independently of the host it runs on. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Agent`. The other resources are [Target](target.md), [McpServer](mcp-server.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 
@@ -14,7 +14,7 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `kind` | `Agent` | yes | Kind of this resource. |
 | `metadata` | object | yes | Identifies the agent. |
 | `metadata.name` | string | yes | Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
-| `metadata.labels` | map of strings |  | Labels for selecting resources, for example from an Environment's agents.selector. |
+| `metadata.labels` | map of strings |  | Labels for selecting resources, for example from a Target's agents.selector. |
 | `metadata.annotations` | map of strings |  | Notes about how the resource is operated rather than what it is, such as an agent's owner, trigger or target autonomy. Keys are like label keys; values are any text. They're never part of a digest or sent to a host, so changing one changes nothing deployed. solaria status -o json shows an agent's. |
 | `spec` | object | yes | Describes the agent. |
 | `spec.description` | string |  | What the agent is for. Hosts that list agents show it. |
@@ -34,13 +34,13 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.limits` | object |  | Bounds each run of the agent. |
 | `spec.limits.maxTurns` | integer |  | Most model calls in one run. |
 | `spec.limits.timeout` | string |  | Longest a run may take, as a duration such as 30m or 1h30m. Matches `^([0-9]+(h\|m\|s))+$`. |
-| `spec.output` | object |  | What the agent's final answer must look like. Part of the agent's identity: environments can't change it. |
+| `spec.output` | object |  | What the agent's final answer must look like. Part of the agent's identity: targets can't change it. |
 | `spec.output.schema` | string or object | yes | The JSON Schema (draft 2020-12) the agent's final answer must match: either a path to a JSON or YAML file, relative to this file, or the schema itself, written in YAML. Its root must be an object schema, since the answer is one JSON object. Plan fails on a host that can't enforce it. |
 | `spec.vaults` | list of objects |  | Vaults whose credentials the agent may use, by reference to Vault resources. Once an agent lists any, every secret its MCP servers need must come from one of them, and the run gets nothing else. |
 | `spec.vaults[].ref` | string | yes | Name of a Vault resource. |
-| `spec.workspace` | object |  | The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace. |
+| `spec.workspace` | object |  | The folder the agent works on, and whether it may change it. Each target says which folder, in spec.inputs.workspace. |
 | `spec.workspace.access` | `read-write` or `read-only` |  | read-write (the default) or read-only. A placement that can't keep the workspace read-only fails plan rather than ignore it. |
-| `spec.repositories` | list of objects |  | Git repositories the agent works on. Each environment binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/<name> in the workspace before a run. |
-| `spec.repositories[].name` | string | yes | Name the environment binds the repository under, and its folder in the workspace: repositories/<name>. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
+| `spec.repositories` | list of objects |  | Git repositories the agent works on. Each target binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/<name> in the workspace before a run. |
+| `spec.repositories[].name` | string | yes | Name the target binds the repository under, and its folder in the workspace: repositories/<name>. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
 | `spec.repositories[].access` | `read-write` or `read-only` | yes | read-only or read-write: whether the agent may change its clone. A placement that can't keep a clone read-only fails plan rather than ignore it. |
 | `spec.providers` | map of objects |  | Fields passed unchanged to one provider, keyed by provider name. Using them makes the agent less portable, and validate reports it. |

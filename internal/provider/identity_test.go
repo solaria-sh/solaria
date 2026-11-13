@@ -10,10 +10,10 @@ import (
 func TestResourceAttributes(t *testing.T) {
 	a := &resolve.Agent{
 		Name:           "triage",
-		Environment:    "prod",
+		Target:         "prod",
 		SpecDigest:     "sha256:aa",
 		ResolvedDigest: "sha256:bb",
-		Env: &v1alpha1.EnvironmentSpec{Telemetry: &v1alpha1.TelemetrySpec{
+		Env: &v1alpha1.TargetSpec{Telemetry: &v1alpha1.TelemetrySpec{
 			Endpoint: "http://collector:4318",
 			ResourceAttributes: map[string]string{
 				"team":              "code review, core",
@@ -23,7 +23,7 @@ func TestResourceAttributes(t *testing.T) {
 		}},
 	}
 	want := "gen_ai.agent.id=img,gen_ai.agent.name=triage,gen_ai.agent.version=sha256:bb,service.version=sha256:bb," +
-		"solaria.agent.spec_digest=sha256:aa,solaria.environment=prod," +
+		"solaria.agent.spec_digest=sha256:aa,solaria.target=prod," +
 		"odd=50%25%3D%22x%22%3B%5C,service.namespace=platform,team=code%20review%2C%20core"
 	if got := ResourceAttributes(a, "img"); got != want {
 		t.Errorf("ResourceAttributes:\n got %s\nwant %s", got, want)
@@ -31,7 +31,7 @@ func TestResourceAttributes(t *testing.T) {
 
 	id := IdentityEnv(a)
 	for k, v := range map[string]string{
-		"SOLARIA_LOGICAL_ID": "Agent/triage", "SOLARIA_ENVIRONMENT": "prod",
+		"SOLARIA_LOGICAL_ID": "Agent/triage", "SOLARIA_TARGET": "prod",
 		"SOLARIA_SPEC_DIGEST": "sha256:aa", "SOLARIA_RESOLVED_DIGEST": "sha256:bb",
 	} {
 		if id[k] != v {

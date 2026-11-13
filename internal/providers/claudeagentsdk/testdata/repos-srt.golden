@@ -52,10 +52,10 @@
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
     "NODE_USE_ENV_PROXY": "1",
-    "SOLARIA_ENVIRONMENT": "ci-srt",
     "SOLARIA_LOGICAL_ID": "Agent/builder",
     "SOLARIA_RESOLVED_DIGEST": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9",
-    "SOLARIA_SPEC_DIGEST": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9"
+    "SOLARIA_SPEC_DIGEST": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9",
+    "SOLARIA_TARGET": "ci-srt"
   },
   "scratch": {
     "APPDATA": "home/AppData/Roaming",
@@ -83,7 +83,7 @@
 {
   "agent": {
     "logicalId": "Agent/builder",
-    "environment": "ci-srt",
+    "target": "ci-srt",
     "resolvedDigest": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9"
   },
   "sdk": {

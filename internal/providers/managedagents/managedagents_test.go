@@ -655,7 +655,7 @@ func TestWorkerDockerfileGolden(t *testing.T) {
 	r := newRig(t)
 	r.dir = dir
 	set, _ := config.Load([]string{dir})
-	env := set.Lookup("Environment", "ma-self-hosted").Environment()
+	env := set.Lookup("Target", "ma-self-hosted").Target()
 	w, err := renderWorker(&provider.Environment{Name: "ma-self-hosted", Spec: &env.Spec, Dir: dir}, settings{platform: "linux/amd64"})
 	if err != nil {
 		t.Fatal(err)

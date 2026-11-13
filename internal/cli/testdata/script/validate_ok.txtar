@@ -1,5 +1,5 @@
 # A complete, valid project: one agent, one MCP server, one vault, two
-# environments.
+# targets.
 exec solaria validate
 cmp stdout want.txt
 ! stderr .
@@ -9,18 +9,18 @@ exec solaria validate -o json
 cmp stdout want.json
 
 -- want.txt --
-valid: 1 Agent, 2 Environments, 1 McpServer, 1 Vault
+valid: 1 Agent, 2 Targets, 1 McpServer, 1 Vault
 -- want.json --
 {
   "valid": true,
   "resources": [
     {
-      "kind": "Environment",
+      "kind": "Target",
       "name": "ma-cloud",
       "file": "environments/cloud.yaml"
     },
     {
-      "kind": "Environment",
+      "kind": "Target",
       "name": "local-gitagent",
       "file": "environments/local.yaml"
     },
@@ -97,7 +97,7 @@ spec:
         - {name: Authorization, secretRef: GIT_HOST_TOKEN}
 -- environments/local.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-gitagent}
 spec:
   provider: gitagent
@@ -114,7 +114,7 @@ spec:
       limits: {maxTurns: 10}
 -- environments/cloud.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ma-cloud}
 spec:
   provider: managed-agents

@@ -13,20 +13,20 @@ cmp stdout ../valid.txt
 # Where a vault names a variable after something other than its secret,
 # gitagent can't pass it, and a dotenv file reaches the container whole.
 cd ../hosts
-! exec solaria plan -e local-gitagent
+! exec solaria plan -t local-gitagent
 stderr 'error: Agent/reviewer on gitagent/docker: a Vault credential sets GH_TOKEN from secret GITHUB_PAT, but gitagent passes secrets to the container under their own names; name the variable after the secret'
 stderr 'warning: Agent/reviewer on gitagent/docker: docker passes the whole dotenv file to the container, so the agent''s vaults don''t limit which secrets it sees; use secrets.source env to scope them'
 ! stdout .
 
 # The claude-agent-sdk launcher scopes them, so it plans.
-exec solaria plan -e sdk-docker
+exec solaria plan -t sdk-docker
 stdout '^  \+ Agent/reviewer$'
 ! stderr 'error'
 
 # On Managed Agents, apply keeps a host vault for each Vault, which the
 # agent's sessions attach. Planning needs no API key: there's no state yet.
 env ANTHROPIC_API_KEY=
-exec solaria plan -e ma-cloud
+exec solaria plan -t ma-cloud
 cmp stdout ../ma-plan.txt
 ! stderr 'error|warning'
 
@@ -34,18 +34,18 @@ cmp stdout ../ma-plan.txt
 # The state is written by hand: applying needs the API.
 mkdir .solaria/state
 cp ../ma-state.json .solaria/state/ma-cloud.json
-exec solaria status -e ma-cloud
+exec solaria status -t ma-cloud
 stdout '^  Vault/git-host +managed-agents/cloud +vlt_01 +- +sha256:1111aaaa2222 +2026-11-11 10:00 +for Agent/reviewer$'
-exec solaria status -e ma-cloud -a reviewer
+exec solaria status -t ma-cloud -a reviewer
 stdout '^  managed-agents runs the agent on its host; there''s no command to start it.$'
 stdout '^  vaults: attach vlt_01 \(git-host\) when starting a session$'
 ! stdout 'Vault/git-host'
-exec solaria status -e ma-cloud -a reviewer -o json
+exec solaria status -t ma-cloud -a reviewer -o json
 stdout '"vaults": \[\n +\{\n +"name": "git-host",\n +"hostId": "vlt_01"'
 
 # A Managed Agents vault can only fill an MCP server's Authorization header.
 replace solaria.yaml 'name: Authorization' 'name: X-Api-Key'
-! exec solaria plan -e ma-cloud
+! exec solaria plan -t ma-cloud
 stderr '^solaria.yaml: error: Vault/git-host on managed-agents/cloud: credential "git-host-token": McpServer "git-host" sends secret GIT_HOST_TOKEN as header X-Api-Key, and Managed Agents vaults can only fill an MCP server''s Authorization bearer token$'
 ! stdout .
 
@@ -61,7 +61,7 @@ bad.yaml:20:18: error: spec.credentials[1].secretRef: McpServer "git-host" doesn
 agents.yaml:18:17: warning: spec.tools.mcp[0]: McpServer "git-host" gets secret "GIT_HOST_TOKEN" straight from the secret source; grant it through a Vault in spec.vaults to scope it to this agent
 valid: 2 Agents, 2 McpServers, 1 Vault (1 warning)
 -- ma-plan.txt --
-Environment ma-cloud (managed-agents/cloud)
+Target ma-cloud (managed-agents/cloud)
 
   + Environment/ma-cloud
 
@@ -214,7 +214,7 @@ spec:
       headers: [{name: Authorization, secretRef: GIT_HOST_TOKEN}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-gitagent}
 spec:
   provider: gitagent
@@ -222,14 +222,14 @@ spec:
   secrets: {source: dotenv, path: .env}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ma-cloud}
 spec:
   provider: managed-agents
   placement: cloud
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: sdk-docker}
 spec:
   provider: claude-agent-sdk

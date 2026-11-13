@@ -17,7 +17,7 @@ const ReferenceDir = "docs/resources"
 // referencePages names each kind's page in ReferenceDir, in reading order.
 var referencePages = []struct{ kind, file string }{
 	{v1alpha1.KindAgent, "agent.md"},
-	{v1alpha1.KindEnvironment, "environment.md"},
+	{v1alpha1.KindTarget, "target.md"},
 	{v1alpha1.KindMcpServer, "mcp-server.md"},
 	{v1alpha1.KindVault, "vault.md"},
 }

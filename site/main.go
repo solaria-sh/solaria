@@ -115,7 +115,7 @@ func (b *builder) collect() error {
 		{"docs/getting-started.md", "/docs/getting-started/", "Getting started", "Docs"},
 		{"docs/editors.md", "/docs/editors/", "Editors and coding agents", "Docs"},
 		{"docs/resources/agent.md", "/docs/resources/agent/", "Agent", "Resources"},
-		{"docs/resources/environment.md", "/docs/resources/environment/", "Environment", "Resources"},
+		{"docs/resources/target.md", "/docs/resources/target/", "Target", "Resources"},
 		{"docs/resources/mcp-server.md", "/docs/resources/mcp-server/", "McpServer", "Resources"},
 		{"docs/resources/vault.md", "/docs/resources/vault/", "Vault", "Resources"},
 		{"docs/providers/stub.md", "/docs/providers/stub/", "stub", "Providers"},

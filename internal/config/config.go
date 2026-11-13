@@ -33,7 +33,7 @@ type Resource struct {
 	// File is the path the document was read from, as discovered, with
 	// forward slashes on every OS.
 	File string
-	// Object is a *v1alpha1.Agent, *v1alpha1.Environment,
+	// Object is a *v1alpha1.Agent, *v1alpha1.Target,
 	// *v1alpha1.McpServer or *v1alpha1.Vault.
 	Object any
 
@@ -43,9 +43,9 @@ type Resource struct {
 // Agent returns the resource as an Agent, or nil if it is another kind.
 func (r *Resource) Agent() *v1alpha1.Agent { a, _ := r.Object.(*v1alpha1.Agent); return a }
 
-// Environment returns the resource as an Environment, or nil.
-func (r *Resource) Environment() *v1alpha1.Environment {
-	e, _ := r.Object.(*v1alpha1.Environment)
+// Target returns the resource as an Target, or nil.
+func (r *Resource) Target() *v1alpha1.Target {
+	e, _ := r.Object.(*v1alpha1.Target)
 	return e
 }
 
@@ -275,6 +275,12 @@ func loadDocument(sch *compiled, path string, doc *yaml.Node) (*Resource, diag.L
 	if !ok {
 		return nil, diag.List{diag.Errorf(path, pos(root), "missing required field \"kind\"")}
 	}
+	if kv.Value == "Environment" {
+		// Before ADR 0020 this kind was the target. Say how to fix it
+		// rather than call the kind unknown.
+		return nil, diag.List{diag.Errorf(path, pos(kv),
+			"kind Environment is now called Target (ADR 0020); change this document's kind to Target")}
+	}
 	if kv.Kind != yaml.ScalarNode || !slices.Contains(v1alpha1.Kinds, kv.Value) {
 		return nil, diag.List{diag.Errorf(path, pos(kv),
 			"unknown kind %q; %s has %s", kv.Value, v1alpha1.APIVersion, strings.Join(v1alpha1.Kinds, ", "))}
@@ -321,8 +327,8 @@ func newObject(kind string) any {
 	switch kind {
 	case v1alpha1.KindAgent:
 		return &v1alpha1.Agent{}
-	case v1alpha1.KindEnvironment:
-		return &v1alpha1.Environment{}
+	case v1alpha1.KindTarget:
+		return &v1alpha1.Target{}
 	case v1alpha1.KindVault:
 		return &v1alpha1.Vault{}
 	default:

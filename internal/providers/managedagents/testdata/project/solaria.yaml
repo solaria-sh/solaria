@@ -25,7 +25,7 @@ spec:
       url: https://docs.example.com/mcp
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ma-cloud}
 spec:
   provider: managed-agents
@@ -37,7 +37,7 @@ spec:
     managed-agents: {namePrefix: solaria-test-}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ma-self-hosted}
 spec:
   provider: managed-agents

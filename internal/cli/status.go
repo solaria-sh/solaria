@@ -28,9 +28,9 @@ func newStatusCommand() *cobra.Command {
 		output string
 	)
 	cmd := &cobra.Command{
-		Use:   "status [-e <environment> [-a <agent>]] [path...]",
+		Use:   "status [-t <target> [-a <agent>]] [path...]",
 		Short: "Show what is deployed, and whether it matches the configuration",
-		Long: `Status reads the state of one environment, or of every environment that has
+		Long: `Status reads the state of one target, or of every target that has
 state, and compares each agent's recorded digest with the configuration. It
 doesn't contact any host; run plan to check for drift.
 
@@ -42,7 +42,7 @@ shape, so scripts don't depend on the state format.`,
 				return fmt.Errorf("--output must be text or json, not %q", output)
 			}
 			if agent != "" && f.env == "" {
-				return fmt.Errorf("--agent needs --environment: an agent's status is per environment")
+				return fmt.Errorf("--agent needs --target: an agent's status is per target")
 			}
 			set, err := loadProject(cmd, args)
 			if err != nil {
@@ -54,11 +54,11 @@ shape, so scripts don't depend on the state format.`,
 			}
 			envs := []string{f.env}
 			if f.env == "" {
-				if envs, err = environmentsWithState(set, f.stateDir); err != nil {
+				if envs, err = targetsWithState(set, f.stateDir); err != nil {
 					return err
 				}
 			}
-			res := statusResult{Environments: []envStatus{}}
+			res := statusResult{Targets: []envStatus{}}
 			for _, env := range envs {
 				backend, err := stateBackend(set, env, f.stateDir)
 				if err != nil {
@@ -80,17 +80,17 @@ shape, so scripts don't depend on the state format.`,
 						return err
 					}
 				}
-				res.Environments = append(res.Environments, es)
+				res.Targets = append(res.Targets, es)
 			}
 			w := cmd.OutOrStdout()
 			if output == "json" {
 				return encodeJSON(w, res)
 			}
 			if len(envs) == 0 {
-				_, err := fmt.Fprintln(w, "No environment has state yet. Run solaria apply -e <environment> first.")
+				_, err := fmt.Fprintln(w, "No target has state yet. Run solaria apply -t <target> first.")
 				return err
 			}
-			for i, es := range res.Environments {
+			for i, es := range res.Targets {
 				if i > 0 {
 					if _, err := fmt.Fprintln(w); err != nil {
 						return err
@@ -105,7 +105,7 @@ shape, so scripts don't depend on the state format.`,
 	}
 	f.register(cmd, false)
 	registerLockFile(cmd, &f.lockFile)
-	cmd.Flags().StringVarP(&agent, "agent", "a", "", "show one agent of the environment, with how to start it")
+	cmd.Flags().StringVarP(&agent, "agent", "a", "", "show one agent of the target, with how to start it")
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
 	return cmd
 }
@@ -113,16 +113,16 @@ shape, so scripts don't depend on the state format.`,
 // statusResult is what status -o json prints. Its shape is documented in
 // docs/concepts.md; change it only together with that page.
 type statusResult struct {
-	Environments []envStatus `json:"environments"`
+	Targets []envStatus `json:"targets"`
 }
 
 type envStatus struct {
 	Name string `json:"name"`
-	// Serial is the state's serial; 0 when the environment has no state.
+	// Serial is the state's serial; 0 when the target has no state.
 	Serial int `json:"serial"`
-	// InConfiguration is false for an environment that only has state.
+	// InConfiguration is false for a target that only has state.
 	InConfiguration bool `json:"inConfiguration"`
-	// Locked means solaria.lock pins the environment.
+	// Locked means solaria.lock pins the target.
 	Locked bool        `json:"locked"`
 	Host   *hostStatus `json:"host,omitempty"`
 	// Vaults are host vaults, for providers that keep them (ADR 0016).
@@ -173,7 +173,7 @@ type agentState struct {
 	// hosts that keep credentials in vaults.
 	Vaults []vaultRef `json:"vaults,omitempty"`
 	// Repositories are the agent's repositories (ADR 0017), read from the
-	// configuration: where each comes from belongs to the environment, and
+	// configuration: where each comes from belongs to the target, and
 	// on hosts the caller attaches them to, nothing is applied.
 	Repositories []repositoryStatus `json:"repositories,omitempty"`
 }
@@ -209,7 +209,7 @@ func repositories(d *resolve.Agent) []repositoryStatus {
 		return nil
 	}
 	attach := false
-	if p, err := providers.New(d.Provider, provider.Options{Environment: d.Environment}); err == nil {
+	if p, err := providers.New(d.Provider, provider.Options{Target: d.Target}); err == nil {
 		attach = p.Capabilities(d.Placement).Repositories == provider.RepositoriesGitHub
 	}
 	out := make([]repositoryStatus, len(repos))
@@ -255,19 +255,19 @@ func (c configStatus) text() string {
 	}
 }
 
-// collectStatus compares an environment's state with the configuration
+// collectStatus compares a target's state with the configuration
 // and the lock file.
 func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envStatus, error) {
 	es := envStatus{
-		Name:            st.Environment,
+		Name:            st.Target,
 		Serial:          st.Serial,
-		InConfiguration: set.Lookup(v1alpha1.KindEnvironment, st.Environment) != nil,
-		Locked:          lock.Locked(st.Environment),
+		InConfiguration: set.Lookup(v1alpha1.KindTarget, st.Target) != nil,
+		Locked:          lock.Locked(st.Target),
 		Agents:          []agentState{},
 	}
 	desired := map[string]*resolve.Agent{}
 	if es.InConfiguration {
-		agents, err := resolve.Environment(set, st.Environment)
+		agents, err := resolve.Target(set, st.Target)
 		if err != nil {
 			return es, err
 		}
@@ -277,7 +277,7 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 	}
 	var pins map[string]lockfile.Entry
 	if es.Locked {
-		pins = lock.Environments[st.Environment].Agents
+		pins = lock.Targets[st.Target].Agents
 		for id := range pins {
 			if st.Agents[id] == nil && desired[id] == nil {
 				desired[id] = nil // listed as locked but not applied
@@ -361,7 +361,7 @@ func (es envStatus) only(name string) (envStatus, error) {
 			return es, nil
 		}
 	}
-	return es, fmt.Errorf("agent %q isn't in the state of Environment %q, and its configuration doesn't select it", name, es.Name)
+	return es, fmt.Errorf("agent %q isn't in the state of Target %q, and its configuration doesn't select it", name, es.Name)
 }
 
 func compareConfig(e *state.Entry, d *resolve.Agent) configStatus {
@@ -377,21 +377,21 @@ func compareConfig(e *state.Entry, d *resolve.Agent) configStatus {
 	}
 }
 
-// writeStatus prints an environment's status as a table. With detail, it
+// writeStatus prints a target's status as a table. With detail, it
 // also prints how to start each agent.
 func writeStatus(w io.Writer, es envStatus, lockPath string, detail bool) error {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Environment %s (state serial %d", es.Name, es.Serial)
+	fmt.Fprintf(&b, "Target %s (state serial %d", es.Name, es.Serial)
 	if es.Locked {
 		fmt.Fprintf(&b, ", locked in %s", lockPath)
 	}
 	b.WriteString(")\n")
 	if !es.InConfiguration {
-		b.WriteString("  not in the configuration; solaria destroy -e " + es.Name + " removes what is left\n")
+		b.WriteString("  not in the configuration; solaria destroy -t " + es.Name + " removes what is left\n")
 	}
 	// Writes to a strings.Builder can't fail.
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-	// lockCol is the LOCKED column, present only for a locked environment.
+	// lockCol is the LOCKED column, present only for a locked target.
 	lockCol := func(digest string) string {
 		if !es.Locked {
 			return ""
@@ -444,7 +444,7 @@ func writeStatus(w io.Writer, es envStatus, lockPath string, detail bool) error 
 func writeInvocation(b *strings.Builder, env string, as agentState) {
 	inv := as.Invocation
 	if as.AppliedAt == nil {
-		fmt.Fprintf(b, "  Not applied; run solaria apply -e %s first.\n", env)
+		fmt.Fprintf(b, "  Not applied; run solaria apply -t %s first.\n", env)
 		return
 	}
 	if as.Runtime != "" {

@@ -30,7 +30,7 @@
         "spec"
       ],
       "title": "Solaria Agent",
-      "description": "Declares what an agent is: its instructions, model, tools, skills and limits. Where it runs is decided by an Environment."
+      "description": "Declares what an agent is: its instructions, model, tools, skills and limits. Where it runs is decided by a Target."
     },
     "AgentOverride": {
       "properties": {
@@ -40,11 +40,11 @@
         },
         "tools": {
           "$ref": "#/$defs/ToolsOverride",
-          "description": "Tools to take away in this environment. An override can only narrow the agent's tools: validate fails on one that adds a tool."
+          "description": "Tools to take away in this target. An override can only narrow the agent's tools: validate fails on one that adds a tool."
         },
         "permissions": {
           "$ref": "#/$defs/PermissionsOverride",
-          "description": "Permissions to tighten in this environment."
+          "description": "Permissions to tighten in this target."
         },
         "limits": {
           "$ref": "#/$defs/LimitsSpec",
@@ -52,7 +52,7 @@
         },
         "workspace": {
           "$ref": "#/$defs/WorkspaceSpec",
-          "description": "Workspace access to narrow in this environment: an override can make a read-write workspace read-only, never the reverse."
+          "description": "Workspace access to narrow in this target: an override can make a read-write workspace read-only, never the reverse."
         },
         "providers": {
           "additionalProperties": {
@@ -67,7 +67,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Changes an agent in one environment."
+      "description": "Changes an agent in one target."
     },
     "AgentSelection": {
       "properties": {
@@ -123,7 +123,7 @@
         },
         "output": {
           "$ref": "#/$defs/OutputSpec",
-          "description": "What the agent's final answer must look like. Part of the agent's identity: environments can't change it."
+          "description": "What the agent's final answer must look like. Part of the agent's identity: targets can't change it."
         },
         "vaults": {
           "items": {
@@ -134,14 +134,14 @@
         },
         "workspace": {
           "$ref": "#/$defs/WorkspaceSpec",
-          "description": "The folder the agent works on, and whether it may change it. Each environment says which folder, in spec.inputs.workspace."
+          "description": "The folder the agent works on, and whether it may change it. Each target says which folder, in spec.inputs.workspace."
         },
         "repositories": {
           "items": {
             "$ref": "#/$defs/RepositoryNeed"
           },
           "type": "array",
-          "description": "Git repositories the agent works on. Each environment binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/\u003cname\u003e in the workspace before a run."
+          "description": "Git repositories the agent works on. Each target binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/\u003cname\u003e in the workspace before a run."
         },
         "providers": {
           "additionalProperties": {
@@ -181,7 +181,7 @@
         "prefix": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$",
-          "description": "A folder in the container for this project's state, such as solaria/reviewers, so several projects can share a container. The blob is \u003cprefix\u003e/\u003cenvironment\u003e.json, or \u003cenvironment\u003e.json without one."
+          "description": "A folder in the container for this project's state, such as solaria/reviewers, so several projects can share a container. The blob is \u003cprefix\u003e/\u003ctarget\u003e.json, or \u003ctarget\u003e.json without one."
         }
       },
       "additionalProperties": false,
@@ -203,7 +203,7 @@
         "secretRef": {
           "type": "string",
           "pattern": "^[A-Z_][A-Z0-9_]*$",
-          "description": "Name of the secret that holds the value, in the environment's secret source (a variable or a dotenv entry)."
+          "description": "Name of the secret that holds the value, in the target's secret source (a variable or a dotenv entry)."
         },
         "for": {
           "$ref": "#/$defs/CredentialTarget",
@@ -279,98 +279,6 @@
       "type": "object",
       "description": "Says what a credential unlocks. Set exactly one field."
     },
-    "Environment": {
-      "properties": {
-        "apiVersion": {
-          "const": "solaria.sh/v1alpha1",
-          "description": "API version of this resource."
-        },
-        "kind": {
-          "const": "Environment",
-          "description": "Kind of this resource."
-        },
-        "metadata": {
-          "$ref": "#/$defs/ObjectMeta",
-          "description": "Identifies the environment."
-        },
-        "spec": {
-          "$ref": "#/$defs/EnvironmentSpec",
-          "description": "Describes the environment."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "apiVersion",
-        "kind",
-        "metadata",
-        "spec"
-      ],
-      "title": "Solaria Environment",
-      "description": "Binds agents to a provider and placement, and says how their sandbox, secrets and telemetry are set up there."
-    },
-    "EnvironmentSpec": {
-      "properties": {
-        "provider": {
-          "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "description": "Who runs the agent loop, for example gitagent or managed-agents."
-        },
-        "placement": {
-          "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "description": "Where the provider's sandbox lives, for example docker, cloud or self-hosted."
-        },
-        "agents": {
-          "$ref": "#/$defs/AgentSelection",
-          "description": "Which agents this environment receives. When omitted, it receives every agent."
-        },
-        "sandbox": {
-          "$ref": "#/$defs/SandboxSpec",
-          "description": "The machine the agents' tools run on."
-        },
-        "secrets": {
-          "$ref": "#/$defs/SecretsSpec",
-          "description": "Where secret values are read from when applying."
-        },
-        "telemetry": {
-          "$ref": "#/$defs/TelemetrySpec",
-          "description": "Where agents send OpenTelemetry data."
-        },
-        "inputs": {
-          "$ref": "#/$defs/InputsSpec",
-          "description": "Where agents' inputs come from in this environment."
-        },
-        "state": {
-          "$ref": "#/$defs/StateSpec",
-          "description": "Where Solaria keeps this environment's state: what it deployed, and the lock that stops two applies at once. When omitted, state is a local file under .solaria/state, which suits personal environments; a shared environment needs state everyone who applies it can reach."
-        },
-        "overrides": {
-          "additionalProperties": {
-            "$ref": "#/$defs/AgentOverride"
-          },
-          "propertyNames": {
-            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-          },
-          "type": "object",
-          "description": "Changes to agents in this environment only, keyed by agent name."
-        },
-        "providers": {
-          "additionalProperties": {
-            "type": "object"
-          },
-          "type": "object",
-          "description": "Settings for the environment's provider, keyed by provider name, such as the platform gitagent builds images for. Each provider documents its own settings. They describe the host, not the agents, so they aren't part of any agent's digest."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "provider",
-        "placement"
-      ],
-      "description": "Describes where and how agents run."
-    },
     "InputsSpec": {
       "properties": {
         "workspace": {
@@ -390,7 +298,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Binds the inputs agents declare to sources in one environment. It describes the place, so it isn't part of any digest."
+      "description": "Binds the inputs agents declare to sources in one target. It describes the place, so it isn't part of any digest."
     },
     "KeyValue": {
       "oneOf": [
@@ -418,7 +326,7 @@
         "secretRef": {
           "type": "string",
           "pattern": "^[A-Z_][A-Z0-9_]*$",
-          "description": "Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
+          "description": "Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
         }
       },
       "additionalProperties": false,
@@ -829,7 +737,7 @@
             "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
           },
           "type": "object",
-          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+          "description": "Labels for selecting resources, for example from a Target's agents.selector."
         },
         "annotations": {
           "additionalProperties": {
@@ -945,7 +853,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Tightens an agent's permissions in one environment."
+      "description": "Tightens an agent's permissions in one target."
     },
     "PermissionsSpec": {
       "properties": {
@@ -996,7 +904,7 @@
           "type": "string",
           "maxLength": 63,
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "description": "Name the environment binds the repository under, and its folder in the workspace: repositories/\u003cname\u003e."
+          "description": "Name the target binds the repository under, and its folder in the workspace: repositories/\u003cname\u003e."
         },
         "access": {
           "type": "string",
@@ -1105,7 +1013,7 @@
       "properties": {
         "azureBlob": {
           "$ref": "#/$defs/AzureBlobState",
-          "description": "Keeps the state in Azure Blob Storage, as one blob per environment holding the same JSON as a local state file. The lock is a lease on that blob, renewed while a command runs, so a stopped run's lock expires within a minute. Credentials come from the Azure credential chain (environment variables, workload identity, managed identity, or an Azure CLI login), never from project files; they need read and write access to blobs in the container, such as the Storage Blob Data Contributor role."
+          "description": "Keeps the state in Azure Blob Storage, as one blob per target holding the same JSON as a local state file. The lock is a lease on that blob, renewed while a command runs, so a stopped run's lock expires within a minute. Credentials come from the Azure credential chain (environment variables, workload identity, managed identity, or an Azure CLI login), never from project files; they need read and write access to blobs in the container, such as the Storage Blob Data Contributor role."
         }
       },
       "additionalProperties": false,
@@ -1113,7 +1021,99 @@
       "required": [
         "azureBlob"
       ],
-      "description": "Says where an environment's state is kept. It describes where Solaria works, not the agents, so it isn't part of any digest."
+      "description": "Says where a target's state is kept. It describes where Solaria works, not the agents, so it isn't part of any digest."
+    },
+    "Target": {
+      "properties": {
+        "apiVersion": {
+          "const": "solaria.sh/v1alpha1",
+          "description": "API version of this resource."
+        },
+        "kind": {
+          "const": "Target",
+          "description": "Kind of this resource."
+        },
+        "metadata": {
+          "$ref": "#/$defs/ObjectMeta",
+          "description": "Identifies the target."
+        },
+        "spec": {
+          "$ref": "#/$defs/TargetSpec",
+          "description": "Describes the target."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "Solaria Target",
+      "description": "Binds agents to a provider and placement, and says how their sandbox, secrets and telemetry are set up there."
+    },
+    "TargetSpec": {
+      "properties": {
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Who runs the agent loop, for example gitagent or managed-agents."
+        },
+        "placement": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Where the provider's sandbox lives, for example docker, cloud or self-hosted."
+        },
+        "agents": {
+          "$ref": "#/$defs/AgentSelection",
+          "description": "Which agents this target receives. When omitted, it receives every agent."
+        },
+        "sandbox": {
+          "$ref": "#/$defs/SandboxSpec",
+          "description": "The machine the agents' tools run on."
+        },
+        "secrets": {
+          "$ref": "#/$defs/SecretsSpec",
+          "description": "Where secret values are read from when applying."
+        },
+        "telemetry": {
+          "$ref": "#/$defs/TelemetrySpec",
+          "description": "Where agents send OpenTelemetry data."
+        },
+        "inputs": {
+          "$ref": "#/$defs/InputsSpec",
+          "description": "Where agents' inputs come from in this target."
+        },
+        "state": {
+          "$ref": "#/$defs/StateSpec",
+          "description": "Where Solaria keeps this target's state: what it deployed, and the lock that stops two applies at once. When omitted, state is a local file under .solaria/state, which suits personal targets; a shared target needs state everyone who applies it can reach."
+        },
+        "overrides": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AgentOverride"
+          },
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Changes to agents in this target only, keyed by agent name."
+        },
+        "providers": {
+          "additionalProperties": {
+            "type": "object"
+          },
+          "type": "object",
+          "description": "Settings for the target's provider, keyed by provider name, such as the platform gitagent builds images for. Each provider documents its own settings. They describe the host, not the agents, so they aren't part of any agent's digest."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "provider",
+        "placement"
+      ],
+      "description": "Describes where and how agents run."
     },
     "TelemetrySpec": {
       "properties": {
@@ -1182,7 +1182,7 @@
       },
       "additionalProperties": false,
       "type": "object",
-      "description": "Narrows an agent's tools in one environment, for example so a shadow stage only reads."
+      "description": "Narrows an agent's tools in one target, for example so a shadow stage only reads."
     },
     "ToolsSpec": {
       "properties": {
@@ -1244,7 +1244,7 @@
         "spec"
       ],
       "title": "Solaria Vault",
-      "description": "A set of credentials that agents use by reference. A credential says what it unlocks; its value comes from the environment's secret source when the agent runs, and is never written to a Vault."
+      "description": "A set of credentials that agents use by reference. A credential says what it unlocks; its value comes from the target's secret source when the agent runs, and is never written to a Vault."
     },
     "VaultRef": {
       "properties": {
@@ -1331,7 +1331,7 @@
       "if": {
         "properties": {
           "kind": {
-            "const": "Environment"
+            "const": "Target"
           }
         },
         "required": [
@@ -1339,7 +1339,7 @@
         ]
       },
       "then": {
-        "$ref": "#/$defs/Environment"
+        "$ref": "#/$defs/Target"
       }
     },
     {
@@ -1381,7 +1381,7 @@
     "kind": {
       "enum": [
         "Agent",
-        "Environment",
+        "Target",
         "McpServer",
         "Vault"
       ],

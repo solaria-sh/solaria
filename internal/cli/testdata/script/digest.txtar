@@ -1,31 +1,31 @@
 # solaria digest reads only the configuration: no state, no host.
 
-# Without -e: every agent's specDigest.
+# Without -t: every agent's specDigest.
 exec solaria digest
 cmp stdout all.txt
 ! stderr .
 ! exists .solaria
 
-# With -e: only the agents the environment selects, with resolvedDigest.
+# With -t: only the agents the target selects, with resolvedDigest.
 # The override changes triage's resolvedDigest, not its specDigest.
-exec solaria digest -e prod
+exec solaria digest -t prod
 cmp stdout prod.txt
-exec solaria digest -e dev -o json
+exec solaria digest -t dev -o json
 cmp stdout dev.json
 
 # -a picks agents, and can be repeated.
 exec solaria digest -a triage -a helper
 cmp stdout all.txt
-exec solaria digest -e dev -a helper
+exec solaria digest -t dev -a helper
 cmp stdout dev-helper.txt
 
-# Unknown agents, agents the environment leaves out, unknown environments.
+# Unknown agents, agents the target leaves out, unknown targets.
 ! exec solaria digest -a nope
 stderr '^Error: no Agent named "nope"$'
-! exec solaria digest -e prod -a helper
-stderr '^Error: agent "helper" isn''t selected by Environment "prod"; its agents.selector leaves it out$'
-! exec solaria digest -e nope
-stderr '^Error: no Environment named "nope"$'
+! exec solaria digest -t prod -a helper
+stderr '^Error: agent "helper" isn''t selected by Target "prod"; its agents.selector leaves it out$'
+! exec solaria digest -t nope
+stderr '^Error: no Target named "nope"$'
 ! exec solaria digest -o yaml
 stderr '^Error: --output must be text or json, not "yaml"$'
 
@@ -46,7 +46,7 @@ Agent/triage  sha256:aee6fa6c5659a0bdd1b2ebf1c518693571ffd3e96e6d6d5a9c5f48ff9b2
 -- dev.json --
 {
   "definitionFormat": "solaria.sh/definition/v1",
-  "environment": "dev",
+  "target": "dev",
   "agents": [
     {
       "logicalId": "Agent/helper",
@@ -82,7 +82,7 @@ spec:
   model: {preferred: anthropic:claude-sonnet-5-5}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: dev
 spec:
@@ -90,7 +90,7 @@ spec:
   placement: file
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: prod
 spec:

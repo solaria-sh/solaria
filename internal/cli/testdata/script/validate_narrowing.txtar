@@ -1,13 +1,13 @@
-# An environment's override may only take access away from an agent
+# A target's override may only take access away from an agent
 # (ADR 0004). Each way of widening fails validate, naming the field.
 ! exec solaria validate
 cmp stdout want.txt
 
-# Narrowing alone is valid, and changes only that environment's
+# Narrowing alone is valid, and changes only that target's
 # resolvedDigest.
 rm wide.yaml
 exec solaria validate
-exec solaria digest -e shadow
+exec solaria digest -t shadow
 cmp stdout shadow-digest.txt
 
 -- want.txt --
@@ -15,7 +15,7 @@ wide.yaml:10:25: error: spec.overrides.reviewer.tools.builtin[1]: Agent "reviewe
 wide.yaml:12:19: error: spec.overrides.reviewer.tools.mcp[0].ref: Agent "reviewer" doesn't use McpServer "ticketing", and an override can only remove tools
 wide.yaml:13:60: error: spec.overrides.reviewer.tools.mcp[1].allowTools[1]: "merge" is not in Agent "reviewer"'s allowTools of "git-host", and an override can only remove tools
 wide.yaml:14:19: error: spec.overrides.reviewer.tools.mcp[2].ref: McpServer "git-host" is narrowed twice
-wide.yaml:16:15: error: spec.overrides.reviewer.permissions.ask[0]: "shell" is not one of Agent "reviewer"'s tools in this environment
+wide.yaml:16:15: error: spec.overrides.reviewer.permissions.ask[0]: "shell" is not one of Agent "reviewer"'s tools in this target
 -- shadow-digest.txt --
 AGENT           SPEC DIGEST                                                              RESOLVED DIGEST
 Agent/reviewer  sha256:bfe948591e46a277421d90c19a0849b44ad0b5cedf010e17238347ab01000a46  sha256:c6dadff191e525bc4060924633ee396ce5947430c0a734d7d3ef7ffdf508012d
@@ -48,7 +48,7 @@ spec:
   remotes: [{type: streamable-http, url: "https://tickets.example.com/mcp"}]
 -- shadow.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: shadow}
 spec:
   provider: stub
@@ -60,7 +60,7 @@ spec:
         mcp: [{ref: git-host, allowTools: [get_pull_request]}]
 -- wide.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: wide}
 spec:
   provider: stub

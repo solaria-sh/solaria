@@ -8,7 +8,7 @@ dup2.yaml:3:18: error: duplicate McpServer "twin"; first defined at dup1.yaml:3
 keys.yaml:7:3: error: duplicate key "remotes" (first at line 5)
 keys.yaml:14:3: error: merge keys (<<) aren't supported; repeat the fields instead
 versions.yaml:1:13: error: unsupported apiVersion "solaria.sh/v1"; this version of solaria reads solaria.sh/v1alpha1
-versions.yaml:6:7: error: unknown kind "Robot"; solaria.sh/v1alpha1 has Agent, Environment, McpServer, Vault
+versions.yaml:6:7: error: unknown kind "Robot"; solaria.sh/v1alpha1 has Agent, Target, McpServer, Vault
 versions.yaml:9:1: error: missing required field "kind"
 -- versions.yaml --
 apiVersion: solaria.sh/v1

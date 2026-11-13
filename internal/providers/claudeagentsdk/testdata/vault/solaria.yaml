@@ -34,7 +34,7 @@ spec:
       headers: [{name: Authorization, secretRef: GIT_HOST_TOKEN}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ci-docker}
 spec:
   provider: claude-agent-sdk

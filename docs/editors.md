@@ -10,7 +10,7 @@ The schema for every resource kind is at:
 https://solaria.sh/schemas/v1alpha1/solaria.json
 ```
 
-It dispatches on `kind`, so the same address works for Agents, Environments and McpServers, and for files that hold several of them. With it, the [YAML language server](https://github.com/redhat-developer/yaml-language-server) (used by the VS Code YAML extension, Neovim, Helix, Zed and others) completes field names and allowed values, shows each field's description on hover, and marks unknown or mistyped fields.
+It dispatches on `kind`, so the same address works for Agents, Targets and McpServers, and for files that hold several of them. With it, the [YAML language server](https://github.com/redhat-developer/yaml-language-server) (used by the VS Code YAML extension, Neovim, Helix, Zed and others) completes field names and allowed values, shows each field's description on hover, and marks unknown or mistyped fields.
 
 Put this line at the top of each YAML file:
 
@@ -34,7 +34,7 @@ $ solaria schema > solaria.schema.json
 
 ## Checks across files
 
-The schema checks one document at a time. `solaria validate` also checks what spans files: that every `ref:` names a resource that exists, that instruction files and skills are where the agent says, that overrides name agents the environment has, and that `solaria.lock` matches the project. It never contacts a host, so it's quick and safe to run on every save.
+The schema checks one document at a time. `solaria validate` also checks what spans files: that every `ref:` names a resource that exists, that instruction files and skills are where the agent says, that overrides name agents the target has, and that `solaria.lock` matches the project. It never contacts a host, so it's quick and safe to run on every save.
 
 `-o json` prints each diagnostic with its file, line and column:
 

@@ -28,7 +28,7 @@
         "secretRef": {
           "type": "string",
           "pattern": "^[A-Z_][A-Z0-9_]*$",
-          "description": "Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
+          "description": "Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
         }
       },
       "additionalProperties": false,
@@ -233,7 +233,7 @@
             "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
           },
           "type": "object",
-          "description": "Labels for selecting resources, for example from an Environment's agents.selector."
+          "description": "Labels for selecting resources, for example from a Target's agents.selector."
         },
         "annotations": {
           "additionalProperties": {

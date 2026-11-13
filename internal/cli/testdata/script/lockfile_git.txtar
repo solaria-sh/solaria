@@ -7,22 +7,22 @@ exec git init -q
 exec git add .gitignore solaria.yaml triage.md helper.md
 exec git commit -q -m init
 
-exec solaria lock -e prod
+exec solaria lock -t prod
 grep '"commit": "[0-9a-f]{40}"' solaria.lock
 ! stderr .
 
 # The lock file is now untracked, which doesn't make the worktree dirty.
-exec solaria lock -e dev
+exec solaria lock -t dev
 stdout '^  \+  Agent/helper'
 ! stderr .
 cp solaria.lock before.lock
-exec solaria lock -e dev --remove
-exec solaria lock -e dev
+exec solaria lock -t dev --remove
+exec solaria lock -t dev
 cmp solaria.lock before.lock
 
 # An uncommitted change to the agent: the new pin records no commit.
 replace triage.md 'Sort' 'Label'
-exec solaria lock -e prod
+exec solaria lock -t prod
 stderr '^note: the worktree has uncommitted changes, so the new pins record no commit$'
 
 -- .gitignore --
@@ -54,7 +54,7 @@ spec:
   model: {preferred: anthropic:claude-haiku-5-5}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: dev
 spec:
@@ -62,7 +62,7 @@ spec:
   placement: file
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: prod
 spec:

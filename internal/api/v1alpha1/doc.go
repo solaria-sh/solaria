@@ -17,11 +17,11 @@ const (
 
 // Kinds known to this API version.
 const (
-	KindAgent       = "Agent"
-	KindEnvironment = "Environment"
-	KindMcpServer   = "McpServer"
-	KindVault       = "Vault"
+	KindAgent     = "Agent"
+	KindTarget    = "Target"
+	KindMcpServer = "McpServer"
+	KindVault     = "Vault"
 )
 
 // Kinds lists every kind in this API version, in documentation order.
-var Kinds = []string{KindAgent, KindEnvironment, KindMcpServer, KindVault}
+var Kinds = []string{KindAgent, KindTarget, KindMcpServer, KindVault}

@@ -4,7 +4,7 @@ The `managed-agents` provider deploys agents to [Claude Managed Agents](https://
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ma-cloud}
 spec:
   provider: managed-agents
@@ -22,13 +22,13 @@ spec:
 
 ## What apply does
 
-1. **The environment.** One Managed Agents environment per Solaria environment, shared by all its agents and shown in plans as `Environment/<name>` ([ADR 0012](../adr/0012-environment-level-host-objects.md)). On `cloud` it holds the packages and networking; on `self-hosted` it's the queue a worker polls.
-2. **Vaults.** One host vault for each [Vault](../concepts.md#credentials-and-vaults) the environment's agents reference, shown as `Vault/<name>`. See [Vaults](#vaults).
+1. **The environment.** One Managed Agents environment per Solaria target, shared by all its agents and shown in plans as `Environment/<name>` ([ADR 0012](../adr/0012-environment-level-host-objects.md)). On `cloud` it holds the packages and networking; on `self-hosted` it's the queue a worker polls.
+2. **Vaults.** One host vault for each [Vault](../concepts.md#credentials-and-vaults) the target's agents reference, shown as `Vault/<name>`. See [Vaults](#vaults).
 3. **Skills.** Each skill is uploaded as a custom skill. A changed skill gets a new version, and the agent pins the exact version.
 4. **The agent.** Created, or updated with the version Solaria last saw, so a change made on the host in the meantime is refused rather than overwritten. Every update creates a new agent version; sessions pinned to an earlier version keep it.
 5. **Cleanup.** Skills the agent no longer lists are deleted, and vaults no agent references any more.
 
-Agents and the environment are named after their Solaria resources, behind the optional `namePrefix`: `alice-reviewer`, `alice-ma-cloud`. Their metadata holds `solaria_logical_id`, `solaria_environment`, `solaria_spec_digest` and `solaria_resolved_digest`.
+Agents are named after their Solaria resources, and the environment after its target, behind the optional `namePrefix`: `alice-reviewer`, `alice-ma-cloud`. Their metadata holds `solaria_logical_id`, `solaria_target`, `solaria_spec_digest` and `solaria_resolved_digest`.
 
 ## How the definition maps
 
@@ -45,23 +45,23 @@ Agents and the environment are named after their Solaria resources, behind the o
 | `skills` | custom skills, pinned by version |
 | `limits` | not enforced; plan warns. Session budgets cap cost. |
 | `output.schema` | not supported; plan fails |
-| `workspace.access` | `read-only` fails plan: a session's files belong to the host, which can't keep them from being written. An environment that binds `inputs.workspace.path` fails plan too, since runs don't work on a folder on your machine. |
-| `repositories` | On `cloud`, each GitHub repository is a `github_repository` resource the caller attaches when starting a session: `status -a` shows its URL, mount path (`/workspace/repositories/<name>`) and the secret holding its token, its `authorization_token`. `ref` becomes its branch checkout, and `depth` is ignored with a warning. A repository on another git host fails plan, and so does a read-only one: the session can write its clone. On `self-hosted`, environments take no resources, so repositories fail plan. |
+| `workspace.access` | `read-only` fails plan: a session's files belong to the host, which can't keep them from being written. A target that binds `inputs.workspace.path` fails plan too, since runs don't work on a folder on your machine. |
+| `repositories` | On `cloud`, each GitHub repository is a `github_repository` resource the caller attaches when starting a session: `status -a` shows its URL, mount path (`/workspace/repositories/<name>`) and the secret holding its token, its `authorization_token`. `ref` becomes its branch checkout, and `depth` is ignored with a warning. A repository on another git host fails plan, and so does a read-only one: the session can write its clone. On `self-hosted`, targets take no resources, so repositories fail plan. |
 | `providers.managed-agents` on the Agent | sent in the request as they are, for fields Solaria has no word for, such as `multiagent`. Fields Solaria sets itself fail validation. |
 
 Managed Agents agents hold no credentials, and the host connects to MCP servers without custom headers: a session gets credentials from the [vaults](https://platform.claude.com/docs/en/managed-agents/vaults) attached when it starts. An agent whose MCP servers send a secret header and that lists no `vaults` gets a warning. A header with a plain value is left out, with a warning.
 
 ## Vaults
 
-Apply keeps one host vault per [Vault](../concepts.md#credentials-and-vaults) and environment, named `<namePrefix><environment>/<vault>`, and reads each value from the environment's secret source. A credential becomes:
+Apply keeps one host vault per [Vault](../concepts.md#credentials-and-vaults) and target, named `<namePrefix><target>/<vault>`, and reads each value from the target's secret source. A credential becomes:
 
 | Vault credential | Host credential |
 |---|---|
 | `for: {mcpServer: …}` | a static bearer token for the server's remote URL. The host sends `Authorization: Bearer <token>`, so the server must take the secret in its `Authorization` header, or plan fails. A leading `Bearer ` in the value is dropped, so one value works here and where a launcher sends the header as it is. A secret only a package uses isn't stored, with a warning: Managed Agents runs no MCP packages. |
-| `for: {env: NAME}` | an environment variable `NAME`. The sandbox holds a placeholder, and the host puts the value into outbound requests to any host the environment's `sandbox.network` allows. |
+| `for: {env: NAME}` | an environment variable `NAME`. The sandbox holds a placeholder, and the host puts the value into outbound requests to any host the target's `sandbox.network` allows. |
 | `for: {gitHost: …}` | nothing: it authenticates a repository's clone, and the caller passes its value as the `github_repository` resource's token. |
 
-Sessions attach the vaults when they start; Solaria doesn't start sessions. `solaria status -e <environment> -a <agent>` lists the vault IDs, and `status -o json` has them as each agent's `vaults`.
+Sessions attach the vaults when they start; Solaria doesn't start sessions. `solaria status -t <target> -a <agent>` lists the vault IDs, and `status -o json` has them as each agent's `vaults`.
 
 State and plans hold credential names, secret names and targets, never values, so Solaria can't tell when a value changes. Apply sends a value when its credential is created, or when its secret or target changes. After changing a value in the secret source, run `solaria apply --rotate-secrets` to send every value again; `plan --rotate-secrets` shows what that does. Every value is read before the first host call, so a missing secret changes nothing.
 
@@ -84,9 +84,9 @@ State and plans hold credential names, secret names and targets, never values, s
 The agent loop stays on Anthropic's side; a worker container on your machine runs the tools. Anthropic still opens the MCP connections.
 
 1. The **first apply** creates the environment and stops, explaining how to generate its key in the Claude Console. Only the Console can generate it.
-2. Store the key in the environment's secret source as `ANTHROPIC_ENVIRONMENT_KEY` (or the name in `environmentKeySecret`) and **apply again**. Solaria builds the worker image and starts `solaria-<environment>-worker` with `--restart unless-stopped`.
+2. Store the key in the target's secret source as `ANTHROPIC_ENVIRONMENT_KEY` (or the name in `environmentKeySecret`) and **apply again**. Solaria builds the worker image and starts `solaria-<target>-worker` with `--restart unless-stopped`.
 
-The worker is a small Go program on the SDK's `EnvironmentWorker`, built into an image on the [Solaria sandbox base](../concepts.md#the-sandbox) with the environment's packages, tagged `solaria/<environment>/worker:<digest>`. The key reaches docker through its environment, never its command line, and the container never holds an API key. `resources.memory` becomes the container's memory limit. `image` is accepted: the worker image starts from it, and it needs `/bin/bash`. Docker can't enforce network host lists or disk limits, so plan warns about them.
+The worker is a small Go program on the SDK's `EnvironmentWorker`, built into an image on the [Solaria sandbox base](../concepts.md#the-sandbox) with the target's packages, tagged `solaria/<target>/worker:<digest>`. The key reaches docker through its environment, never its command line, and the container never holds an API key. `resources.memory` becomes the container's memory limit. `image` is accepted: the worker image starts from it, and it needs `/bin/bash`. Docker can't enforce network host lists or disk limits, so plan warns about them.
 
 A plan that finds the worker container stopped plans an update, which starts it again.
 
@@ -94,7 +94,7 @@ A plan that finds the worker container stopped plans an update, which starts it 
 
 | Setting | Default | |
 |---|---|---|
-| `providers.managed-agents.namePrefix` | none | Put before every host object's name, so personal environments don't collide. |
+| `providers.managed-agents.namePrefix` | none | Put before every host object's name, so personal targets don't collide. |
 | `providers.managed-agents.environmentKeySecret` | `ANTHROPIC_ENVIRONMENT_KEY` | `self-hosted` only: the secret holding the environment's key. |
 | `providers.managed-agents.platform` | `linux/amd64` | `self-hosted` only: the worker image's platform, `linux/amd64` or `linux/arm64`. |
 

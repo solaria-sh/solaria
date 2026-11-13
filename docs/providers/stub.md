@@ -4,7 +4,7 @@ The `stub` provider deploys to nothing but files. It runs the whole plan and app
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec:
   provider: stub
@@ -13,7 +13,7 @@ spec:
 
 ## What apply does
 
-Each agent becomes a JSON file under `.solaria/stub/<environment>/`, holding its resolved definition. Editing or deleting one of those files simulates a change made outside Solaria: the next plan reports drift, or a deleted object to create again.
+Each agent becomes a JSON file under `.solaria/stub/<target>/`, holding its resolved definition. Editing or deleting one of those files simulates a change made outside Solaria: the next plan reports drift, or a deleted object to create again.
 
 ## Capabilities
 

@@ -18,7 +18,7 @@ exec git -C repo commit --quiet -am 'new role'
 exec solaria init --template file://$WORK/repo//team?ref=v1 at-v1
 stdout '^Created 3 files in at-v1 from template file://.*/repo//team\?ref=v1 at [0-9a-f]{40}:$'
 stdout '^  solaria.yaml$'
-stdout '^  solaria plan -e dev$'
+stdout '^  solaria plan -t dev$'
 ! stderr .
 cmp at-v1/instructions/role.md repo-v1-role.md
 cmp at-v1/.gitignore want-gitignore
@@ -26,7 +26,7 @@ cmp at-v1/.gitignore want-gitignore
 ! exists at-v1/.git
 ! exists at-v1/broken
 exec solaria validate at-v1
-stdout '^valid: 1 Agent, 1 Environment$'
+stdout '^valid: 1 Agent, 1 Target$'
 
 # Without a ref: the default branch.
 exec solaria init --template file://$WORK/repo//team latest
@@ -59,7 +59,7 @@ spec:
     preferred: anthropic:claude-haiku-5-5
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: dev
 spec:

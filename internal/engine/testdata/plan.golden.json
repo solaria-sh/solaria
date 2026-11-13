@@ -1,8 +1,8 @@
 {
-  "format": "solaria.sh/plan/v1",
+  "format": "solaria.sh/plan/v2",
   "solariaVersion": "dev",
   "definitionFormat": "solaria.sh/definition/v1",
-  "environment": "dev",
+  "target": "dev",
   "provider": "limited",
   "placement": "here",
   "options": {

@@ -42,9 +42,9 @@
     "local-gitagent": ["Haiku override", "sha256:3b017ab6c64e"],
   };
   const script = [
-    { cmd: "solaria plan -e ma-cloud" },
+    { cmd: "solaria plan -t ma-cloud" },
     { k: "w", t: "agent.yaml: warning: limits aren't enforced on Managed Agents" },
-    { t: "Environment ma-cloud (managed-agents/cloud)" },
+    { t: "Target ma-cloud (managed-agents/cloud)" },
     { t: "" },
     { k: "c", t: "  + Environment/ma-cloud" },
     { t: "" },
@@ -52,7 +52,7 @@
     { h: '      resolvedDigest: <span class="dg">sha256:ff171fe9c371</span>' },
     { t: "" },
     { k: "m", t: "Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive." },
-    { cmd: "solaria apply -e ma-cloud --auto-approve", pause: 700 },
+    { cmd: "solaria apply -t ma-cloud --auto-approve", pause: 700 },
     { t: "" },
     { t: "Apply complete: 2 created, 0 updated, 0 replaced, 0 deleted. State serial 1.", hosts: true },
   ];
@@ -94,7 +94,7 @@
   const envs = [
     { name: "local-gitagent", r: 128, a: 205, step: 15, moved: true,
       facts: [["Provider", "gitagent / docker"], ["Agent loop", "gitagent, in a container image"], ["Tools run in", "The same container"], ["Model", "claude-haiku-5-5 (override)"], ["Digest", "sha256:3b017ab6c64e", true]],
-      note: "The override changes this environment only, so only this digest moves." },
+      note: "The override changes this target only, so only this digest moves." },
     { name: "ma-self-hosted", r: 188, a: 320, step: 10,
       facts: [["Provider", "managed-agents / self-hosted"], ["Agent loop", "Claude Managed Agents"], ["Tools run in", "A worker container on your machine"], ["Model", "claude-sonnet-5-5"], ["Digest", "sha256:ff171fe9c371", true]],
       note: "Same definition as ma-cloud, so the same digest." },

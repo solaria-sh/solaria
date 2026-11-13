@@ -27,10 +27,25 @@ const (
 // and API show where an object comes from (ADR 0008).
 const (
 	metaLogicalID      = "solaria_logical_id"
-	metaEnvironment    = "solaria_environment"
+	metaTarget         = "solaria_target"
 	metaSpecDigest     = "solaria_spec_digest"
 	metaResolvedDigest = "solaria_resolved_digest"
+
+	// metaEnvironment is the key metaTarget replaced (ADR 0020).
+	metaEnvironment = "solaria_environment"
 )
+
+// updateMetadata returns m for an update request. The host merges metadata
+// on update and deletes a key set to "", so this deletes the key objects
+// applied before ADR 0020 still carry.
+func updateMetadata(m map[string]string) map[string]string {
+	out := maps.Clone(m)
+	if out == nil {
+		out = map[string]string{}
+	}
+	out[metaEnvironment] = ""
+	return out
+}
 
 // toolsetVersion is the built-in toolset agents get. Managed Agents runs
 // the agent loop itself and can't be pinned to a version; the toolset is
@@ -83,7 +98,7 @@ func renderAgent(a *resolve.Agent, s settings, skills map[string]skillRef) agent
 		System:      system(d.Instructions),
 		Metadata: map[string]string{
 			metaLogicalID:      a.ID(),
-			metaEnvironment:    a.Environment,
+			metaTarget:         a.Target,
 			metaSpecDigest:     a.SpecDigest,
 			metaResolvedDigest: a.ResolvedDigest,
 		},
@@ -253,7 +268,7 @@ func (b agentBody) updateParams(version int64) anthropic.BetaAgentUpdateParams {
 		Version:     param.NewOpt(version),
 		MCPServers:  b.MCPServers,
 		Skills:      b.Skills,
-		Metadata:    b.Metadata,
+		Metadata:    updateMetadata(b.Metadata),
 		Tools:       []anthropic.BetaAgentUpdateParamsToolUnion{},
 	}
 	if p.MCPServers == nil {

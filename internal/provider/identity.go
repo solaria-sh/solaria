@@ -11,11 +11,11 @@ import (
 )
 
 // IdentityEnv is what a run is told about the agent it runs (ADR 0008):
-// its logical ID, environment and digests. It changes only when they do.
+// its logical ID, target and digests. It changes only when they do.
 func IdentityEnv(a *resolve.Agent) map[string]string {
 	return map[string]string{
 		"SOLARIA_LOGICAL_ID":      a.ID(),
-		"SOLARIA_ENVIRONMENT":     a.Environment,
+		"SOLARIA_TARGET":          a.Target,
 		"SOLARIA_SPEC_DIGEST":     a.SpecDigest,
 		"SOLARIA_RESOLVED_DIGEST": a.ResolvedDigest,
 	}
@@ -23,7 +23,7 @@ func IdentityEnv(a *resolve.Agent) map[string]string {
 
 // ResourceAttributes is the value of OTEL_RESOURCE_ATTRIBUTES for a run
 // (ADR 0008): the GenAI attributes, service.version and Solaria's own,
-// then the environment's telemetry.resourceAttributes by key. hostID is
+// then the target's telemetry.resourceAttributes by key. hostID is
 // gen_ai.agent.id, left out when empty. Values are percent-encoded as the
 // variable requires.
 func ResourceAttributes(a *resolve.Agent, hostID string) string {
@@ -36,7 +36,7 @@ func ResourceAttributes(a *resolve.Agent, hostID string) string {
 	add("gen_ai.agent.version", a.ResolvedDigest)
 	add("service.version", a.ResolvedDigest)
 	add("solaria.agent.spec_digest", a.SpecDigest)
-	add("solaria.environment", a.Environment)
+	add("solaria.target", a.Target)
 	if t := a.Env.Telemetry; t != nil {
 		for _, k := range slices.Sorted(maps.Keys(t.ResourceAttributes)) {
 			add(k, t.ResourceAttributes[k])

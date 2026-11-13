@@ -15,7 +15,7 @@ import (
 // the run don't implement it: there, a Vault only scopes what the launcher
 // passes.
 //
-// The engine keeps one host vault per Vault that the environment's agents
+// The engine keeps one host vault per Vault that the target's agents
 // reference. It creates or updates them before the agents and deletes them
 // after.
 type VaultHost interface {
@@ -26,7 +26,7 @@ type VaultHost interface {
 	// DefaultVaultPlan.
 	PlanVault(ctx context.Context, desired *Vault, prior *state.VaultEntry) (*VaultPlan, error)
 	// ApplyVault creates or updates the host vault, reading the values it
-	// sends from the environment's secret source.
+	// sends from the target's secret source.
 	ApplyVault(ctx context.Context, p *VaultPlan) (*Applied, error)
 	// ReadVault looks up the host vault, for refresh and drift.
 	ReadVault(ctx context.Context, e *state.VaultEntry) (*Observed, error)
@@ -34,15 +34,15 @@ type VaultHost interface {
 	DestroyVault(ctx context.Context, e *state.VaultEntry) error
 }
 
-// Vault is a Vault as its host sees it in one environment.
+// Vault is a Vault as its host sees it in one target.
 type Vault struct {
 	Name string
 	// Credentials are sorted by name.
 	Credentials []VaultCredential
-	// Agents are the logical IDs of the environment's agents that
+	// Agents are the logical IDs of the target's agents that
 	// reference the vault, sorted.
 	Agents []string
-	// Env is the environment the vault is for. Its secret source holds
+	// Env is the target the vault is for. Its secret source holds
 	// the credentials' values.
 	Env       *Environment
 	Placement string

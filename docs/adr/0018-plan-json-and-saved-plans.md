@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # A documented plan JSON, and saved plans that apply only what was reviewed
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. Plan format `solaria.sh/plan/v2` names it in `target`.
+
 ## Context and problem statement
 
 Teams that apply from CI want two things. First, a plan they can post on a pull request, which means a machine-readable plan rather than the text `plan` prints. Second, an apply that does exactly what was reviewed: if state, the configuration or a host changed between the review and the apply, the apply must stop instead of doing something nobody saw. Terraform answers both with `plan -json` and saved plan files. What should Solaria's plan JSON contain, and how does a saved plan guarantee that apply matches it?

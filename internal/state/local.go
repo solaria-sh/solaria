@@ -50,12 +50,12 @@ func (l *Local) Lock(env string, info LockInfo) (string, error) {
 	if errors.Is(err, fs.ErrExist) {
 		holder, rerr := l.readLock(env)
 		if rerr != nil {
-			return "", fmt.Errorf("environment %q is locked, and its lock file can't be read: %w", env, rerr)
+			return "", fmt.Errorf("target %q is locked, and its lock file can't be read: %w", env, rerr)
 		}
-		return "", &LockedError{Environment: env, Holder: holder}
+		return "", &LockedError{Target: env, Holder: holder}
 	}
 	if err != nil {
-		return "", fmt.Errorf("lock environment %q: %w", env, err)
+		return "", fmt.Errorf("lock target %q: %w", env, err)
 	}
 	_, werr := f.Write(append(b, '\n'))
 	if cerr := f.Close(); werr == nil {
@@ -63,7 +63,7 @@ func (l *Local) Lock(env string, info LockInfo) (string, error) {
 	}
 	if werr != nil {
 		_ = os.Remove(l.lockPath(env))
-		return "", fmt.Errorf("lock environment %q: %w", env, werr)
+		return "", fmt.Errorf("lock target %q: %w", env, werr)
 	}
 	return info.Nonce, nil
 }
@@ -91,18 +91,18 @@ func (l *Local) ForceUnlock(env, nonce string) error {
 func (l *Local) unlock(env, nonce string) error {
 	info, err := l.readLock(env)
 	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("environment %q is not locked", env)
+		return fmt.Errorf("target %q is not locked", env)
 	}
 	if err != nil {
-		return fmt.Errorf("read lock of environment %q: %w", env, err)
+		return fmt.Errorf("read lock of target %q: %w", env, err)
 	}
 	if info.Nonce != nonce {
-		return fmt.Errorf("environment %q is locked with %s, not %s", env, info.Nonce, nonce)
+		return fmt.Errorf("target %q is locked with %s, not %s", env, info.Nonce, nonce)
 	}
 	return os.Remove(l.lockPath(env))
 }
 
-// Read loads the state, or returns nil if the environment has none.
+// Read loads the state, or returns nil if the target has none.
 func (l *Local) Read(env string) (*State, error) {
 	b, err := os.ReadFile(l.statePath(env))
 	if errors.Is(err, fs.ErrNotExist) {
@@ -117,7 +117,7 @@ func (l *Local) Read(env string) (*State, error) {
 // Write checks lineage and serial against the file, then replaces it
 // atomically.
 func (l *Local) Write(s *State) error {
-	current, err := l.Read(s.Environment)
+	current, err := l.Read(s.Target)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (l *Local) Write(s *State) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(l.Dir, "."+s.Environment+".*.tmp")
+	tmp, err := os.CreateTemp(l.Dir, "."+s.Target+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("write state: %w", err)
 	}
@@ -143,7 +143,7 @@ func (l *Local) Write(s *State) error {
 		werr = cerr
 	}
 	if werr == nil {
-		werr = os.Rename(tmp.Name(), l.statePath(s.Environment))
+		werr = os.Rename(tmp.Name(), l.statePath(s.Target))
 	}
 	if werr != nil {
 		_ = os.Remove(tmp.Name())
@@ -153,8 +153,8 @@ func (l *Local) Write(s *State) error {
 	return nil
 }
 
-// Environments lists environments with a state file.
-func (l *Local) Environments() ([]string, error) {
+// Targets lists targets with a state file.
+func (l *Local) Targets() ([]string, error) {
 	entries, err := os.ReadDir(l.Dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil

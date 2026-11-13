@@ -31,9 +31,9 @@ func agent(name string, spec, resolved byte) *resolve.Agent {
 // everyStep is a plan with every kind of step: each agent action, the
 // environment's host object, and host vaults.
 func everyStep() *Plan {
-	st := &state.State{Format: state.Format, Lineage: "7e1d2c3b-4a5f-4e6d-8c7b-6a5f4e3d2c1b", Serial: 4, Environment: "dev"}
+	st := &state.State{Format: state.Format, Lineage: "7e1d2c3b-4a5f-4e6d-8c7b-6a5f4e3d2c1b", Serial: 4, Target: "dev"}
 	return &Plan{
-		Environment: "dev", Provider: "limited", Placement: "here",
+		Target: "dev", Provider: "limited", Placement: "here",
 		Options: PlanOptions{Refresh: true, RotateSecrets: true},
 		Steps: []*provider.Plan{
 			{ID: "Agent/created", Action: provider.Create, Desired: agent("created", 'a', 'a')},
@@ -132,7 +132,7 @@ func TestDocumentDifferences(t *testing.T) {
 		{"new agent", func(p *Plan) {
 			p.Steps = append(p.Steps, &provider.Plan{ID: "Agent/zz", Action: provider.Create, Desired: agent("zz", 'a', 'a')})
 		}, []string{"Agent/zz isn't in the plan, and planning again finds it"}},
-		{"provider", func(p *Plan) { p.Provider = "other" }, []string{"the environment moved from limited/here to other/here"}},
+		{"provider", func(p *Plan) { p.Provider = "other" }, []string{"the target moved from limited/here to other/here"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

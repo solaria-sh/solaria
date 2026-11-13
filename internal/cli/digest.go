@@ -22,11 +22,11 @@ func newDigestCommand() *cobra.Command {
 		output string
 	)
 	cmd := &cobra.Command{
-		Use:   "digest [-e <environment>] [-a <agent>]... [path...]",
+		Use:   "digest [-t <target>] [-a <agent>]... [path...]",
 		Short: "Print each agent's digests",
 		Long: `Digest prints the digests that identify each agent. The specDigest identifies
-the agent as written and is the same in every environment. With -e, digest
-also prints the resolvedDigest: the agent after that environment's
+the agent as written and is the same in every target. With -t, digest
+also prints the resolvedDigest: the agent after that target's
 overrides, which is what plan compares with state.
 
 Every agent is printed unless -a names some. Digest reads only the
@@ -51,7 +51,7 @@ configuration: no state, no host.`,
 			return writeDigests(cmd.OutOrStdout(), res)
 		},
 	}
-	cmd.Flags().StringVarP(&env, "environment", "e", "", "also print resolved digests for this environment")
+	cmd.Flags().StringVarP(&env, "target", "t", "", "also print resolved digests for this target")
 	cmd.Flags().StringArrayVarP(&agents, "agent", "a", nil, "print only this agent (repeatable)")
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
 	return cmd
@@ -61,7 +61,7 @@ configuration: no state, no host.`,
 // the CLI's interface.
 type digestResult struct {
 	DefinitionFormat string        `json:"definitionFormat"`
-	Environment      string        `json:"environment,omitempty"`
+	Target           string        `json:"target,omitempty"`
 	Agents           []agentDigest `json:"agents"`
 }
 
@@ -78,10 +78,10 @@ func digests(set *config.Set, env string, names []string) (*digestResult, error)
 		}
 	}
 	want := func(name string) bool { return len(names) == 0 || slices.Contains(names, name) }
-	res := &digestResult{DefinitionFormat: resolve.Format, Environment: env, Agents: []agentDigest{}}
+	res := &digestResult{DefinitionFormat: resolve.Format, Target: env, Agents: []agentDigest{}}
 
 	if env != "" {
-		resolved, err := resolve.Environment(set, env)
+		resolved, err := resolve.Target(set, env)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +94,7 @@ func digests(set *config.Set, env string, names []string) (*digestResult, error)
 		}
 		for _, n := range names {
 			if !got[n] {
-				return nil, fmt.Errorf("agent %q isn't selected by Environment %q; its agents.selector leaves it out", n, env)
+				return nil, fmt.Errorf("agent %q isn't selected by Target %q; its agents.selector leaves it out", n, env)
 			}
 		}
 		return res, nil
@@ -118,13 +118,13 @@ func writeDigests(w io.Writer, res *digestResult) error {
 	var b strings.Builder
 	// Writes to a strings.Builder can't fail.
 	tw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
-	if res.Environment == "" {
+	if res.Target == "" {
 		_, _ = fmt.Fprintln(tw, "AGENT\tSPEC DIGEST")
 	} else {
 		_, _ = fmt.Fprintln(tw, "AGENT\tSPEC DIGEST\tRESOLVED DIGEST")
 	}
 	for _, a := range res.Agents {
-		if res.Environment == "" {
+		if res.Target == "" {
 			_, _ = fmt.Fprintf(tw, "%s\t%s\n", a.LogicalID, a.SpecDigest)
 		} else {
 			_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", a.LogicalID, a.SpecDigest, a.ResolvedDigest)

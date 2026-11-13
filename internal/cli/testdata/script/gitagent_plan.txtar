@@ -3,21 +3,21 @@
 mkdir hello
 cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md hello
 cd hello
-exec solaria plan -e local-gitagent
+exec solaria plan -t local-gitagent
 cmp stdout ../plan.txt
 ! stderr .
-exec solaria plan -e local
+exec solaria plan -t local
 stdout 'resolvedDigest: sha256:08ffaed7b158'
 
 # What gitagent can't express fails the plan, before any host call.
 cd ../mixed
-! exec solaria plan -e local-gitagent
+! exec solaria plan -t local-gitagent
 stderr 'error: Agent/hello on gitagent/docker: gitagent can narrow MCP tools only when every McpServer ref lists allowTools: docs list them and notes don''t'
 stderr 'warning: Agent/hello on gitagent/docker: web_search isn''t available on gitagent; the agent runs without it'
 ! stdout .
 
 -- plan.txt --
-Environment local-gitagent (gitagent/docker)
+Target local-gitagent (gitagent/docker)
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158
@@ -50,7 +50,7 @@ spec:
   remotes: [{type: streamable-http, url: "https://notes.example.com/mcp"}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-gitagent}
 spec:
   provider: gitagent

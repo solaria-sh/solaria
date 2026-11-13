@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # State: local per environment, locking, backend interface
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. State format `solaria.sh/state/v2` names it in `target`, and v1 state is read and upgraded.
+
 ## Context and problem statement
 
 `plan` needs to know what is deployed where, and under which host IDs and versions. Several people may work on the same project, each with their own environments, and shared environments (staging, production) must not be changed by two writers at once.

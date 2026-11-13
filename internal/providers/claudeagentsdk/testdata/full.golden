@@ -49,12 +49,12 @@
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,service.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.agent.spec_digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.environment=dev,service.namespace=platform,team=code%20review%2C%20core",
+    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,service.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.agent.spec_digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.target=dev,service.namespace=platform,team=code%20review%2C%20core",
     "OTEL_SERVICE_NAME": "reviewer",
-    "SOLARIA_ENVIRONMENT": "dev",
     "SOLARIA_LOGICAL_ID": "Agent/reviewer",
     "SOLARIA_RESOLVED_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
-    "SOLARIA_SPEC_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614"
+    "SOLARIA_SPEC_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
+    "SOLARIA_TARGET": "dev"
   },
   "scratch": {
     "APPDATA": "home/AppData/Roaming",
@@ -81,7 +81,7 @@
 {
   "agent": {
     "logicalId": "Agent/reviewer",
-    "environment": "dev",
+    "target": "dev",
     "resolvedDigest": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614"
   },
   "sdk": {

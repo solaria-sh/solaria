@@ -1,8 +1,8 @@
 # Getting started
 
-In about ten minutes you'll define an agent, apply it to an environment, change it, see the plan for that change, and remove it again. Everything runs on your machine with the `stub` provider, which records what it deploys in files, so you need no API key, no Docker and no account.
+In about ten minutes you'll define an agent, apply it to a target, change it, see the plan for that change, and remove it again. Everything runs on your machine with the `stub` provider, which records what it deploys in files, so you need no API key, no Docker and no account.
 
-You'll go through the same steps you later use on a real host. Only the environment changes.
+You'll go through the same steps you later use on a real host. Only the target changes.
 
 ## Before you begin
 
@@ -33,7 +33,7 @@ It prints the version, the commit it was built from, and your platform.
 
 ## Define an agent
 
-This guide writes each file by hand, so you see what every line does. `solaria init hello` writes the same project in one step, with a second environment for the Claude Agent SDK; [start from a template](#start-from-a-template) has more.
+This guide writes each file by hand, so you see what every line does. `solaria init hello` writes the same project in one step, with a second target for the Claude Agent SDK; [start from a template](#start-from-a-template) has more.
 
 Make a folder for the project. Solaria reads every `.yaml` file in it.
 
@@ -64,14 +64,14 @@ spec:
   limits: {maxTurns: 5}
 ```
 
-## Add an environment
+## Add a target
 
-An [Environment](resources/environment.md) is the place agents run: it names a provider and a placement. Add this to the end of `solaria.yaml`, after a `---` separator:
+A [Target](resources/target.md) is the place agents run: it names a provider and a placement. Add this to the end of `solaria.yaml`, after a `---` separator:
 
 ```yaml
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: local
 spec:
@@ -83,7 +83,7 @@ Check both resources:
 
 ```console
 $ solaria validate
-valid: 1 Agent, 1 Environment
+valid: 1 Agent, 1 Target
 ```
 
 If you mistype a field, `validate` names the file, line and column, and suggests the field you meant.
@@ -93,8 +93,8 @@ If you mistype a field, `validate` names the file, line and column, and suggests
 `plan` shows what `apply` would do, and changes nothing:
 
 ```console
-$ solaria plan -e local
-Environment local (stub/file)
+$ solaria plan -t local
+Target local (stub/file)
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158
@@ -109,8 +109,8 @@ Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.
 `apply` shows the plan again and asks before it changes anything. Type `yes`:
 
 ```console
-$ solaria apply -e local
-Environment local (stub/file)
+$ solaria apply -t local
+Target local (stub/file)
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158
@@ -127,7 +127,7 @@ The stub provider wrote the agent to `.solaria/stub/local/hello.json`, where a r
 
 ```console
 $ solaria status
-Environment local (state serial 1)
+Target local (state serial 1)
   OBJECT       PROVIDER   HOST ID            VERSION  DIGEST               APPLIED           CONFIGURATION
   Agent/hello  stub/file  stub_f8b128522370  1        sha256:08ffaed7b158  2026-11-08 10:40  up to date
 ```
@@ -135,10 +135,10 @@ Environment local (state serial 1)
 Plan again and there's nothing to do:
 
 ```console
-$ solaria plan -e local
-Environment local (stub/file)
+$ solaria plan -t local
+Target local (stub/file)
 
-No changes. The environment matches the configuration.
+No changes. The target matches the configuration.
 ```
 
 ## Change the agent
@@ -152,8 +152,8 @@ Greet the user by name, in two short sentences.
 `status` now says the configuration `changed`, and `plan` shows what changed, field by field:
 
 ```console
-$ solaria plan -e local
-Environment local (stub/file)
+$ solaria plan -t local
+Target local (stub/file)
 
   ~ Agent/hello
       ~ instructions[0]: text changed (1 line -> 1 line)
@@ -165,7 +165,7 @@ Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.
 `~` is an update. The digest moved because the instructions are part of the agent's identity. Apply it:
 
 ```console
-$ solaria apply -e local
+$ solaria apply -t local
 ...
 Apply complete: 0 created, 1 updated, 0 replaced, 0 deleted. State serial 2.
   Agent/hello: stub_f8b128522370 version 2 (sha256:e1d64fc6f919)
@@ -175,11 +175,11 @@ The host ID stayed the same and the version went to 2: it's the same agent, in a
 
 ## Clean up
 
-`destroy` removes everything Solaria deployed to the environment. It asks first, like `apply`:
+`destroy` removes everything Solaria deployed to the target. It asks first, like `apply`:
 
 ```console
-$ solaria destroy -e local
-Environment local (stub/file)
+$ solaria destroy -t local
+Target local (stub/file)
 
   - Agent/hello
       host: stub_f8b128522370 version 2
@@ -193,11 +193,11 @@ Destroy complete: 0 created, 0 updated, 0 replaced, 1 deleted. State serial 3.
 
 ## What you did
 
-You declared an agent once, without naming a host. You put it in an environment, planned and applied it, changed it and saw the change as a field diff and a new digest, then destroyed it. That's the whole workflow, and it doesn't change from one host to the next.
+You declared an agent once, without naming a host. You put it in a target, planned and applied it, changed it and saw the change as a field diff and a new digest, then destroyed it. That's the whole workflow, and it doesn't change from one host to the next.
 
 ## Start from a template
 
-`solaria init` creates a project without writing the files by hand. With no flags it writes the project you just built into the current directory, with a second environment, `local-sdk`, that runs the agent on the Claude Agent SDK:
+`solaria init` creates a project without writing the files by hand. With no flags it writes the project you just built into the current directory, with a second target, `local-sdk`, that runs the agent on the Claude Agent SDK:
 
 ```console
 $ solaria init my-agent
@@ -217,9 +217,9 @@ $ solaria init reviewer --template 'https://github.com/solaria-sh/solaria//examp
 
 ## Next steps
 
-- **Run it on a real host.** Add a second environment to `solaria.yaml` and apply the same agent there. [`gitagent`](providers/gitagent.md) builds it into a container image with Docker. [`claude-agent-sdk`](providers/claude-agent-sdk.md) runs it on the Claude Agent SDK, as a local Node or Python process or in a container. [`managed-agents`](providers/managed-agents.md) deploys it to Claude Managed Agents with an `ANTHROPIC_API_KEY`. The agent and its digest stay the same. Where the agent runs on your machine, `solaria status -e <environment> -a hello` shows the command that starts it.
-- **Pin what an environment runs.** `solaria lock -e <environment>` writes each agent's digests to `solaria.lock`. Commit it, and `plan` and `apply` refuse anything else for that environment until the lock is updated. [Pinning environments](concepts.md#pinning-environments) explains the workflow.
-- **Understand the model.** [Concepts](concepts.md) covers environments, providers, identity, state, drift, starting an agent and pinning.
-- **Look up a field.** The resource pages list every field of [Agent](resources/agent.md), [Environment](resources/environment.md) and [McpServer](resources/mcp-server.md).
+- **Run it on a real host.** Add a second target to `solaria.yaml` and apply the same agent there. [`gitagent`](providers/gitagent.md) builds it into a container image with Docker. [`claude-agent-sdk`](providers/claude-agent-sdk.md) runs it on the Claude Agent SDK, as a local Node or Python process or in a container. [`managed-agents`](providers/managed-agents.md) deploys it to Claude Managed Agents with an `ANTHROPIC_API_KEY`. The agent and its digest stay the same. Where the agent runs on your machine, `solaria status -t <target> -a hello` shows the command that starts it.
+- **Pin what a target runs.** `solaria lock -t <target>` writes each agent's digests to `solaria.lock`. Commit it, and `plan` and `apply` refuse anything else for that target until the lock is updated. [Pinning targets](concepts.md#pinning-targets) explains the workflow.
+- **Understand the model.** [Concepts](concepts.md) covers targets, providers, identity, state, drift, starting an agent and pinning.
+- **Look up a field.** The resource pages list every field of [Agent](resources/agent.md), [Target](resources/target.md) and [McpServer](resources/mcp-server.md).
 - **Get completion in your editor.** Put `# yaml-language-server: $schema=https://solaria.sh/schemas/v1alpha1/solaria.json` at the top of each file. [Editors and coding agents](editors.md) covers the setup, and how to run `solaria validate` from an editor or a coding agent.
 - **See a larger project.** [`examples/reviewer`](../examples/reviewer) takes one agent with an MCP server and a skill through three hosts.

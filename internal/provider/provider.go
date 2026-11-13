@@ -15,7 +15,7 @@ import (
 
 // Provider deploys agents to one kind of host.
 type Provider interface {
-	// Name is the provider name environments use, such as gitagent.
+	// Name is the provider name targets use, such as gitagent.
 	Name() string
 	// Version is recorded in state with every entry it applies.
 	Version() string
@@ -43,8 +43,8 @@ type Provider interface {
 
 // Options configure a provider for one run.
 type Options struct {
-	// Environment is the environment being planned or applied.
-	Environment string
+	// Target is the target being planned or applied.
+	Target string
 	// WorkDir is the project directory, for providers that keep files.
 	WorkDir string
 	// Log receives progress from long operations, such as image builds.

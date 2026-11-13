@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # A committed lock file pins each environment's digests
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. Lock format `solaria.sh/lock/v2` keeps pins under `targets`, and v1 is still read.
+
 ## Context and problem statement
 
 State is gitignored and records what is deployed (ADR 0009). Teams that promote agents through stages want the opposite record too: what each environment is allowed to run, reviewed in a pull request before anything is applied. Promotion then means moving an environment to a new `resolvedDigest` and having someone approve that change. Stages also run different versions at once, for example a new version in `shadow` while `propose` keeps the old one. How does a project record, and enforce, the digest each environment may run?

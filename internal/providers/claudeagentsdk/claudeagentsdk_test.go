@@ -42,7 +42,7 @@ func load(t *testing.T, dir, env string) *resolve.Agent {
 	if diags.HasErrors() {
 		t.Fatalf("invalid fixture %s:\n%s", dir, diags)
 	}
-	agents, err := resolve.Environment(set, env)
+	agents, err := resolve.Target(set, env)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestValidate(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := NewWithHost(provider.Options{Environment: "ci", WorkDir: t.TempDir()}, tc.host, nil, func() []string { return tc.managed })
+			p := NewWithHost(provider.Options{Target: "ci", WorkDir: t.TempDir()}, tc.host, nil, func() []string { return tc.managed })
 			var got []string
 			for _, d := range p.Validate(context.Background(), a) {
 				got = append(got, d.String())
@@ -301,7 +301,7 @@ func changePaths(pl *provider.Plan) string {
 func TestLifecycle(t *testing.T) {
 	work := t.TempDir()
 	h := &fakeHost{version: "v22.3.0"}
-	p := NewWithHost(provider.Options{Environment: "dev", WorkDir: work}, h, nil, func() []string { return nil })
+	p := NewWithHost(provider.Options{Target: "dev", WorkDir: work}, h, nil, func() []string { return nil })
 	a := load(t, filepath.Join("testdata", "full"), "dev")
 	ctx := context.Background()
 
@@ -400,7 +400,7 @@ func TestLifecycle(t *testing.T) {
 func TestPythonRun(t *testing.T) {
 	work := t.TempDir()
 	h := &fakeHost{version: "Python 3.12.1"}
-	p := NewWithHost(provider.Options{Environment: "ci", WorkDir: work}, h, nil, func() []string { return nil })
+	p := NewWithHost(provider.Options{Target: "ci", WorkDir: work}, h, nil, func() []string { return nil })
 	_, entry := cycle(t, p, load(t, filepath.Join("testdata", "python"), "ci"), nil)
 	bundle := filepath.Join(work, filepath.FromSlash(entry.Binding.Outputs[outBundle]))
 	want := filepath.Join(bundle, "venv", "bin", "python") + " " + filepath.Join(bundle, "launch.py")
@@ -709,7 +709,7 @@ func TestRelativeWorkDir(t *testing.T) {
 	work := t.TempDir()
 	t.Chdir(work)
 	h := &fakeHost{version: "v22.3.0"}
-	p := NewWithHost(provider.Options{Environment: "dev", WorkDir: "."}, h, nil, func() []string { return nil })
+	p := NewWithHost(provider.Options{Target: "dev", WorkDir: "."}, h, nil, func() []string { return nil })
 	_, entry := cycle(t, p, a, nil)
 	if req := h.installs[0]; !filepath.IsAbs(req.Dir) || !filepath.IsAbs(req.CacheDir) {
 		t.Errorf("install = %+v", req)
@@ -754,7 +754,7 @@ func TestDockerLifecycle(t *testing.T) {
 	d := &fakeDocker{images: map[string]*container.Image{}}
 	// A container brings its own runtime, so the host has none.
 	h := &fakeHost{missing: true}
-	p := NewWithHost(provider.Options{Environment: "ci-docker", WorkDir: work}, h, d, func() []string { return []string{"/etc/claude-code/managed-settings.json"} })
+	p := NewWithHost(provider.Options{Target: "ci-docker", WorkDir: work}, h, d, func() []string { return []string{"/etc/claude-code/managed-settings.json"} })
 	a := load(t, filepath.Join("testdata", "python"), "ci-docker")
 	ctx := context.Background()
 
@@ -861,7 +861,7 @@ func TestSDKLayerIgnoresCard(t *testing.T) {
 			}
 			other := *a
 			if tc.rename {
-				other.Name, other.Environment = "other", "other-env"
+				other.Name, other.Target = "other", "other-env"
 			}
 			other.ResolvedDigest = "sha256:" + strings.Repeat("0", 64)
 			other.Definition.Instructions = []string{"Something else entirely.\n"}
@@ -921,7 +921,7 @@ func TestPlatformSetting(t *testing.T) {
 func TestSRT(t *testing.T) {
 	work := t.TempDir()
 	h := &fakeHost{version: "v22.3.0", goos: "darwin", programs: []string{"srt", "rg"}}
-	p := NewWithHost(provider.Options{Environment: "dev-srt", WorkDir: work}, h, nil, func() []string { return nil })
+	p := NewWithHost(provider.Options{Target: "dev-srt", WorkDir: work}, h, nil, func() []string { return nil })
 	a := load(t, filepath.Join("testdata", "full"), "dev-srt")
 	ctx := context.Background()
 	if diags := diag.List(p.Validate(ctx, a)); diags.HasErrors() || strings.Contains(diags.String(), "sandbox.network is limited") {
@@ -1016,7 +1016,7 @@ func TestReadOnlyWorkspace(t *testing.T) {
 
 	// Without srt, process can't keep it read-only.
 	a.Env.Sandbox = nil
-	p := NewWithHost(provider.Options{Environment: "srt-read-only", WorkDir: t.TempDir()}, &fakeHost{version: "v22.3.0"}, nil, func() []string { return nil })
+	p := NewWithHost(provider.Options{Target: "srt-read-only", WorkDir: t.TempDir()}, &fakeHost{version: "v22.3.0"}, nil, func() []string { return nil })
 	if diags := diag.List(p.Validate(context.Background(), a)); !strings.Contains(diags.String(), "error: Agent/reviewer on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only") {
 		t.Errorf("validate without srt:\n%s", diags)
 	}

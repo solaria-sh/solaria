@@ -42,7 +42,7 @@ spec:
   limits: {maxTurns: 5, timeout: 2m}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: solaria-it}
 spec:
   provider: gitagent
@@ -55,7 +55,7 @@ spec:
 
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	defer cancel()
-	p := NewWithDocker(provider.Options{Environment: "solaria-it", WorkDir: project, Log: testLog{t}}, container.CLI{})
+	p := NewWithDocker(provider.Options{Target: "solaria-it", WorkDir: project, Log: testLog{t}}, container.CLI{})
 	a := load(t, project, "solaria-it")
 	pl, err := p.Plan(ctx, a, nil)
 	if err != nil {

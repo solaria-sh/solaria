@@ -32,7 +32,7 @@ func TestSRTIntegration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	a := &resolve.Agent{Name: "it", Env: &v1alpha1.EnvironmentSpec{}}
+	a := &resolve.Agent{Name: "it", Env: &v1alpha1.TargetSpec{}}
 	settings := filepath.Join(root, SRTSettingsFile)
 	if err := os.WriteFile(settings, SRTFor(a, cache, []string{"api.anthropic.com"}).JSON(), 0o644); err != nil {
 		t.Fatal(err)

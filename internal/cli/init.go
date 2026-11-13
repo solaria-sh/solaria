@@ -23,7 +23,7 @@ func newInitCommand() *cobra.Command {
 creating dir if it doesn't exist.
 
 Without --template it writes the ` + scaffold.Default + ` template: one Agent, its instructions, and
-two Environments, local (the stub provider, which needs nothing installed)
+two Targets, local (the stub provider, which needs nothing installed)
 and local-sdk (the Claude Agent SDK as a local process).
 
 --template takes the name of an embedded template (` + strings.Join(scaffold.Names(), ", ") + `), or a
@@ -105,9 +105,9 @@ if it has errors or if any of its files already exists in dir. The
 				b.WriteString("  cd " + dir + "\n")
 			}
 			b.WriteString("  solaria validate\n")
-			if env := firstEnvironment(set); env != "" {
-				b.WriteString("  solaria plan -e " + env + "\n")
-				b.WriteString("  solaria apply -e " + env + "\n")
+			if env := firstTarget(set); env != "" {
+				b.WriteString("  solaria plan -t " + env + "\n")
+				b.WriteString("  solaria apply -t " + env + "\n")
 			}
 			_, err = io.WriteString(cmd.OutOrStdout(), b.String())
 			return err
@@ -130,13 +130,13 @@ func relativeTo(root, file string) string {
 	return filepath.ToSlash(rel)
 }
 
-// firstEnvironment names the environment to suggest trying first: local when
+// firstTarget names the target to suggest trying first: local when
 // there is one, or else the first one found.
-func firstEnvironment(set *config.Set) string {
+func firstTarget(set *config.Set) string {
 	if set == nil {
 		return ""
 	}
-	envs := set.Kind(v1alpha1.KindEnvironment)
+	envs := set.Kind(v1alpha1.KindTarget)
 	for _, e := range envs {
 		if e.Name == "local" {
 			return e.Name

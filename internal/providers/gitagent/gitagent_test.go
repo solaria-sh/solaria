@@ -30,7 +30,7 @@ func load(t *testing.T, dir, env string) *resolve.Agent {
 	if diags.HasErrors() {
 		t.Fatalf("invalid fixture %s:\n%s", dir, diags)
 	}
-	agents, err := resolve.Environment(set, env)
+	agents, err := resolve.Target(set, env)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func entryFor(a *resolve.Agent, applied *provider.Applied) *state.Entry {
 func TestLifecycle(t *testing.T) {
 	work := t.TempDir()
 	d := &fakeDocker{images: map[string]*container.Image{}}
-	p := NewWithDocker(provider.Options{Environment: "local-gitagent", WorkDir: work}, d)
+	p := NewWithDocker(provider.Options{Target: "local-gitagent", WorkDir: work}, d)
 	a := load(t, filepath.Join("testdata", "full"), "local-gitagent")
 	ctx := context.Background()
 
@@ -231,7 +231,7 @@ func TestLifecycle(t *testing.T) {
 	// A sandbox change rebuilds although the digests stay.
 	a.Env.Sandbox.Packages.APT = append(a.Env.Sandbox.Packages.APT, "curl")
 	pl, entry2 := cycle(t, p, a, entry)
-	if pl.Action != provider.Update || pl.Reason != "the environment's sandbox changed" {
+	if pl.Action != provider.Update || pl.Reason != "the target's sandbox changed" {
 		t.Fatalf("sandbox change plans %s (%s)", pl.Action, pl.Reason)
 	}
 	if paths := changePaths(pl); paths != "sandbox, image" {
@@ -245,7 +245,7 @@ func TestLifecycle(t *testing.T) {
 	// plan says why.
 	delete(a.Env.Providers[Name], "commit")
 	pl, entry2 = cycle(t, p, a, entry2)
-	if pl.Action != provider.Update || pl.Reason != "the environment's gitagent commit changed" {
+	if pl.Action != provider.Update || pl.Reason != "the target's gitagent commit changed" {
 		t.Fatalf("commit change plans %s (%s)", pl.Action, pl.Reason)
 	}
 	if paths := changePaths(pl); paths != "gitagent, image" {
@@ -296,7 +296,7 @@ func TestLifecycle(t *testing.T) {
 
 func TestSandboxDockerfileIsBuiltFirst(t *testing.T) {
 	d := &fakeDocker{images: map[string]*container.Image{}}
-	p := NewWithDocker(provider.Options{Environment: "dev", WorkDir: t.TempDir()}, d)
+	p := NewWithDocker(provider.Options{Target: "dev", WorkDir: t.TempDir()}, d)
 	a := load(t, filepath.Join("testdata", "open"), "dev")
 	_, entry := cycle(t, p, a, nil)
 	if len(d.builds) != 2 || !strings.HasPrefix(d.builds[0].Tag, "solaria/dev/helper-sandbox:") {

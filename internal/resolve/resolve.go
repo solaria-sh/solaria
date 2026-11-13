@@ -1,5 +1,5 @@
-// Package resolve turns an agent card into what runs in one environment: it
-// applies the environment's overrides, replaces references with the
+// Package resolve turns an agent card into what runs in one target: it
+// applies the target's overrides, replaces references with the
 // resources they name, reads instruction and skill files, and computes the
 // agent's two digests (ADR 0008).
 //
@@ -24,18 +24,18 @@ import (
 	"github.com/solaria-sh/solaria/internal/digest"
 )
 
-// Agent is an agent resolved for one environment.
+// Agent is an agent resolved for one target.
 type Agent struct {
 	// Name is the agent's logical name; its logical ID is Agent/<Name>.
 	Name string
-	// Environment, Provider and Placement say where it runs. They are not
+	// Target, Provider and Placement say where it runs. They are not
 	// part of either digest.
-	Environment string
-	Provider    string
-	Placement   string
-	// Env is the environment's own spec: sandbox, secrets, telemetry.
-	Env *v1alpha1.EnvironmentSpec
-	// EnvDir is the folder of the environment's file, which relative paths
+	Target    string
+	Provider  string
+	Placement string
+	// Env is the target's own spec: sandbox, secrets, telemetry.
+	Env *v1alpha1.TargetSpec
+	// EnvDir is the folder of the target's file, which relative paths
 	// in Env (sandbox.image, secrets.path) start from.
 	EnvDir string
 	// SkillDirs maps each skill's name to its folder, for providers that
@@ -46,7 +46,7 @@ type Agent struct {
 	// Definition is the agent after overrides: what actually runs.
 	Definition Definition
 	// SpecDigest identifies the agent as written, before overrides. It is
-	// the same in every environment.
+	// the same in every target.
 	SpecDigest string
 	// ResolvedDigest identifies the Definition: what runs here.
 	ResolvedDigest string
@@ -55,7 +55,7 @@ type Agent struct {
 // ID returns the agent's logical ID.
 func (a *Agent) ID() string { return v1alpha1.KindAgent + "/" + a.Name }
 
-// WorkspacePath is the absolute path of the folder the environment binds
+// WorkspacePath is the absolute path of the folder the target binds
 // as the agent's workspace (spec.inputs.workspace.path), or "" when the
 // workspace is the folder the run starts in.
 func (a *Agent) WorkspacePath() string {
@@ -65,8 +65,8 @@ func (a *Agent) WorkspacePath() string {
 	return ""
 }
 
-// InputPath resolves an environment's input path, relative to the
-// environment's folder or absolute, to a clean absolute path.
+// InputPath resolves a target's input path, relative to the
+// target's folder or absolute, to a clean absolute path.
 func InputPath(envDir, path string) string {
 	p := filepath.FromSlash(path)
 	if !filepath.IsAbs(p) {
@@ -79,7 +79,7 @@ func InputPath(envDir, path string) string {
 }
 
 // BoundRepository is a repository an agent works on, with where the
-// environment says it comes from (ADR 0017).
+// target says it comes from (ADR 0017).
 type BoundRepository struct {
 	Name   string
 	Access v1alpha1.Access
@@ -92,7 +92,7 @@ type BoundRepository struct {
 }
 
 // Repositories lists the agent's repositories, sorted by name, with their
-// bindings. A repository the environment doesn't bind is left out:
+// bindings. A repository the target doesn't bind is left out:
 // validate reports it.
 func (a *Agent) Repositories() []BoundRepository {
 	var out []BoundRepository
@@ -194,14 +194,14 @@ func ServerSecrets(spec v1alpha1.McpServerSpec) []string {
 	return slices.Compact(out)
 }
 
-// Environment resolves every agent the named environment receives, sorted
+// Target resolves every agent the named target receives, sorted
 // by name.
-func Environment(set *config.Set, name string) ([]Agent, error) {
-	envRes := set.Lookup(v1alpha1.KindEnvironment, name)
+func Target(set *config.Set, name string) ([]Agent, error) {
+	envRes := set.Lookup(v1alpha1.KindTarget, name)
 	if envRes == nil {
-		return nil, fmt.Errorf("no Environment named %q", name)
+		return nil, fmt.Errorf("no Target named %q", name)
 	}
-	env := envRes.Environment()
+	env := envRes.Target()
 	var out []Agent
 	for _, r := range set.Kind(v1alpha1.KindAgent) {
 		if !Selected(&env.Spec, r.Agent()) {
@@ -209,7 +209,7 @@ func Environment(set *config.Set, name string) ([]Agent, error) {
 		}
 		a, err := agent(set, r, env)
 		if err != nil {
-			return nil, fmt.Errorf("resolve %s for Environment %q: %w", r.ID(), name, err)
+			return nil, fmt.Errorf("resolve %s for Target %q: %w", r.ID(), name, err)
 		}
 		out = append(out, a)
 	}
@@ -218,7 +218,7 @@ func Environment(set *config.Set, name string) ([]Agent, error) {
 }
 
 // SpecDigest returns the specDigest of the named agent: the agent as
-// written, before any environment's overrides.
+// written, before any target's overrides.
 func SpecDigest(set *config.Set, name string) (string, error) {
 	r := set.Lookup(v1alpha1.KindAgent, name)
 	if r == nil {
@@ -231,8 +231,8 @@ func SpecDigest(set *config.Set, name string) (string, error) {
 	return digest.Of(spec)
 }
 
-// Selected reports whether an environment receives an agent.
-func Selected(env *v1alpha1.EnvironmentSpec, a *v1alpha1.Agent) bool {
+// Selected reports whether a target receives an agent.
+func Selected(env *v1alpha1.TargetSpec, a *v1alpha1.Agent) bool {
 	if env.Agents == nil {
 		return true
 	}
@@ -244,7 +244,7 @@ func Selected(env *v1alpha1.EnvironmentSpec, a *v1alpha1.Agent) bool {
 	return true
 }
 
-func agent(set *config.Set, r *config.Resource, env *v1alpha1.Environment) (Agent, error) {
+func agent(set *config.Set, r *config.Resource, env *v1alpha1.Target) (Agent, error) {
 	spec, skillDirs, err := definition(set, r)
 	if err != nil {
 		return Agent{}, err
@@ -266,11 +266,11 @@ func agent(set *config.Set, r *config.Resource, env *v1alpha1.Environment) (Agen
 	}
 	return Agent{
 		Name:           r.Name,
-		Environment:    env.Metadata.Name,
+		Target:         env.Metadata.Name,
 		Provider:       env.Spec.Provider,
 		Placement:      env.Spec.Placement,
 		Env:            &env.Spec,
-		EnvDir:         filepath.Dir(set.Lookup(v1alpha1.KindEnvironment, env.Metadata.Name).File),
+		EnvDir:         filepath.Dir(set.Lookup(v1alpha1.KindTarget, env.Metadata.Name).File),
 		SkillDirs:      skillDirs,
 		Definition:     resolved,
 		SpecDigest:     specDigest,
@@ -369,7 +369,7 @@ func definition(set *config.Set, r *config.Resource) (Definition, map[string]str
 	return d, skillDirs, nil
 }
 
-// override applies an environment's override to a definition, returning a
+// override applies a target's override to a definition, returning a
 // new definition and leaving the original untouched.
 func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 	if m := o.Model; m != nil {
@@ -394,7 +394,7 @@ func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 		d.Permissions.Ask = slices.Compact(sorted(append(slices.Clone(d.Permissions.Ask), p.Ask...)))
 	}
 	if o.Tools != nil || o.Permissions != nil {
-		// An ask entry for a tool this environment removed has nothing left
+		// An ask entry for a tool this target removed has nothing left
 		// to ask about. validate reports one the override itself names.
 		d.Permissions.Ask = slices.DeleteFunc(slices.Clone(d.Permissions.Ask), func(tool string) bool {
 			return !d.Tools.has(tool)

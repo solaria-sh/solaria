@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # Agent identity: logical ID, two digests, host binding
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. The identity names it as `SOLARIA_TARGET`, `solaria.target` and the Managed Agents metadata key `solaria_target`.
+
 ## Context and problem statement
 
 The same agent may run on a laptop, in staging on one host and in production on another. Traces, evals and rollbacks need to identify the agent, and the exact definition, independently of where it runs. Each host has its own IDs and versions, for example Managed Agents' agent ID and version number.
