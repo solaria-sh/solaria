@@ -97,4 +97,4 @@ For the organization's profile page, create the public repository `solaria-sh/.g
 
 ### X
 
-See [`x/profile.md`](x/profile.md) for the name, bio and a first post. Upload `avatar/avatar-dark-400.png` as the profile picture and `x/header.png` as the header. The header keeps its bottom-left corner empty, where X draws the avatar, and keeps text away from the top and bottom edges, which phones crop.
+See [`x/profile.md`](x/profile.md) for the name, bio and a first post. Upload `avatar/avatar-dark-400.png` as the profile picture and `x/header.png` as the header. The header has no text, and its orbit sits in the middle: the web draws the avatar over the bottom left, and the phone app crops both sides and puts its status bar and buttons over the top and the middle of each side. `x_header` in `build.py` lists those areas.
