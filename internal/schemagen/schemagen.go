@@ -39,6 +39,7 @@ type kindSchema struct {
 var kinds = []kindSchema{
 	{v1alpha1.KindAgent, &v1alpha1.Agent{}},
 	{v1alpha1.KindTarget, &v1alpha1.Target{}},
+	{v1alpha1.KindEnvironment, &v1alpha1.Environment{}},
 	{v1alpha1.KindMcpServer, &v1alpha1.McpServer{}},
 	{v1alpha1.KindVault, &v1alpha1.Vault{}},
 }

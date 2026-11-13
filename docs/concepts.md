@@ -12,6 +12,7 @@ If you've deployed microservices to Kubernetes, you already know the shape of So
 |---|---|
 | A manifest for each service | An [Agent](resources/agent.md) for each agent |
 | A cluster, or a namespace in one | A [Target](resources/target.md) |
+| A base image several services build on | An [Environment](resources/environment.md) that targets give their agents |
 | A Service other workloads reach by name | An [McpServer](resources/mcp-server.md) that agents refer to with `ref:` |
 | The same manifests on a cluster on your laptop or on a managed one in the cloud | The same Agent on `gitagent` in Docker or on Managed Agents in the cloud |
 | An overlay per cluster, such as Kustomize | `spec.overrides` on the Target |
@@ -24,14 +25,15 @@ The analogy stops at two points. Kubernetes runs a controller that reconciles al
 
 A Solaria project is a folder of YAML files. Each document in them is a resource with `apiVersion: solaria.sh/v1alpha1`, a `kind`, `metadata.name` and a `spec`. Solaria reads every `.yaml` and `.yml` file under the folder, except in hidden folders, `node_modules`, `vendor` and `testdata`.
 
-There are four kinds:
+There are five kinds:
 
 - **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, whether it may change its [workspace](#the-workspace), the [repositories](#repositories) it works on, and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
 - **McpServer**: an MCP server, in the shape of the [MCP Registry's `server.json`](https://github.com/modelcontextprotocol/registry): `packages` that run locally over stdio (npm, PyPI), `remotes` reached over HTTP, or both. Agents refer to servers by name with `ref:`, and can narrow them with `allowTools`.
-- **Target**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: the sandbox, the folder its runs work on and where its repositories come from, the secret source, telemetry, per-agent overrides and host settings.
-
-CI/CD tools call a target an environment, as in dev, staging and prod. Solaria says target because hosts use "environment" for something smaller: in Managed Agents, an environment is only the sandbox an agent runs in ([ADR 0020](adr/0020-targets-and-environments.md)).
+- **Target**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: which Environments its agents get, the folder their runs work on and where their repositories come from, the secret source, telemetry, per-agent overrides and host settings.
+- **Environment**: a sandbox, declared once and reused: the packages, network, resources and isolation the agent's tools run with. Targets give Environments to their agents. See [The sandbox](#the-sandbox).
 - **Vault**: credentials an agent may use, each naming a secret and what it unlocks. Agents list the vaults they use in `spec.vaults`. See [Credentials and vaults](#credentials-and-vaults).
+
+CI/CD tools call a target an environment, as in dev, staging and prod. Solaria says target, and keeps "environment" for the sandbox, which is what hosts mean by it: a Managed Agents environment is the sandbox template a session starts in ([ADR 0020](adr/0020-targets-and-environments.md)).
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -40,12 +42,17 @@ metadata: {name: ma-cloud}
 spec:
   provider: managed-agents
   placement: cloud
-  sandbox:
-    packages: {apt: [ripgrep]}
-    network: {mode: limited, allow: [github.com], packageManagers: true}
+  environments: [{ref: review}]
   overrides:
     reviewer:
       model: {preferred: anthropic:claude-haiku-5-5}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: review}
+spec:
+  packages: {apt: [ripgrep]}
+  network: {mode: limited, allow: [github.com], packageManagers: true}
 ```
 
 Besides `name`, `metadata` takes `labels`, for selectors, and `annotations`, for notes about how a resource is operated rather than what it is: an agent's owner, its trigger, the gate it passes before promotion, the metric it's judged by. Annotation values are any text. Solaria never reads them: they're left out of the digests and never sent to a host, so changing one changes nothing deployed. `solaria status -o json` shows each agent's.
@@ -142,7 +149,7 @@ spec:
 
 Access is part of the agent, so a read-only workspace is in both digests; read-write, the default, leaves them as they were. Hosts enforce it or refuse it, never drop it: `docker` mounts the folder read-only, [srt](providers/claude-agent-sdk.md#isolating-process-runs-with-srt) on `process` leaves it out of the folders a run may write to, and the claude-agent-sdk launcher also denies its file-editing tools there. A plain `process` run can write anywhere its user can, and a Managed Agents session's files belong to the host, so a read-only workspace fails plan on both. An override can make the workspace read-only in one target, never writable again.
 
-The folder belongs to the target, like the sandbox, so binding it changes no digest. `validate` checks that it exists. A Managed Agents run doesn't work on a folder on your machine, so a bound folder fails plan there. `status -a` shows the workspace and whether it's read-only.
+The folder belongs to the target, like the Environment, so binding it changes no digest. `validate` checks that it exists. A Managed Agents run doesn't work on a folder on your machine, so a bound folder fails plan there. `status -a` shows the workspace and whether it's read-only.
 
 ### Repositories
 
@@ -204,13 +211,33 @@ Fields that only one host understands go under `providers.<name>`: on a Target f
 
 ## The sandbox
 
-`spec.sandbox` describes the machine the agent's tools run on, in a form every host can build:
+An **Environment** describes the machine the agent's tools run on, in a form every host can build. Its `spec`:
 
 - `packages`: apt, cargo, gem, go, npm and pip packages, each in its manager's own pin syntax. This is the same list Managed Agents' cloud environments take.
 - `network`: `limited` (the default) or `unrestricted`, extra hosts to `allow`, and whether `packageManagers` may reach their registries.
 - `resources`: memory and disk.
 - `image`: a container image, or a Dockerfile, to start from instead of the Solaria sandbox base. Only container placements take it.
 - `isolation`: `srt` wraps each run on the `process` placement in Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime), so a local process gets a boundary too. Containers have their own, so they refuse it.
+
+A target gives Environments to its agents in `spec.environments`. Each entry names an Environment in `ref` and, like the target's own `spec.agents`, selects agents with `agents`. The entry without `agents` is the default, for every agent no other entry selects; a target has at most one. A single entry is the default even when it has `agents`:
+
+```yaml
+kind: Target
+metadata: {name: prod}
+spec:
+  provider: managed-agents
+  placement: cloud
+  environments:
+    - ref: review                     # every other agent
+    - ref: data                       # agents labeled sandbox: data
+      agents: {selector: {matchLabels: {sandbox: data}}}
+```
+
+An agent gets exactly one Environment: `validate` fails when two entries select the same agent, or when no entry selects an agent and there's no default. A target without `spec.environments` gives its agents the built-in sandbox, named `default`: the host's own, with nothing added. `default` is reserved, so no Environment can take the name.
+
+Environments are shared. Several targets can reference the same one, so the sandbox is written once whether the agents run in a local container or in the cloud. The Environment belongs to the target's side, like the overrides, so it's in neither digest: moving an agent to another Environment changes what the host builds, not the agent.
+
+Hosts that keep the sandbox as an object of their own, such as Managed Agents environments, get one per Environment the target's agents use, with the logical ID `Environment/<name>` (ADR 0012). Plan shows them before the agents, and deletes an Environment's object once no agent in the target uses it. Launchers and images build the sandbox into each agent instead, so their Environments have no object of their own.
 
 Container placements build images on the **Solaria sandbox base**, which follows the Managed Agents cloud sandbox: Ubuntu 24.04 with Node, Python, Go, Rust, Java, Ruby and PHP. An agent that works in a local container finds the same tools in the cloud. Docker can't enforce network host lists or disk limits, so plan warns about them.
 
@@ -246,11 +273,11 @@ Agent/hello  sha256:08ffaed7b158236f52eb743bb34362fe8fc394e6c9399cf06e771fb2d26f
 
 They can't replace Solaria's attributes: `gen_ai.agent.*`, `service.name`, `service.version` and `solaria.*` keys fail `validate`.
 
-The **host binding** maps the logical ID to the host's own identity: an image tag, or a Managed Agents agent ID and version. Providers also write the logical ID and digests onto the host object, in labels or metadata, so a trace or a console view can be traced back to the definition.
+The **host binding** maps the logical ID to the host's own identity: an image tag, or a Managed Agents agent ID and version. Providers also write the logical ID and digests onto the host object, in labels or metadata, so a trace or a console view can be traced back to the definition. On Managed Agents, the metadata also names the target and the Environment.
 
 ## State
 
-Each target's state records, for each agent: its provider and placement, both digests, the host binding, a `remoteHash` of the host object, the git commit it was applied from, when and by whom, and a history of earlier bindings. Targets whose host keeps a shared object of its own, such as a Managed Agents environment, also have a `host` entry (ADR 0012), and host vaults have `vaults` entries (ADR 0016).
+Each target's state records, for each agent: its provider and placement, both digests, the host binding, a `remoteHash` of the host object, the git commit it was applied from, when and by whom, and a history of earlier bindings. Targets whose host keeps an object for each Environment, such as a Managed Agents environment, also have `environments` entries (ADR 0012), and host vaults have `vaults` entries (ADR 0016). State written before ADR 0020 has one `host` entry instead; Solaria reads it as the target's default Environment, so the object is updated in place rather than created again.
 
 State never holds secret values, only the names of secrets. Each target has its own state, so give every developer their own targets, with a name prefix on host objects.
 
@@ -342,12 +369,14 @@ The JSON, from `-o json` or in a saved plan:
   "options": {"refresh": true, "destroy": false, "rotateSecrets": false},
   "state": {"lineage": "7e1d2c3b-4a5f-4e6d-8c7b-6a5f4e3d2c1b", "serial": 4},
   "source": {"commit": "0123456789abcdef0123456789abcdef01234567"},
-  "host": {
-    "id": "Environment/prod",
-    "action": "no-op",
-    "before": {"digest": "sha256:5d1e…"},
-    "after": {"digest": "sha256:5d1e…"}
-  },
+  "environments": [
+    {
+      "id": "Environment/review",
+      "action": "no-op",
+      "before": {"digest": "sha256:5d1e…"},
+      "after": {"digest": "sha256:5d1e…"}
+    }
+  ],
   "agents": [
     {
       "id": "Agent/reviewer",
@@ -371,7 +400,7 @@ The JSON, from `-o json` or in a saved plan:
 | `options` | The flags it was planned with: `refresh`, `destroy` (a plan from `plan --destroy`, which `apply <file>` applies as a destroy), `rotateSecrets` |
 | `state` | The state planned from: `lineage`, absent while the target has no state, and `serial`, `0` then |
 | `source` | The git `commit` planned from, and `dirty` when the worktree had uncommitted changes |
-| `host` | The target's shared host object, when its provider keeps one (ADR 0012) |
+| `environments` | One step per Environment the provider keeps an object for (ADR 0012), sorted by `id` |
 | `vaults` | Host vaults, when the provider keeps them (ADR 0016), sorted by `id`. `rotate` means apply sends every credential's value again. |
 | `agents` | One step per agent in the configuration or the state, sorted by `id`, no-ops included |
 | `summary` | How many steps create, update, replace and delete, host objects included |
@@ -447,8 +476,8 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
 | `serial` | The state's serial; `0` when the target has no state yet |
 | `inConfiguration` | `false` for a target that only has state left |
 | `locked` | `solaria.lock` pins the target; each agent's `lockedDigest` is its pinned `resolvedDigest` |
-| `host` | The target's shared host object, when its provider keeps one: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt` |
-| `vaults` | On the target: host vaults, when its provider keeps them, with the same fields as `host` and `usedBy`, the agents whose sessions attach each. On an agent: the vaults to attach when starting a session, as `name` and `hostId`. |
+| `environments` | On the target: the objects its provider keeps for Environments: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt`, and `usedBy`, the agents the configuration gives each. On an agent: `environment`, the Environment's `name` and the `hostId` to start sessions in, when its provider keeps one. |
+| `vaults` | On the target: host vaults, when its provider keeps them, with the same fields as `environments`, `usedBy` being the agents whose sessions attach each. On an agent: the vaults to attach when starting a session, as `name` and `hostId`. |
 | `repositories` | The agent's [repositories](#repositories), read from the configuration: `name`, `access`, `url`, `ref`, `depth`, `secret` (the secret that authenticates the clone), and `path`, where the run finds it, relative to the workspace. On Managed Agents, `attach` is `github_repository` and `path` is the mount path to attach it at. |
 | `runtime` | What runs the agent loop, at the version applied: `gitagent@<commit>`, `@anthropic-ai/claude-agent-sdk@<version>` or `claude-agent-sdk@<version>`, or `agent_toolset_20260401` on Managed Agents, whose runtime can't be pinned. Results depend on the harness as well as the model, so compare it before comparing runs. Absent for agents applied before Solaria recorded it. |
 | `annotations` | The agent's `metadata.annotations`, read from the configuration rather than state, since they're never applied. Absent for an agent the configuration no longer has. |

@@ -21,9 +21,14 @@ metadata: {name: dev}
 spec:
   provider: gitagent
   placement: docker
-  sandbox:
-    image: ./sandbox.Dockerfile
-    resources: {disk: 10Gi}
+  environments: [{ref: dev}]
   telemetry: {endpoint: "http://localhost:4318"}
   providers:
     gitagent: {colour: blue}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: dev}
+spec:
+  image: ./sandbox.Dockerfile
+  resources: {disk: 10Gi}

@@ -20,12 +20,12 @@ agent.yaml:15:52: error: spec.permissions.ask[3]: "git-host/" has no tool name a
 agent.yaml:17:5: warning: spec.providers.managed-agents: fields for one provider make Agent/reviewer less portable
 environments.yaml:8:15: warning: spec.agents.selector matches no agents
 environments.yaml:9:32: error: spec.secrets.path only applies when source is dotenv
-environments.yaml:11:12: error: spec.sandbox.image: file "./Dockerfile" not found
-environments.yaml:12:42: warning: spec.sandbox.network.allow is ignored when mode is unrestricted
-environments.yaml:14:5: warning: spec.overrides: Agent "reviewer" is not selected by spec.agents.selector, so this override has no effect
-environments.yaml:16:9: warning: spec.overrides.reviewer.providers.gitagent: fields for one provider make Target/local less portable
-environments.yaml:17:5: error: spec.overrides: no Agent named "ghost"
-environments.yaml:33:3: error: spec: missing required field "model"
+environments.yaml:12:5: warning: spec.overrides: Agent "reviewer" is not selected by spec.agents.selector, so this override has no effect
+environments.yaml:14:9: warning: spec.overrides.reviewer.providers.gitagent: fields for one provider make Target/local less portable
+environments.yaml:15:5: error: spec.overrides: no Agent named "ghost"
+environments.yaml:21:10: error: spec.image: file "./Dockerfile" not found
+environments.yaml:22:40: warning: spec.network.allow is ignored when mode is unrestricted
+environments.yaml:38:3: error: spec: missing required field "model"
 -- agent.yaml --
 apiVersion: solaria.sh/v1alpha1
 kind: Agent
@@ -60,14 +60,19 @@ spec:
   agents:
     selector: {matchLabels: {team: nobody}}
   secrets: {source: env, path: .env}
-  sandbox:
-    image: ./Dockerfile
-    network: {mode: unrestricted, allow: [example.com]}
+  environments: [{ref: local}]
   overrides:
     reviewer:
       providers:
         gitagent: {profile: fast}
     ghost: {}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec:
+  image: ./Dockerfile
+  network: {mode: unrestricted, allow: [example.com]}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target

@@ -106,5 +106,5 @@ warning: Agent/helper on gitagent/docker: model.effort is ignored; gitagent sets
 warning: Agent/helper on gitagent/docker: glob has no gitagent tool, and without shell this agent can't search files
 warning: Agent/helper on gitagent/docker: web_fetch isn't available on gitagent; the agent runs without it
 warning: Agent/helper on gitagent/docker: telemetry.endpoint http://localhost:4318 points at the container itself; use host.docker.internal to reach the host
-warning: Agent/helper on gitagent/docker: sandbox.network is limited, but docker doesn't enforce host lists yet: the container can reach any host
-warning: Agent/helper on gitagent/docker: sandbox.resources.disk isn't enforced on docker
+warning: Agent/helper on gitagent/docker: the sandbox's network is limited, but docker doesn't enforce host lists yet: the container can reach any host
+warning: Agent/helper on gitagent/docker: its Environment's spec.resources.disk isn't enforced on docker

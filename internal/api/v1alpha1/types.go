@@ -229,8 +229,8 @@ type LimitsSpec struct {
 	Timeout string `json:"timeout,omitempty" jsonschema:"pattern=^([0-9]+(h|m|s))+$"`
 }
 
-// Target binds agents to a provider and placement, and says how their
-// sandbox, secrets and telemetry are set up there.
+// Target binds agents to a provider and placement, and says which
+// sandboxes they get there and how their secrets and telemetry are set up.
 type Target struct {
 	// API version of this resource.
 	APIVersion string `json:"apiVersion" jsonschema:"required"`
@@ -252,8 +252,12 @@ type TargetSpec struct {
 	// Which agents this target receives. When omitted, it receives
 	// every agent.
 	Agents *AgentSelection `json:"agents,omitempty"`
-	// The machine the agents' tools run on.
-	Sandbox *SandboxSpec `json:"sandbox,omitempty"`
+	// The Environments the agents' tools run in. Each entry gives one
+	// Environment to the agents its selector matches, and the entry without
+	// a selector is the default for every other agent. When omitted, every
+	// agent gets the built-in sandbox: the sandbox base image, with network
+	// access limited to the hosts the agents need.
+	Environments []EnvironmentAssignment `json:"environments,omitempty" jsonschema:"minItems=1"`
 	// Where secret values are read from when applying.
 	Secrets *SecretsSpec `json:"secrets,omitempty"`
 	// Where agents send OpenTelemetry data.
@@ -272,6 +276,33 @@ type TargetSpec struct {
 	// its own settings. They describe the host, not the agents, so they
 	// aren't part of any agent's digest.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
+}
+
+// EnvironmentAssignment gives an Environment to some of a target's agents.
+type EnvironmentAssignment struct {
+	// The name of the Environment.
+	Ref string `json:"ref" jsonschema:"required,minLength=1,maxLength=63,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+	// Which of the target's agents get this Environment. At most one entry
+	// may omit it; that entry is the default, for the agents no other entry
+	// selects.
+	Agents *AgentSelection `json:"agents,omitempty"`
+}
+
+// Environment is a reusable sandbox: the packages, network, resources and
+// isolation an agent's tools run with. Targets assign Environments to
+// their agents, and the target's placement decides how one is built: an
+// image for docker, srt settings for process, a Managed Agents environment
+// for managed-agents. It isn't part of any agent's digest.
+type Environment struct {
+	// API version of this resource.
+	APIVersion string `json:"apiVersion" jsonschema:"required"`
+	// Kind of this resource.
+	Kind string `json:"kind" jsonschema:"required"`
+	// Identifies the Environment. The name default is reserved for the
+	// built-in sandbox.
+	Metadata ObjectMeta `json:"metadata" jsonschema:"required"`
+	// Describes the sandbox.
+	Spec SandboxSpec `json:"spec" jsonschema:"required"`
 }
 
 // StateSpec says where a target's state is kept. It describes where

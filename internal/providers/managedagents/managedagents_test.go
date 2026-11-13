@@ -603,6 +603,20 @@ func TestCloudLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// A second agent gets a second Environment: a second Managed Agents
+	// environment, named after both, which allows MCP servers only if its
+	// agents use them.
+	project := readFile(t, filepath.Join(r.dir, "solaria.yaml"))
+	project = strings.Replace(project, "  environments: [{ref: python}]\n",
+		"  environments:\n    - ref: python\n    - ref: plain\n      agents: {selector: {matchLabels: {sandbox: plain}}}\n", 1)
+	project += "---\napiVersion: solaria.sh/v1alpha1\nkind: Environment\nmetadata: {name: plain}\nspec: {}\n" +
+		"---\napiVersion: solaria.sh/v1alpha1\nkind: Agent\nmetadata: {name: summarizer, labels: {sandbox: plain}}\n" +
+		"spec: {instructions: [role.md], model: {preferred: anthropic:claude-haiku-5-5}}\n"
+	r.edit("solaria.yaml", project)
+	if err := r.step("a second Environment", "ma-cloud", refresh); err != nil {
+		t.Fatal(err)
+	}
+
 	r.api.envs[stHost(t, r).Binding.HostID].inUse = true
 	if err := r.step("destroy", "ma-cloud", engine.PlanOptions{Refresh: true, Destroy: true}); err != nil {
 		t.Fatal(err)
@@ -631,7 +645,7 @@ func TestSelfHostedLifecycle(t *testing.T) {
 	if err := r.step("unchanged", "ma-self-hosted", refresh); err != nil {
 		t.Fatal(err)
 	}
-	delete(r.docker.containers, workerName("ma-self-hosted"))
+	delete(r.docker.containers, "solaria-ma-self-hosted-worker")
 	if err := r.step("worker stopped", "ma-self-hosted", refresh); err != nil {
 		t.Fatal(err)
 	}
@@ -655,8 +669,10 @@ func TestWorkerDockerfileGolden(t *testing.T) {
 	r := newRig(t)
 	r.dir = dir
 	set, _ := config.Load([]string{dir})
-	env := set.Lookup("Target", "ma-self-hosted").Target()
-	w, err := renderWorker(&provider.Environment{Name: "ma-self-hosted", Spec: &env.Spec, Dir: dir}, settings{platform: "linux/amd64"})
+	target := set.Lookup("Target", "ma-self-hosted").Target()
+	sb := set.Lookup("Environment", "tools").Environment().Spec
+	e := &provider.Environment{Name: "tools", Target: "ma-self-hosted", Spec: &target.Spec, Dir: dir, Sandbox: &sb, SandboxDir: dir}
+	w, err := renderWorker(e, settings{platform: "linux/amd64"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -688,7 +704,7 @@ func sdkRequire(t *testing.T, gomod string) string {
 func TestValidateEnvironment(t *testing.T) {
 	r := newRig(t)
 	r.edit("solaria.yaml", strings.NewReplacer(
-		"packageManagers: true}", "packageManagers: false}\n    resources: {memory: 16Gi, disk: 2Gi}",
+		"packageManagers: true}", "packageManagers: false}\n  resources: {memory: 16Gi, disk: 2Gi}",
 		"  providers:\n    managed-agents: {namePrefix: solaria-test-}", "  telemetry: {endpoint: \"http://localhost:4318\"}\n  providers:\n    managed-agents: {namePrefix: solaria-test-, platform: linux/arm64, colour: blue}",
 	).Replace(readFile(t, filepath.Join(r.dir, "solaria.yaml"))))
 	_, err := r.engine().Plan(context.Background(), "ma-cloud", engine.PlanOptions{})
@@ -698,13 +714,13 @@ func TestValidateEnvironment(t *testing.T) {
 	}
 	got := failed.Diagnostics.String()
 	for _, want := range []string{
-		"error: sandbox.packages need sandbox.network.packageManagers: true",
-		"error: sandbox.resources.memory is 16Gi, above the cloud sandbox's fixed 8Gi",
-		"warning: sandbox.resources.disk is ignored",
+		"error: Environment \"python\": spec.packages need spec.network.packageManagers: true",
+		"error: Environment \"python\": spec.resources.memory is 16Gi, above the cloud sandbox's fixed 8Gi",
+		"warning: Environment \"python\": spec.resources.disk is ignored",
 		"warning: telemetry is ignored",
 		"warning: providers.managed-agents.colour isn't a setting",
 		"warning: providers.managed-agents.platform only applies to the self-hosted placement",
-		"warning: sandbox.network is limited, so web_fetch and web_search reach only sandbox.network.allow hosts (used by reviewer)",
+		"warning: Environment \"python\": network is limited, so web_fetch and web_search reach only spec.network.allow hosts (used by reviewer)",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("diagnostics lack %q:\n%s", want, got)
@@ -727,7 +743,7 @@ func stHost(t *testing.T, r *rig) *state.EnvironmentEntry {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return st.Host
+	return st.Environments["Environment/python"]
 }
 
 // vaultProject adds a Vault to the fixture: a bearer token for the docs

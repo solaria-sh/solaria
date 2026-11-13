@@ -212,4 +212,4 @@ sh.solaria.target=ci-docker
 === secrets
 GITHUB_PAT,GIT_HOST_TOKEN
 === diagnostics
-warning: Agent/reviewer on claude-agent-sdk/docker: sandbox.network is limited, but docker doesn't enforce host lists yet: the container can reach any host
+warning: Agent/reviewer on claude-agent-sdk/docker: the sandbox's network is limited, but docker doesn't enforce host lists yet: the container can reach any host

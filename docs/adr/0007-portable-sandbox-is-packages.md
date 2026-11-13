@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # The portable sandbox is a package list
 
+> [ADR 0020](0020-targets-and-environments.md) moved `sandbox` out of the target, which this ADR calls an environment, into the spec of a reusable `Environment` kind that targets reference from `spec.environments`. The fields and how each placement builds them don't change.
+
 ## Context and problem statement
 
 An Environment describes the sandbox agents run in. Container placements can build any image, but Managed Agents cloud environments accept no custom image: only `packages` (apt, cargo, gem, go, npm, pip) and `networking`. If the sandbox were described as a Dockerfile, no environment could move to the cloud.

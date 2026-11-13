@@ -1,14 +1,14 @@
-# The smallest Solaria project: one agent and five targets.
+# The smallest Solaria project: one agent, five targets and one Environment.
 #
 # local uses the stub provider, which writes "host objects" to files under
 # .solaria/stub/. It needs no credentials, so it's the place to try plan
 # and apply:
 #
 #   solaria validate
-#   solaria plan -e local
-#   solaria apply -e local
+#   solaria plan -t local
+#   solaria apply -t local
 #   solaria status
-#   solaria destroy -e local
+#   solaria destroy -t local
 #
 # local-gitagent builds the same agent into a gitagent container image with
 # the local docker CLI. Planning needs nothing; apply needs Docker, and the
@@ -59,8 +59,7 @@ metadata:
 spec:
   provider: gitagent
   placement: docker
-  sandbox:
-    network: {mode: unrestricted}
+  environments: [{ref: open}]
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target
@@ -69,8 +68,15 @@ metadata:
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    network: {mode: unrestricted}
+  environments: [{ref: open}]
+---
+# open is the sandbox local-gitagent and local-sdk give the agent: the
+# built-in one, but with unrestricted network access.
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: open}
+spec:
+  network: {mode: unrestricted}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target

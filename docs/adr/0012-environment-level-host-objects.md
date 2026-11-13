@@ -6,7 +6,7 @@ decision-makers: Renan Tarouco da Fonseca
 
 # Environment-level host objects
 
-> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. Host object steps keep the ID `Environment/<name>`.
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. It also made the sandbox a reusable `Environment` kind, so a target now has one host object for each Environment its agents use, with the ID `Environment/<name>` of that Environment, and state keeps them under `environments`.
 
 ## Context and problem statement
 

@@ -2,7 +2,7 @@
 
 # Vault
 
-Lists a vault's credentials. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Vault`. The other resources are [Agent](agent.md), [Target](target.md) and [McpServer](mcp-server.md), and the [concepts](../concepts.md) explain how they fit together.
+Lists a vault's credentials. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: Vault`. The other resources are [Agent](agent.md), [Target](target.md), [Environment](environment.md) and [McpServer](mcp-server.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 

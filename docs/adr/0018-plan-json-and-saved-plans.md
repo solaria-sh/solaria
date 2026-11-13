@@ -6,7 +6,7 @@ decision-makers: Renan Tarouco da Fonseca
 
 # A documented plan JSON, and saved plans that apply only what was reviewed
 
-> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. Plan format `solaria.sh/plan/v2` names it in `target`.
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. Plan format `solaria.sh/plan/v2` names it in `target`, and lists host object steps in `environments` rather than one in `host`.
 
 ## Context and problem statement
 

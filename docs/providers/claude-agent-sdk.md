@@ -3,7 +3,7 @@
 The `claude-agent-sdk` provider runs each agent on the [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview), in TypeScript or Python. It has two placements:
 
 - `process` runs the agent loop and its tools as a local process: on your laptop, in CI, or wherever you start it.
-- `docker` runs the same launcher in a container image built on the [Solaria sandbox base](../concepts.md#the-sandbox), with the workspace mounted. It's the placement that installs `sandbox.packages`, and that keeps the machine's managed settings out.
+- `docker` runs the same launcher in a container image built on the [Solaria sandbox base](../concepts.md#the-sandbox), with the workspace mounted. It's the placement that installs the [Environment](../concepts.md#the-sandbox)'s packages, and that keeps the machine's managed settings out.
 
 Solaria doesn't start either. `apply` writes a bundle with a launcher, builds the image on `docker`, and records the command that starts it.
 
@@ -14,8 +14,13 @@ metadata: {name: local-sdk}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    network: {mode: unrestricted}
+  environments: [{ref: open}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: open}
+spec:
+  network: {mode: unrestricted}
 ```
 
 **Needs:** on `process`, Node 18.14 or later, or Python 3.10 or later with `providers.claude-agent-sdk.runtime: python`; `plan` checks that it's installed. On `docker`, the `docker` CLI with BuildKit for `apply`, and nothing for `plan`. Either way, `apply` installs the SDK from npm or PyPI, so it needs network access the first time, and running the agent needs `ANTHROPIC_API_KEY`.
@@ -56,14 +61,19 @@ The bundle holds:
 spec:
   provider: claude-agent-sdk
   placement: docker
-  sandbox:
-    packages: {apt: [ripgrep]}
+  environments: [{ref: tools}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: tools}
+spec:
+  packages: {apt: [ripgrep]}
 ```
 
 `apply` writes the same bundle, plus a `Dockerfile`, and builds `solaria/<target>/<agent>:<id>` from it:
 
-1. The sandbox stages every Solaria image shares: the Solaria sandbox base, which has Node, Python and uv, or `sandbox.image`, then the target's packages.
-2. The SDK at its exact version, installed in `/opt/solaria/agent`. Nothing in this layer depends on the agent, so agents on the same SDK version and sandbox share it.
+1. The sandbox stages every Solaria image shares: the Solaria sandbox base, which has Node, Python and uv, or the Environment's `spec.image`, then its packages.
+2. The SDK at its exact version, installed in `/opt/solaria/agent`. Nothing in this layer depends on the agent, so agents on the same SDK version and Environment share it.
 3. The bundle, the only layer a card change rebuilds.
 
 The image is labeled with the logical ID, both digests, the runtime and the SDK version. A successful apply removes the previous image and build context, and records a `docker run` command; the task goes after it:
@@ -73,9 +83,9 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
   --env ANTHROPIC_API_KEY solaria/local-sdk-docker/hello:3f9c1a0d2b7e -p "Say hello."
 ```
 
-The secrets come from the target's dotenv file (`--env-file`) or the caller's environment (`--env NAME`). Inside, the launcher isolates the run as on `process`, but keeps the image's own `PATH`, so the run finds what `sandbox.packages` installed. The first build installs the sandbox base and takes several minutes; later builds reuse Docker's cache.
+The secrets come from the target's dotenv file (`--env-file`) or the caller's environment (`--env NAME`). Inside, the launcher isolates the run as on `process`, but keeps the image's own `PATH`, so the run finds what the Environment's `spec.packages` installed. The first build installs the sandbox base and takes several minutes; later builds reuse Docker's cache.
 
-A `sandbox.image` replaces the Solaria sandbox base, so it must have the runtime (Node 18.14 or later with npm, or Python 3.10 or later with venv) and `npx` or `uvx` for stdio MCP servers. Plan warns about what it needs.
+An Environment's `spec.image` replaces the Solaria sandbox base, so it must have the runtime (Node 18.14 or later with npm, or Python 3.10 or later with venv) and `npx` or `uvx` for stdio MCP servers. Plan warns about what it needs.
 
 ## Every run is hermetic
 
@@ -147,11 +157,11 @@ Before the run, the launcher clones each of the agent's [repositories](../concep
 - **The token** is one more secret the command reads: `--env` or the dotenv file passes it to a `docker` run, and the invocation's `env` names it.
 - **Read-only** repositories need srt on `process`, which denies writes to their clones; the launcher also adds `Edit(./repositories/<name>/**)` to `disallowedTools`. A `docker` run is root in its container and can write any clone, so a read-only repository fails plan there, as on plain `process`.
 
-**Needs:** git 2.31 or later. `plan` checks that it's on `PATH` on `process`; the Solaria sandbox base has it, and a `sandbox.image` must too.
+**Needs:** git 2.31 or later. `plan` checks that it's on `PATH` on `process`; the Solaria sandbox base has it, and an Environment's `spec.image` must too.
 
 ## Sandbox
 
-The `process` placement runs on the machine as it is, so on its own it can't enforce the sandbox:
+The `process` placement runs on the machine as it is, so on its own it can't enforce the agent's Environment:
 
 - `packages` aren't installed: the run uses the tools the machine has. Plan warns.
 - A limited `network` isn't enforced, unless `isolation` is `srt`. Plan warns unless the mode is `unrestricted`.
@@ -160,22 +170,26 @@ The `process` placement runs on the machine as it is, so on its own it can't enf
 
 ### Isolating `process` runs with srt
 
-A target can opt in to Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) (`srt`), which wraps the run: the SDK, its tools and stdio MCP servers share one boundary.
+An Environment can opt in to Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) (`srt`), which wraps the run: the SDK, its tools and stdio MCP servers share one boundary.
 
 ```yaml
 kind: Target
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    isolation: srt
-    network: {allow: [tracker.example.com]}
+  environments: [{ref: isolated}]
+---
+kind: Environment
+metadata: {name: isolated}
+spec:
+  isolation: srt
+  network: {allow: [tracker.example.com]}
 ```
 
 Apply writes `srt-settings.json` into the bundle. The recorded command stays the launcher's: it [clones the agent's repositories](#repositories), then runs itself again inside srt, as `srt --settings <bundle>/srt-settings.json -- node <bundle>/launch.mjs` (or the same around `launch.py`), so srt can deny writes to a read-only clone that's already there:
 
 - **Writes** go only to srt's temp folder, which holds the run's scratch `HOME` and temp folders (Claude Code's own temp folder, `CLAUDE_CODE_TMPDIR`, moves there too), the provider's package cache in `.solaria/claude-agent-sdk/.cache`, and the workspace, unless the agent's is read-only, but never a read-only repository's clone. The bundle, the rest of your home folder and everything else are read-only.
-- **The network** is limited to the hosts the agent needs: Anthropic's API, its remote MCP servers, the registries its stdio MCP packages download from, the telemetry endpoint, `sandbox.network.allow`, and the package managers' registries with `packageManagers: true`. A telemetry endpoint on `localhost` stays reachable. `mode: unrestricted` fails plan, since srt has no way to allow every host.
+- **The network** is limited to the hosts the agent needs: Anthropic's API, its remote MCP servers, the registries its stdio MCP packages download from, the telemetry endpoint, the Environment's `spec.network.allow`, and the package managers' registries with `packageManagers: true`. A telemetry endpoint on `localhost` stays reachable. `mode: unrestricted` fails plan, since srt has no way to allow every host.
 - The SDK's own `sandbox` option stays off, since sandboxes don't nest.
 
 **Needs:** `srt` on `PATH` (`npm install -g @anthropic-ai/sandbox-runtime`), installed outside any folder a run may write to, and `ripgrep` on macOS, or `bubblewrap`, `socat` and `ripgrep` on Linux. Plan fails when one is missing, and on Windows. On Linux, srt gives the run its own network namespace, so a telemetry collector on `localhost` may be unreachable; plan warns. srt is a beta research preview, which is why isolation is opt-in.

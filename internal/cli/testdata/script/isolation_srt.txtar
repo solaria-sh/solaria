@@ -3,7 +3,7 @@
 # refuses the setting.
 cd docker
 ! exec solaria plan -t sdk-docker
-stderr '^solaria.yaml: error: Agent/hello on claude-agent-sdk/docker: sandbox.isolation srt isn''t supported here; it wraps runs on the process placement, and other placements run in a sandbox of their own \(ADR 0017\)$'
+stderr '^solaria.yaml: error: Environment "sdk-docker" for Agent/hello on claude-agent-sdk/docker: spec.isolation srt isn''t supported here; it wraps runs on the process placement, and other placements run in a sandbox of their own \(ADR 0017\)$'
 ! stdout .
 
 # On process, planning checks that this machine can run srt, and that the
@@ -13,9 +13,9 @@ stderr '^solaria.yaml: error: Agent/hello on claude-agent-sdk/docker: sandbox.is
 [exec:srt] skip 'this machine has srt; the check needs one without it'
 cd ../process
 ! exec solaria plan -t local-srt
-stderr '^solaria.yaml: error: Agent/hello on claude-agent-sdk/process: sandbox.isolation srt can''t isolate runs on this machine: srt isn''t on PATH; install it with npm install -g @anthropic-ai/sandbox-runtime$'
-stderr '^solaria.yaml: error: Agent/hello on claude-agent-sdk/process: sandbox.isolation srt limits the network to the hosts the agent needs, so it can''t be combined with sandbox.network.mode unrestricted; list the extra hosts in sandbox.network.allow$'
-! stderr 'sandbox.network is limited'
+stderr '^solaria.yaml: error: Agent/hello on claude-agent-sdk/process: its Environment''s spec.isolation srt can''t isolate runs on this machine: srt isn''t on PATH; install it with npm install -g @anthropic-ai/sandbox-runtime$'
+stderr '^solaria.yaml: error: Agent/hello on claude-agent-sdk/process: its Environment''s spec.isolation srt limits the network to the hosts the agent needs, so it can''t be combined with spec.network.mode unrestricted; list the extra hosts in spec.network.allow$'
+! stderr 'network is limited'
 ! stdout .
 ! exists .solaria/claude-agent-sdk
 
@@ -35,7 +35,12 @@ metadata: {name: sdk-docker}
 spec:
   provider: claude-agent-sdk
   placement: docker
-  sandbox: {isolation: srt}
+  environments: [{ref: sdk-docker}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: sdk-docker}
+spec: {isolation: srt}
 -- process/instructions.md --
 Say hello.
 -- process/solaria.yaml --
@@ -52,6 +57,11 @@ metadata: {name: local-srt}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    isolation: srt
-    network: {mode: unrestricted}
+  environments: [{ref: local-srt}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local-srt}
+spec:
+  isolation: srt
+  network: {mode: unrestricted}

@@ -30,11 +30,16 @@ metadata: {name: ma-cloud}
 spec:
   provider: managed-agents
   placement: cloud
-  sandbox:
-    packages: {pip: [ruff==0.9.0]}
-    network: {mode: limited, allow: [pypi.org], packageManagers: true}
+  environments: [{ref: python}]
   providers:
     managed-agents: {namePrefix: solaria-test-}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: python}
+spec:
+  packages: {pip: [ruff==0.9.0]}
+  network: {mode: limited, allow: [pypi.org], packageManagers: true}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target
@@ -42,8 +47,13 @@ metadata: {name: ma-self-hosted}
 spec:
   provider: managed-agents
   placement: self-hosted
-  sandbox:
-    packages: {apt: [jq]}
-    resources: {memory: 4Gi}
+  environments: [{ref: tools}]
   providers:
     managed-agents: {environmentKeySecret: SOLARIA_TEST_ENVIRONMENT_KEY}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: tools}
+spec:
+  packages: {apt: [jq]}
+  resources: {memory: 4Gi}

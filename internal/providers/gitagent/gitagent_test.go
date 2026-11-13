@@ -127,7 +127,7 @@ func TestCommitMustBeAFullHash(t *testing.T) {
 
 func TestPackageThatLooksLikeAnOption(t *testing.T) {
 	a := load(t, filepath.Join("testdata", "full"), "local-gitagent")
-	a.Env.Sandbox.Packages.APT = []string{"--allow-unauthenticated"}
+	a.Sandbox.Packages.APT = []string{"--allow-unauthenticated"}
 	b, err := render(a)
 	if err != nil {
 		t.Fatal(err)
@@ -229,7 +229,7 @@ func TestLifecycle(t *testing.T) {
 	}
 
 	// A sandbox change rebuilds although the digests stay.
-	a.Env.Sandbox.Packages.APT = append(a.Env.Sandbox.Packages.APT, "curl")
+	a.Sandbox.Packages.APT = append(a.Sandbox.Packages.APT, "curl")
 	pl, entry2 := cycle(t, p, a, entry)
 	if pl.Action != provider.Update || pl.Reason != "the target's sandbox changed" {
 		t.Fatalf("sandbox change plans %s (%s)", pl.Action, pl.Reason)

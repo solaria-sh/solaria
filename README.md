@@ -3,7 +3,7 @@
   <img alt="Solaria: plan and apply agent definitions across hosts" src="brand/github/banner-light.png">
 </picture>
 
-Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
+Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools and skills, and the sandbox its tools run in. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 
 > **Status: pre-alpha.** The full workflow (`validate`, `digest`, `lock`, `plan`, `apply`, `status`, `destroy`) works with four providers: `stub` for tests, `gitagent` in a local container, the Claude Agent SDK as a local process or in a container, and Claude Managed Agents in the cloud or with a self-hosted sandbox. The format may still change before 1.0. Start with the [concepts](docs/concepts.md) and [getting started](docs/getting-started.md), and see the [roadmap](#roadmap).
 
@@ -121,7 +121,7 @@ $ export ANTHROPIC_API_KEY=...
 $ solaria plan -t ma-cloud
 Target ma-cloud (managed-agents/cloud)
 
-  + Environment/ma-cloud
+  + Environment/default
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158

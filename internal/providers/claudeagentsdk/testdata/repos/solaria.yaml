@@ -28,7 +28,7 @@ metadata: {name: ci-srt}
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox: {isolation: srt}
+  environments: [{ref: ci-srt}]
   inputs:
     repositories:
       product:
@@ -38,6 +38,11 @@ spec:
       spec:
         url: https://github.com/example/spec.git
         depth: 1
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-srt}
+spec: {isolation: srt}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target

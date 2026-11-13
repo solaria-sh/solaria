@@ -2,7 +2,7 @@
 --- plan
 Target ma-cloud (managed-agents/cloud)
 
-  + Environment/ma-cloud
+  + Environment/python
 
   + Vault/tools
       note: stores 2 credentials from the environment variables
@@ -37,8 +37,9 @@ POST /v1/environments
       },
       "type": "cloud"
     },
-    "description": "Solaria target ma-cloud",
+    "description": "Solaria target ma-cloud, Environment python",
     "metadata": {
+      "solaria_environment": "python",
       "solaria_target": "ma-cloud"
     },
     "name": "solaria-test-ma-cloud"
@@ -101,6 +102,7 @@ POST /v1/agents
       }
     ],
     "metadata": {
+      "solaria_environment": "python",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:7b4060c52b2c5a4e1501e661a68a5539afa87f456b4ead9e47407397ea11e7ce",
       "solaria_spec_digest": "sha256:7b4060c52b2c5a4e1501e661a68a5539afa87f456b4ead9e47407397ea11e7ce",
@@ -270,7 +272,7 @@ POST /v1/agents/agent_07
       }
     ],
     "metadata": {
-      "solaria_environment": "",
+      "solaria_environment": "python",
       "solaria_logical_id": "Agent/reviewer",
       "solaria_resolved_digest": "sha256:85ed76a9cbdfc651ddfc6e583ab0ee0a4f9a5cf08ab8a14440f6da8aab9a4c0a",
       "solaria_spec_digest": "sha256:85ed76a9cbdfc651ddfc6e583ab0ee0a4f9a5cf08ab8a14440f6da8aab9a4c0a",
@@ -429,7 +431,7 @@ Target ma-cloud (managed-agents/cloud)
   - Vault/tools
       host: vlt_11
 
-  - Environment/ma-cloud
+  - Environment/python
       host: env_01
 
 Plan: 0 to create, 0 to update, 0 to replace, 3 to delete or archive.

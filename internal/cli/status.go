@@ -123,8 +123,10 @@ type envStatus struct {
 	// InConfiguration is false for a target that only has state.
 	InConfiguration bool `json:"inConfiguration"`
 	// Locked means solaria.lock pins the target.
-	Locked bool        `json:"locked"`
-	Host   *hostStatus `json:"host,omitempty"`
+	Locked bool `json:"locked"`
+	// Environments are the host objects of the Environments the agents
+	// use, for providers that keep them (ADR 0012, ADR 0020).
+	Environments []hostStatus `json:"environments,omitempty"`
 	// Vaults are host vaults, for providers that keep them (ADR 0016).
 	Vaults []hostStatus `json:"vaults,omitempty"`
 	Agents []agentState `json:"agents"`
@@ -138,8 +140,16 @@ type hostStatus struct {
 	Version   string    `json:"version,omitempty"`
 	Digest    string    `json:"digest"`
 	AppliedAt time.Time `json:"appliedAt"`
-	// UsedBy lists the agents whose sessions attach a vault.
+	// UsedBy lists the agents an Environment is for, or whose sessions
+	// attach a vault.
 	UsedBy []string `json:"usedBy,omitempty"`
+}
+
+// environmentRef is the host object of the Environment an agent's
+// sessions start in.
+type environmentRef struct {
+	Name   string `json:"name"`
+	HostID string `json:"hostId"`
 }
 
 // vaultRef is a host vault an agent's sessions attach.
@@ -169,6 +179,9 @@ type agentState struct {
 	// Run is the command that starts the agent, ready for a shell.
 	Run        string            `json:"run,omitempty"`
 	Invocation *state.Invocation `json:"invocation,omitempty"`
+	// Environment is the host object of the agent's Environment, to start
+	// sessions in, on hosts that keep one.
+	Environment *environmentRef `json:"environment,omitempty"`
 	// Vaults are the host vaults to attach when starting a session, on
 	// hosts that keep credentials in vaults.
 	Vaults []vaultRef `json:"vaults,omitempty"`
@@ -267,6 +280,7 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 	}
 	desired := map[string]*resolve.Agent{}
 	if es.InConfiguration {
+		st.AdoptLegacyHost(resolve.DefaultEnvironment(&set.Lookup(v1alpha1.KindTarget, st.Target).Target().Spec))
 		agents, err := resolve.Target(set, st.Target)
 		if err != nil {
 			return es, err
@@ -284,11 +298,18 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 			}
 		}
 	}
-	if h := st.Host; h != nil {
-		es.Host = &hostStatus{
+	for _, id := range st.EnvironmentIDs() {
+		h := st.Environments[id]
+		hs := hostStatus{
 			ID: h.ID, Provider: h.Provider, Placement: h.Placement, HostID: h.Binding.HostID,
 			Version: h.Binding.Version, Digest: h.Digest, AppliedAt: h.AppliedAt,
 		}
+		for _, aid := range slices.Sorted(maps.Keys(desired)) {
+			if a := desired[aid]; a != nil && v1alpha1.KindEnvironment+"/"+a.Environment == id && st.Agents[aid] != nil {
+				hs.UsedBy = append(hs.UsedBy, aid)
+			}
+		}
+		es.Environments = append(es.Environments, hs)
 	}
 
 	for _, id := range st.VaultIDs() {
@@ -344,6 +365,9 @@ func collectStatus(set *config.Set, st *state.State, lock *lockfile.File) (envSt
 		}
 		if d != nil {
 			as.Repositories = repositories(d)
+			if h := st.Environments[v1alpha1.KindEnvironment+"/"+d.Environment]; h != nil {
+				as.Environment = &environmentRef{Name: d.Environment, HostID: h.Binding.HostID}
+			}
 		}
 		es.Agents = append(es.Agents, as)
 	}
@@ -356,7 +380,7 @@ func (es envStatus) only(name string) (envStatus, error) {
 	id := v1alpha1.KindAgent + "/" + name
 	for _, as := range es.Agents {
 		if as.LogicalID == id {
-			es.Host, es.Vaults = nil, nil
+			es.Environments, es.Vaults = nil, nil
 			es.Agents = []agentState{as}
 			return es, nil
 		}
@@ -406,9 +430,13 @@ func writeStatus(w io.Writer, es envStatus, lockPath string, detail bool) error 
 		header += "\tLOCKED"
 	}
 	_, _ = fmt.Fprintln(tw, header)
-	if h := es.Host; h != nil {
+	for _, h := range es.Environments {
+		used := "unused"
+		if len(h.UsedBy) > 0 {
+			used = "for " + strings.Join(h.UsedBy, ", ")
+		}
 		_, _ = fmt.Fprintf(tw, "  %s\t%s/%s\t%s\t%s\t%s\t%s\t%s%s\n", h.ID, h.Provider, h.Placement, h.HostID,
-			orDash(h.Version), provider.ShortDigest(h.Digest), h.AppliedAt.Format("2006-01-02 15:04"), "shared by the agents", lockCol(""))
+			orDash(h.Version), provider.ShortDigest(h.Digest), h.AppliedAt.Format("2006-01-02 15:04"), used, lockCol(""))
 	}
 	for _, v := range es.Vaults {
 		used := "unused"
@@ -452,6 +480,9 @@ func writeInvocation(b *strings.Builder, env string, as agentState) {
 	}
 	if as.Run == "" && inv == nil {
 		fmt.Fprintf(b, "  %s runs the agent on its host; there's no command to start it.\n", as.Provider)
+		if e := as.Environment; e != nil {
+			fmt.Fprintf(b, "  environment: start sessions in %s (Environment %s)\n", e.HostID, e.Name)
+		}
 		if len(as.Vaults) > 0 {
 			refs := make([]string, len(as.Vaults))
 			for i, v := range as.Vaults {

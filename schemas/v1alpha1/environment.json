@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solaria.sh/schemas/v1alpha1/environment.json",
+  "$defs": {
+    "NetworkSpec": {
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "limited",
+            "unrestricted"
+          ],
+          "description": "limited (only allowed hosts) or unrestricted."
+        },
+        "allow": {
+          "items": {
+            "type": "string",
+            "pattern": "^(\\*\\.)?[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Extra hosts the sandbox may reach in limited mode."
+        },
+        "packageManagers": {
+          "type": "boolean",
+          "description": "Allows the package managers' registries in limited mode."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Controls outbound network access."
+    },
+    "ObjectMeta": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters."
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 63
+          },
+          "propertyNames": {
+            "maxLength": 253,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Labels for selecting resources, for example from a Target's agents.selector."
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 253,
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$"
+          },
+          "type": "object",
+          "description": "Notes about how the resource is operated rather than what it is, such as an agent's owner, trigger or target autonomy. Keys are like label keys; values are any text. They're never part of a digest or sent to a host, so changing one changes nothing deployed. solaria status -o json shows an agent's."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "Identifies a resource."
+    },
+    "PackagesSpec": {
+      "properties": {
+        "apt": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "APT packages."
+        },
+        "cargo": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Cargo crates."
+        },
+        "gem": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Ruby gems."
+        },
+        "go": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "Go modules, installed with go install."
+        },
+        "npm": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "npm packages, installed globally."
+        },
+        "pip": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true,
+          "description": "pip packages."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Lists packages per package manager."
+    },
+    "ResourcesSpec": {
+      "properties": {
+        "memory": {
+          "type": "string",
+          "pattern": "^[0-9]+(Ki|Mi|Gi|Ti)?$",
+          "description": "Memory cap, such as 8Gi."
+        },
+        "disk": {
+          "type": "string",
+          "pattern": "^[0-9]+(Ki|Mi|Gi|Ti)?$",
+          "description": "Disk cap, such as 10Gi."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Caps sandbox resources."
+    },
+    "SandboxSpec": {
+      "properties": {
+        "packages": {
+          "$ref": "#/$defs/PackagesSpec",
+          "description": "Packages to install, by package manager, in each manager's own pin syntax."
+        },
+        "network": {
+          "$ref": "#/$defs/NetworkSpec",
+          "description": "Outbound network access. When omitted, access is limited to the hosts the agents need."
+        },
+        "resources": {
+          "$ref": "#/$defs/ResourcesSpec",
+          "description": "Memory and disk caps, where the placement allows them."
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Replaces the generated sandbox image: a container image reference, or a path to a Dockerfile relative to this file. Only container placements accept it."
+        },
+        "isolation": {
+          "type": "string",
+          "enum": [
+            "srt"
+          ],
+          "description": "Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "description": "Describes a sandbox in a form every placement understands."
+    }
+  },
+  "properties": {
+    "apiVersion": {
+      "const": "solaria.sh/v1alpha1",
+      "description": "API version of this resource."
+    },
+    "kind": {
+      "const": "Environment",
+      "description": "Kind of this resource."
+    },
+    "metadata": {
+      "$ref": "#/$defs/ObjectMeta",
+      "description": "Identifies the Environment. The name default is reserved for the built-in sandbox."
+    },
+    "spec": {
+      "$ref": "#/$defs/SandboxSpec",
+      "description": "Describes the sandbox."
+    }
+  },
+  "additionalProperties": false,
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "title": "Solaria Environment",
+  "description": "A reusable sandbox: the packages, network, resources and isolation an agent's tools run with. Targets assign Environments to their agents, and the target's placement decides how one is built: an image for docker, srt settings for process, a Managed Agents environment for managed-agents. It isn't part of any agent's digest."
+}

@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # Local agent loops: a hermetic `process` placement and the `claude-agent-sdk` provider
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and moved its `sandbox` into the spec of a reusable `Environment` kind, so `sandbox.isolation` and the other `sandbox.*` fields below are now an Environment's `spec.*`.
+
 ## Context and problem statement
 
 Many teams run agents on a local agent loop rather than on a hosted service: the Claude Agent SDK, or CLIs such as pi and OpenCode. Solaria's providers today build a container (`gitagent`) or call an API (`managed-agents`), so these teams can't use Solaria at all. Two questions follow from ADR 0006:

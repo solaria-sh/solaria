@@ -1,7 +1,13 @@
-# kind Environment was renamed to Target (ADR 0020). An old document fails
-# with the fix, not as an unknown kind.
+# Before ADR 0020, kind Environment was the target and held its sandbox.
+# An old document fails with how to fix it, not as an Environment with
+# unknown fields.
 ! exec solaria validate
-stdout '^solaria.yaml:7:7: error: kind Environment is now called Target \(ADR 0020\); change this document''s kind to Target$'
+stdout '^solaria.yaml:7:7: error: an Environment with spec.provider is now a Target \(ADR 0020\); change this document''s kind to Target, and move spec.sandbox into an Environment that spec.environments references$'
+
+# Changing only the kind leaves spec.sandbox, which a Target doesn't have.
+mv target.yaml solaria.yaml
+! exec solaria validate
+stdout '^solaria.yaml:12:3: error: a Target has no spec.sandbox since ADR 0020; move it into the spec of an Environment, and reference that Environment from spec.environments$'
 
 # The -e flag went with it.
 ! exec solaria plan -e local
@@ -16,6 +22,22 @@ spec: {instructions: [hello.md], model: {preferred: anthropic:claude-sonnet-5-5}
 apiVersion: solaria.sh/v1alpha1
 kind: Environment
 metadata: {name: local}
-spec: {provider: stub, placement: file}
+spec:
+  provider: stub
+  placement: file
+  sandbox: {network: {mode: unrestricted}}
+-- target.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: hello}
+spec: {instructions: [hello.md], model: {preferred: anthropic:claude-sonnet-5-5}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: local}
+spec:
+  provider: stub
+  placement: file
+  sandbox: {network: {mode: unrestricted}}
 -- hello.md --
 Say hello.

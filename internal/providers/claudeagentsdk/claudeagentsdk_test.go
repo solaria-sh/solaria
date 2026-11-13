@@ -218,9 +218,9 @@ func TestValidate(t *testing.T) {
 	}{
 		{"fine", &fakeHost{version: "Python 3.12.1"}, nil, []string{
 			"warning: Agent/helper on claude-agent-sdk/process: providers.claude-agent-sdk.colour isn't a setting of this provider and is ignored; it has no per-agent settings",
-			"warning: Agent/helper on claude-agent-sdk/process: sandbox.packages aren't installed on the process placement: the run uses the tools this machine has",
-			"warning: Agent/helper on claude-agent-sdk/process: sandbox.network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can; set sandbox.isolation: srt to enforce it",
-			"warning: Agent/helper on claude-agent-sdk/process: sandbox.resources aren't enforced on the process placement",
+			"warning: Agent/helper on claude-agent-sdk/process: its Environment's spec.packages aren't installed on the process placement: the run uses the tools this machine has",
+			"warning: Agent/helper on claude-agent-sdk/process: the sandbox's network is limited, but the process placement doesn't enforce it: the run can reach any host this machine can; set spec.isolation: srt in its Environment to enforce it",
+			"warning: Agent/helper on claude-agent-sdk/process: its Environment's spec.resources aren't enforced on the process placement",
 		}},
 		{"missing", &fakeHost{missing: true}, nil, []string{
 			"error: Agent/helper on claude-agent-sdk/process: the python launcher can't run on this machine: python isn't installed",
@@ -1015,9 +1015,9 @@ func TestReadOnlyWorkspace(t *testing.T) {
 	}
 
 	// Without srt, process can't keep it read-only.
-	a.Env.Sandbox = nil
+	a.Sandbox = nil
 	p := NewWithHost(provider.Options{Target: "srt-read-only", WorkDir: t.TempDir()}, &fakeHost{version: "v22.3.0"}, nil, func() []string { return nil })
-	if diags := diag.List(p.Validate(context.Background(), a)); !strings.Contains(diags.String(), "error: Agent/reviewer on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only") {
+	if diags := diag.List(p.Validate(context.Background(), a)); !strings.Contains(diags.String(), "error: Agent/reviewer on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set spec.isolation: srt in its Environment or use the docker placement to keep the workspace read-only") {
 		t.Errorf("validate without srt:\n%s", diags)
 	}
 }

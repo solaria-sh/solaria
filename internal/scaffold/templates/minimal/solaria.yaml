@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://solaria.sh/schemas/v1alpha1/solaria.json
 #
-# A Solaria project: one agent, and two targets to run it in.
+# A Solaria project: one agent, two targets to run it in, and the sandbox
+# one of them gives it.
 #
 #   solaria validate          check this file and the files it names
 #   solaria plan -t local     show what apply would do
@@ -44,5 +45,12 @@ metadata:
 spec:
   provider: claude-agent-sdk
   placement: process
-  sandbox:
-    network: {mode: unrestricted}
+  environments: [{ref: open}]
+---
+# open is the sandbox local-sdk gives the agent: the built-in one, but with
+# unrestricted network access. Targets can share an Environment.
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: open}
+spec:
+  network: {mode: unrestricted}

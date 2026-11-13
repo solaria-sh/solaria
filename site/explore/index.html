@@ -194,7 +194,7 @@ section.part { padding: 72px 0 24px; }
     <div class="specimen">
       <div>
         <p class="display big">Agents do the work. People steer.</p>
-        <p>Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports, and records what it deployed where.</p>
+        <p>Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools and skills, and the sandbox its tools run in. Solaria then plans and applies it to any host a provider supports, and records what it deployed where.</p>
 <pre>Target local (stub/file)
 
   <span style="color:var(--update)">~ Agent/hello</span>
@@ -339,7 +339,7 @@ Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.</pre>
     { cmd: "solaria plan -t ma-cloud" },
     { t: "Target ma-cloud (managed-agents/cloud)" },
     { t: "" },
-    { t: "  + Environment/ma-cloud", k: "c" },
+    { t: "  + Environment/default", k: "c" },
     { t: "" },
     { t: "  + Agent/hello", k: "c" },
     { h: '      resolvedDigest: <span class="dg">sha256:08ffaed7b158</span>' },

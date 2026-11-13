@@ -2,7 +2,7 @@
 
 # McpServer
 
-Offers one or more ways to reach an MCP server. Each provider picks one its placement supports. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: McpServer`. The other resources are [Agent](agent.md), [Target](target.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
+Offers one or more ways to reach an MCP server. Each provider picks one its placement supports. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: McpServer`. The other resources are [Agent](agent.md), [Target](target.md), [Environment](environment.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 

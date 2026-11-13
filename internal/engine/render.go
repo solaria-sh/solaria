@@ -26,11 +26,12 @@ func Render(w io.Writer, plan *Plan) error {
 		_, err := io.WriteString(w, b.String())
 		return err
 	}
-	// Steps show in the order Apply takes them: the host object and
-	// vaults come before the agents, except deletes, which come after.
-	h := plan.Host
-	if h != nil && h.Action != provider.NoOp && h.Action != provider.Delete {
-		renderHost(&b, h)
+	// Steps show in the order Apply takes them: Environments' host objects
+	// and vaults come before the agents, except deletes, which come after.
+	for _, h := range plan.Environments {
+		if h.Action != provider.NoOp && h.Action != provider.Delete {
+			renderHost(&b, h)
+		}
 	}
 	for _, v := range plan.Vaults {
 		if v.Action != provider.NoOp && v.Action != provider.Delete {
@@ -48,8 +49,10 @@ func Render(w io.Writer, plan *Plan) error {
 			renderVault(&b, v)
 		}
 	}
-	if h != nil && h.Action == provider.Delete {
-		renderHost(&b, h)
+	for _, h := range plan.Environments {
+		if h.Action == provider.Delete {
+			renderHost(&b, h)
+		}
 	}
 	c, u, r, d := plan.Counts()
 	fmt.Fprintf(&b, "\nPlan: %d to create, %d to update, %d to replace, %d to %s.\n", c, u, r, d, deleteVerb(plan))

@@ -10,19 +10,20 @@ import (
 )
 
 // EnvironmentHost is implemented by providers whose host keeps an object
-// for the target itself, which all its agents share (ADR 0012). A
-// Managed Agents environment is one: the sandbox template every session
-// starts from, and on self-hosted the work queue a worker polls.
+// for each Environment a target's agents use, which those agents share
+// (ADR 0012, ADR 0020). A Managed Agents environment is one: the sandbox
+// template every session starts from, and on self-hosted the work queue a
+// worker polls.
 //
-// The engine plans this object together with the agents. It creates or
-// updates it before them and deletes it after them.
+// The engine plans these objects together with the agents. It creates or
+// updates them before the agents and deletes them after.
 type EnvironmentHost interface {
-	// ValidateEnvironment reports problems with the environment as this
-	// host sees it, once per target rather than once per agent.
+	// ValidateEnvironment reports problems with the Environment as this
+	// host sees it, once per Environment rather than once per agent.
 	ValidateEnvironment(ctx context.Context, desired *Environment) []diag.Diagnostic
-	// PlanEnvironment decides what to do with the environment's object.
+	// PlanEnvironment decides what to do with the Environment's object.
 	// desired is nil when nothing should remain: on destroy, or when the
-	// target has no agents left. Most providers start from
+	// target gives the Environment no agents. Most providers start from
 	// DefaultEnvironmentPlan.
 	PlanEnvironment(ctx context.Context, desired *Environment, prior *state.EnvironmentEntry) (*EnvironmentPlan, error)
 	// ApplyEnvironment creates or updates the object. It may return a
@@ -36,24 +37,34 @@ type EnvironmentHost interface {
 	DestroyEnvironment(ctx context.Context, e *state.EnvironmentEntry) error
 }
 
-// Environment is a target as a host with environment-level objects sees
-// it: its spec and the agents it receives. ADR 0020 turns it into one
-// Environment resource of a target.
+// Environment is one Environment of a target as a host with
+// environment-level objects sees it: the sandbox, the target it's built
+// for, and the agents the target gives it (ADR 0020). Vaults use it for
+// the target alone, with no Name or Sandbox.
 type Environment struct {
+	// Name is the Environment's name, or v1alpha1.DefaultEnvironment for
+	// the built-in sandbox.
 	Name string
+	// Target is the target's name.
+	Target string
+	// Spec is the target's spec: placement, secrets and provider settings.
 	Spec *v1alpha1.TargetSpec
 	// Dir is the folder of the target's file, which relative paths
 	// in Spec start from.
-	Dir    string
+	Dir string
+	// Sandbox is the Environment's spec, or nil for the built-in sandbox.
+	Sandbox *v1alpha1.SandboxSpec
+	// SandboxDir is the folder of the Environment's file, which a relative
+	// Sandbox.Image starts from.
+	SandboxDir string
+	// Agents are the target's agents that get this Environment, sorted by
+	// name.
 	Agents []*resolve.Agent
 }
 
-// ID returns the target's logical ID.
-func (e *Environment) ID() string { return HostKind + "/" + e.Name }
-
-// HostKind starts the logical ID of an environment-level host object, as
-// in Environment/<name>, the step plan shows for it (ADR 0012).
-const HostKind = "Environment"
+// ID returns the Environment's logical ID, the step plan shows for its
+// host object.
+func (e *Environment) ID() string { return v1alpha1.KindEnvironment + "/" + e.Name }
 
 // EnvironmentPlan is what will happen to an environment's object.
 type EnvironmentPlan struct {

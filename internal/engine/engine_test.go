@@ -147,7 +147,9 @@ func TestCapabilityChecks(t *testing.T) {
 		Destroy:        provider.DestroyArchive,
 	}
 	h := newHarness(t, caps)
-	e := h.engine(project("openai:gpt-6-astra", "  sandbox: {image: ./Dockerfile}\n"))
+	files := project("openai:gpt-6-astra", "  environments: [{ref: img}]\n")
+	files["project/img.yaml"] = "apiVersion: solaria.sh/v1alpha1\nkind: Environment\nmetadata: {name: img}\nspec: {image: ./Dockerfile}\n"
+	e := h.engine(files)
 
 	_, err := e.Plan(context.Background(), "dev", PlanOptions{})
 	var failed *FailedError
@@ -158,7 +160,7 @@ func TestCapabilityChecks(t *testing.T) {
 	for _, want := range []string{
 		"error: Agent/a on limited/here: model openai:gpt-6-astra isn't available; this host runs anthropic models only",
 		`error: Agent/a on limited/here: McpServer "local-only" offers stdio, and this host connects over streamable-http only`,
-		"error: Agent/a on limited/here: sandbox.image isn't supported here",
+		`img.yaml: error: Environment "img" for Agent/a on limited/here: spec.image isn't supported here`,
 		"warning: Agent/a on limited/here: model.fallback is ignored; this host has no model fallback",
 		"warning: Agent/a on limited/here: this host can't ask for approval in unattended runs, so shell will be denied",
 	} {
