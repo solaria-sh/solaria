@@ -276,22 +276,24 @@ def social_preview(t: dict) -> str:
 
 
 HOSTS = [
-    Host("ma-cloud", 0, -128, "w", open=True),
-    Host("ma-self-hosted", 1, 142, "w"),
-    Host("local-gitagent", 2, 32, "w"),
+    Host("ma-cloud", 0, -50, "e", open=True),
+    Host("ma-self-hosted", 1, 140, "w"),
+    Host("local-gitagent", 2, 35, "e"),
 ]
 
 
 def x_header(t: dict) -> str:
-    # X profile header: 1500x500. The avatar covers the bottom left
-    # (about x < 380, y > 330) and phones crop the top and bottom edges.
+    # X profile header: 1500x500. Every client covers part of it, so the
+    # orbit sits in the middle and nothing else carries meaning:
+    # - the web draws the avatar over the bottom left (x < 380, y > 330);
+    # - the phone app shows about the middle 1250px, puts the status bar
+    #   over the top (y < 110), and draws its back button on the left
+    #   (x 160-280) and its menu and search buttons on the right
+    #   (x 1080-1330), all across the middle (y 200-320).
     W, H = 1500, 500
     body = [f'<rect width="{W}" height="{H}" fill="{t["ground"]}"/>']
-    body.append(orrery(1150, 250, 86, [154, 232, 318, 410], 3, HOSTS, t))
-    size = 58
-    body.append(text("Agents do the work.", DISPLAY, size, 96, 190, t["ink"]))
-    body.append(text("People steer.", DISPLAY, size, 96, 190 + size * 1.14, t["ink"]))
-    return svg(W, H, "".join(body), "Solaria: agents do the work, people steer")
+    body.append(orrery(750, 250, 92, [160, 240, 330, 425, 530, 640, 760], 3, HOSTS, t))
+    return svg(W, H, "".join(body), "Solaria: the reviewer agent at the center, its environments in orbit")
 
 
 BANNER_HOSTS = [
