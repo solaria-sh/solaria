@@ -1,6 +1,7 @@
-# Solaria
-
-**Plan and apply agent definitions across hosts.**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/github/banner-dark.png">
+  <img alt="Solaria: plan and apply agent definitions across hosts" src="brand/github/banner-light.png">
+</picture>
 
 Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports. It records what it deployed where, so an agent keeps one identity whether it runs in a container on your laptop or on a managed agent platform.
 

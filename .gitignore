@@ -10,6 +10,9 @@
 .env.*
 !.env.example
 
+# Fonts the brand kit downloads (brand/build.py)
+/brand/.fonts/
+
 # Wrangler's local cache (Cloudflare account and project)
 .wrangler/
 

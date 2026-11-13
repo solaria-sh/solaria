@@ -72,7 +72,7 @@ These patterns read as generated, and none of them fits Solaria: purple or blue-
 
 - `main.go`: the generator. It renders `templates/` and every page under `docs/` into `public/`, rewriting relative Markdown links into site URLs, or into GitHub URLs for files the site doesn't publish. `RepoURL` in it is the only place the repository address is written.
 - `templates/`: `base.html` (head, bar, footer), `home.html` (the landing page), `doc.html` (sidebar, article, outline), `404.html` (served by Cloudflare Pages for any path without a file; without it Pages would answer with the home page).
-- `static/`: copied as is. `tokens.css` holds every color, type, motion and space value; `site.css` and `docs.css` use only those tokens; `site.js` runs the motion, the theme switch, the install tabs and the docs menu.
+- `static/`: copied as is. `tokens.css` holds every color, type, motion and space value; `site.css` and `docs.css` use only those tokens; `site.js` runs the motion, the theme switch, the install tabs and the docs menu. `social-preview.png` is the `og:image` every page names; `brand/build.py` writes it, so change it there.
 - `static/install.sh` and `static/install.ps1`: served at `solaria.sh/install.sh` and `solaria.sh/install.ps1`. They download a release from GitHub, check its SHA-256 against `checksums.txt` and install without root.
 - `static/_headers`: Cloudflare Pages response headers. It serves the install scripts as plain text with a short cache, and keeps the `pages.dev` copies out of search results.
 - `explore/`: the exploration page from the design rounds. It isn't published.
