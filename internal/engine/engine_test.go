@@ -128,7 +128,7 @@ spec:
 `
 
 func envYAML(provider, extra string) string {
-	return "apiVersion: solaria.sh/v1alpha1\nkind: Environment\nmetadata: {name: dev}\nspec:\n  provider: " + provider + "\n  placement: here\n" + extra
+	return "apiVersion: solaria.sh/v1alpha1\nkind: Target\nmetadata: {name: dev}\nspec:\n  provider: " + provider + "\n  placement: here\n" + extra
 }
 
 func project(model, envExtra string) map[string]string {

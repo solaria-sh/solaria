@@ -13,8 +13,9 @@ import (
 )
 
 // PlanFormat names the shape of Document (ADR 0018). Fields are added
-// compatibly; removing or changing one needs a new format.
-const PlanFormat = "solaria.sh/plan/v1"
+// compatibly; removing or changing one needs a new format. v2 renamed
+// environment to target (ADR 0020).
+const PlanFormat = "solaria.sh/plan/v2"
 
 // Document is a plan as plan -o json prints it and plan --out saves it
 // (ADR 0018). It holds digests, names and summaries, never a definition's
@@ -25,7 +26,7 @@ type Document struct {
 	// must match.
 	SolariaVersion   string `json:"solariaVersion"`
 	DefinitionFormat string `json:"definitionFormat"`
-	Environment      string `json:"environment"`
+	Target           string `json:"target"`
 	Provider         string `json:"provider"`
 	Placement        string `json:"placement"`
 	// Options are the plan's flags, which apply plans with again.
@@ -34,7 +35,7 @@ type Document struct {
 	State DocumentState `json:"state"`
 	// Source is the checkout the plan was made from.
 	Source state.Source `json:"source"`
-	// Host is the environment's own host object (ADR 0012), when the
+	// Host is the target's own host object (ADR 0012), when the
 	// provider keeps one.
 	Host *HostStep `json:"host,omitempty"`
 	// Vaults are host vaults (ADR 0016), when the provider keeps them.
@@ -54,7 +55,7 @@ type DocumentOptions struct {
 }
 
 // DocumentState identifies a state. Lineage is empty while the
-// environment has no state yet, which serial 0 also says.
+// target has no state yet, which serial 0 also says.
 type DocumentState struct {
 	Lineage string `json:"lineage,omitempty"`
 	Serial  int    `json:"serial"`
@@ -84,7 +85,7 @@ type HostDigest struct {
 	Digest string `json:"digest"`
 }
 
-// HostStep is what the plan does to the environment's host object or to a
+// HostStep is what the plan does to the target's host object or to a
 // host vault.
 type HostStep struct {
 	ID     string          `json:"id"`
@@ -121,7 +122,7 @@ func (e *Engine) Document(p *Plan) *Document {
 		Format:           PlanFormat,
 		SolariaVersion:   version.Version,
 		DefinitionFormat: resolve.Format,
-		Environment:      p.Environment,
+		Target:           p.Target,
 		Provider:         p.Provider,
 		Placement:        p.Placement,
 		Options:          DocumentOptions(p.Options),
@@ -198,7 +199,7 @@ func (d *Document) Differences(fresh *Document) []string {
 		add("the plan uses definition format %s, and this Solaria uses %s", d.DefinitionFormat, fresh.DefinitionFormat)
 	}
 	if d.Provider != fresh.Provider || d.Placement != fresh.Placement {
-		add("the environment moved from %s/%s to %s/%s", d.Provider, d.Placement, fresh.Provider, fresh.Placement)
+		add("the target moved from %s/%s to %s/%s", d.Provider, d.Placement, fresh.Provider, fresh.Placement)
 	}
 	// An empty lineage means no state yet, which a first apply changes
 	// like any other: by its serial.

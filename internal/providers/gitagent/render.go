@@ -79,7 +79,7 @@ func (r *renderer) render() error {
 	settings := r.settings()
 	b.Platform = settings.platform
 	b.Commit = settings.commit
-	b.Repository = "solaria/" + a.Environment + "/" + a.Name
+	b.Repository = "solaria/" + a.Target + "/" + a.Name
 	b.Image = b.Repository + ":" + strings.TrimPrefix(a.ResolvedDigest, "sha256:")[:12]
 
 	cfg, err := r.config()
@@ -111,20 +111,20 @@ func (r *renderer) render() error {
 	}
 	allow, deny := r.tools()
 	b.Files[dockerfilePath] = dockerfile(dockerfileData{
-		LogicalID:   a.ID(),
-		Environment: a.Environment,
-		Commit:      b.Commit,
-		Base:        base,
-		Packages:    container.Packages(a.Env.Sandbox),
-		Allow:       allow,
-		Deny:        deny,
+		LogicalID: a.ID(),
+		Target:    a.Target,
+		Commit:    b.Commit,
+		Base:      base,
+		Packages:  container.Packages(a.Env.Sandbox),
+		Allow:     allow,
+		Deny:      deny,
 	})
 
 	b.Invocation = r.invocation()
 	b.Run = container.ShellCommand(b.Invocation.Argv)
 	b.Labels = map[string]string{
 		labelPrefix + "logical-id":      a.ID(),
-		labelPrefix + "environment":     a.Environment,
+		labelPrefix + "target":          a.Target,
 		labelPrefix + "spec-digest":     a.SpecDigest,
 		labelPrefix + "resolved-digest": a.ResolvedDigest,
 		labelPrefix + "gitagent-commit": b.Commit,
@@ -155,7 +155,7 @@ type settings struct {
 	platform, commit string
 }
 
-// settings reads the environment's providers.gitagent and checks the
+// settings reads the target's providers.gitagent and checks the
 // agent's own.
 func (r *renderer) settings() settings {
 	s := settings{platform: DefaultPlatform, commit: GitagentCommit}
@@ -166,19 +166,19 @@ func (r *renderer) settings() settings {
 		case "platform":
 			p, _ := v.(string)
 			if !slices.Contains(platforms, p) {
-				r.errorf("Environment providers.gitagent.platform must be %s, not %v", strings.Join(platforms, " or "), v)
+				r.errorf("Target providers.gitagent.platform must be %s, not %v", strings.Join(platforms, " or "), v)
 				continue
 			}
 			s.platform = p
 		case "commit":
 			c, _ := v.(string)
 			if !commitPattern.MatchString(c) {
-				r.errorf("Environment providers.gitagent.commit must be a full 40-character commit hash of gitagent, such as %s, not %v", GitagentCommit, v)
+				r.errorf("Target providers.gitagent.commit must be a full 40-character commit hash of gitagent, such as %s, not %v", GitagentCommit, v)
 				continue
 			}
 			s.commit = c
 		default:
-			r.warnf("Environment providers.gitagent.%s isn't a gitagent setting and is ignored; the settings are: platform, commit", k)
+			r.warnf("Target providers.gitagent.%s isn't a gitagent setting and is ignored; the settings are: platform, commit", k)
 		}
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.a.Definition.Providers[Name])) {
@@ -384,11 +384,11 @@ func (r *renderer) tools() (allow, deny []string) {
 }
 
 // base returns the FROM line's image, building a sandbox Dockerfile first
-// when the environment names one.
+// when the target names one.
 func (r *renderer) base() (string, error) {
 	image, build, err := container.SandboxBase(r.a.Env.Sandbox, r.a.EnvDir,
-		"solaria/"+r.a.Environment+"/"+r.a.Name+"-sandbox", r.b.Platform,
-		map[string]string{labelPrefix + "environment": r.a.Environment})
+		"solaria/"+r.a.Target+"/"+r.a.Name+"-sandbox", r.b.Platform,
+		map[string]string{labelPrefix + "target": r.a.Target})
 	if build != nil {
 		r.b.Base, r.b.BaseImage = build, image
 	}
@@ -410,7 +410,7 @@ func (r *renderer) sandboxWarnings() {
 
 // invocation builds the docker run command. It names secrets and API keys but
 // never contains their values: docker copies them from the caller's
-// environment, or from the environment's dotenv file.
+// environment, or from the target's dotenv file.
 func (r *renderer) invocation() *state.Invocation {
 	a := r.a
 	inv := &state.Invocation{Task: state.TaskInput{Flag: "-p"}}

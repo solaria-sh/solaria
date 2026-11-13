@@ -1,11 +1,11 @@
 # Solaria documentation
 
-- [Concepts](concepts.md): resources, providers and placements, the sandbox, identity, state, the workflow, starting an agent, and pinning environments with `solaria.lock`.
+- [Concepts](concepts.md): resources, providers and placements, the sandbox, identity, state, the workflow, starting an agent, and pinning targets with `solaria.lock`.
 - [Getting started](getting-started.md): install Solaria and take one agent through validate, plan, apply and destroy, with no credentials.
 - [Editors and coding agents](editors.md): completion and field checks from the published schema, and `solaria validate` from an editor or a coding agent.
 - Resources, every field of each kind, generated from the schema:
   - [`Agent`](resources/agent.md): what the agent is, independently of any host;
-  - [`Environment`](resources/environment.md): where agents run, and everything about that place;
+  - [`Target`](resources/target.md): where agents run, and everything about that place;
   - [`McpServer`](resources/mcp-server.md): an MCP server that agents refer to by name;
   - [`Vault`](resources/vault.md): credentials that agents use by reference.
 - Providers:

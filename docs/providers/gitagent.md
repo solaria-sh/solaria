@@ -4,7 +4,7 @@ The `gitagent` provider builds each agent into a container image that runs [gita
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-gitagent}
 spec:
   provider: gitagent
@@ -18,11 +18,11 @@ spec:
 ## What apply does
 
 1. Renders the agent into gitagent's config layer, `/root/.gitagent` in the image: `gitagent.yaml` (model, fallbacks, limits, MCP servers), `prompts/rules.md` (the instructions, which follow gitagent's own system prompt) and `skills/`.
-2. Generates a Dockerfile: gitagent compiled from a pinned commit, the [Solaria sandbox base](../concepts.md#the-sandbox) or `sandbox.image`, then the environment's packages.
-3. Builds `solaria/<environment>/<agent>:<resolvedDigest[:12]>`, labeled with the logical ID and both digests, and removes the previous tag.
-4. Records a `docker run` command in the state. `apply` prints it, and `solaria status -e <environment> -a <agent>` shows it with the variables it needs; the task goes after it with `-p`. `status -o json` gives it as an `invocation` (see [Starting an agent](../concepts.md#starting-an-agent)).
+2. Generates a Dockerfile: gitagent compiled from a pinned commit, the [Solaria sandbox base](../concepts.md#the-sandbox) or `sandbox.image`, then the target's packages.
+3. Builds `solaria/<target>/<agent>:<resolvedDigest[:12]>`, labeled with the logical ID and both digests, and removes the previous tag.
+4. Records a `docker run` command in the state. `apply` prints it, and `solaria status -t <target> -a <agent>` shows it with the variables it needs; the task goes after it with `-p`. `status -o json` gives it as an `invocation` (see [Starting an agent](../concepts.md#starting-an-agent)).
 
-The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspection. The first build compiles gitagent and the sandbox base, which takes several minutes; later builds reuse Docker's cache.
+The build context stays in `.solaria/gitagent/<target>/<agent>/` for inspection. The first build compiles gitagent and the sandbox base, which takes several minutes; later builds reuse Docker's cache.
 
 ## How the definition maps
 
@@ -40,16 +40,16 @@ The build context stays in `.solaria/gitagent/<environment>/<agent>/` for inspec
 | `telemetry` | `OTEL_*` variables in the run command. gitagent doesn't read `OTEL_RESOURCE_ATTRIBUTES` yet, so the identity and `resourceAttributes` set there don't reach its traces. |
 | `workspace.access: read-only` | the workspace is mounted `:ro` |
 | `repositories` | not supported; plan fails, naming each one: the image runs gitagent directly, with nothing to clone before it. Use [claude-agent-sdk](claude-agent-sdk.md#repositories). |
-| identity | `SOLARIA_LOGICAL_ID`, `SOLARIA_ENVIRONMENT`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` in the run command |
+| identity | `SOLARIA_LOGICAL_ID`, `SOLARIA_TARGET`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` in the run command |
 
 ## Sandbox
 
 - `packages` install in exec form: package names are arguments, never shell text, and a name starting with `-` fails plan.
 - `resources.memory` becomes `docker run --memory`, 8 GiB by default.
 - Docker can't enforce `network` host lists or `resources.disk`, so plan warns about them.
-- `image` takes an image reference, or a Dockerfile path relative to the environment's file, which is built first.
+- `image` takes an image reference, or a Dockerfile path relative to the target's file, which is built first.
 
-The run command mounts the folder it starts in at `/workspace`, or the folder the environment binds in `inputs.workspace.path` ([The workspace](../concepts.md#the-workspace)).
+The run command mounts the folder it starts in at `/workspace`, or the folder the target binds in `inputs.workspace.path` ([The workspace](../concepts.md#the-workspace)).
 
 ## Settings
 

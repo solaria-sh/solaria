@@ -1,32 +1,32 @@
 # Changes made outside Solaria, and agents leaving the configuration.
-exec solaria apply -e local --auto-approve
+exec solaria apply -t local --auto-approve
 stdout 'Apply complete: 3 created'
 
 # Editing a host object is drift: plan updates it back.
 replace .solaria/stub/local/alpha.json '"version": 1' '"version": 9'
-exec solaria plan -e local
+exec solaria plan -t local
 stdout '^  ~ Agent/alpha \(changed outside Solaria since the last apply\)$'
 # Reformatting it is not drift.
-exec solaria apply -e local --auto-approve
+exec solaria apply -t local --auto-approve
 replace .solaria/stub/local/alpha.json '  ' '    '
-exec solaria plan -e local --detailed-exitcode
+exec solaria plan -t local --detailed-exitcode
 
 # A deleted host object is created again, keeping its history.
 rm .solaria/stub/local/beta.json
-exec solaria plan -e local
+exec solaria plan -t local
 stdout '^  \+ Agent/beta \(deleted outside Solaria; it will be created again\)$'
-exec solaria plan -e local --refresh=false --detailed-exitcode
+exec solaria plan -t local --refresh=false --detailed-exitcode
 
 # An agent removed from the configuration is deleted; one the selector no
 # longer matches too.
 replace agents.yaml 'name: gamma' 'name: gamma\n  labels: {tier: other}'
 replace environment.yaml 'placement: file' 'placement: file\n  agents: {selector: {matchLabels: {tier: main}}}'
 replace agents.yaml 'metadata: {name: beta, labels: {tier: main}}' 'metadata: {name: delta, labels: {tier: main}}'
-exec solaria plan -e local
+exec solaria plan -t local
 cmp stdout plan-removed.txt
 
 -- plan-removed.txt --
-Environment local (stub/file)
+Target local (stub/file)
 
   - Agent/beta (no longer in the configuration; already gone from the host)
       host: stub_b417c6ca992b version 1
@@ -34,13 +34,13 @@ Environment local (stub/file)
   + Agent/delta
       resolvedDigest: sha256:198856488b02
 
-  - Agent/gamma (no longer selected by this environment)
+  - Agent/gamma (no longer selected by this target)
       host: stub_db92bcd27a2d version 1
 
 Plan: 1 to create, 0 to update, 0 to replace, 2 to delete.
 -- environment.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec:
   provider: stub

@@ -23,7 +23,7 @@ spec:
       for: {gitHost: dev.azure.com}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ci-srt}
 spec:
   provider: claude-agent-sdk
@@ -40,7 +40,7 @@ spec:
         depth: 1
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ci-docker}
 spec:
   provider: claude-agent-sdk

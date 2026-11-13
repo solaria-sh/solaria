@@ -8,7 +8,7 @@ import (
 
 // SetWorkspace records an agent's workspace in its invocation (ADR 0017):
 // how the command finds it (state.WorkspaceCwd or state.WorkspaceMount,
-// unless the environment binds a folder, state.WorkspaceBound) and what
+// unless the target binds a folder, state.WorkspaceBound) and what
 // the agent may do to it.
 func SetWorkspace(inv *state.Invocation, a *resolve.Agent, how string) {
 	inv.Workspace = how

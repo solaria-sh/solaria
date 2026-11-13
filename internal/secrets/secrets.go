@@ -1,4 +1,4 @@
-// Package secrets reads secret values from an environment's secret source
+// Package secrets reads secret values from a target's secret source
 // (spec.secrets): the process environment, or a dotenv file. Providers read
 // a value only to hand it to a host or a container. Solaria never stores
 // one: state and plans hold reference names only.
@@ -30,8 +30,8 @@ func (s Source) Lookup(name string) (value string, ok bool, err error) {
 	return v, ok && v != "", err
 }
 
-// For returns the source an environment spec names, relative to dir, the
-// folder of the environment's file. No secrets spec means the process
+// For returns the source a target spec names, relative to dir, the
+// folder of the target's file. No secrets spec means the process
 // environment.
 func For(spec *v1alpha1.SecretsSpec, dir string) Source {
 	if spec == nil || spec.Source != v1alpha1.SecretsDotenv {

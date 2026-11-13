@@ -1,10 +1,10 @@
 # metadata.annotations record how an agent is operated (ADR 0008). They're
 # left out of the digests and never sent to the host, so changing one
 # plans nothing, and status -o json reads them from the configuration.
-exec solaria apply -e local --auto-approve
+exec solaria apply -t local --auto-approve
 stdout '^Apply complete: 1 created'
 
-exec solaria status -e local -o json
+exec solaria status -t local -o json
 stdout '"annotations": \{'
 stdout '"owner": "platform-team"'
 stdout '"trigger": "every pull request, after CI"'
@@ -12,9 +12,9 @@ stdout '"configuration": "upToDate"'
 
 # Changing an annotation changes nothing deployed.
 replace solaria.yaml 'owner: platform-team' 'owner: review-guild'
-exec solaria plan -e local
+exec solaria plan -t local
 stdout 'No changes'
-exec solaria status -e local -o json
+exec solaria status -t local -o json
 stdout '"owner": "review-guild"'
 stdout '"configuration": "upToDate"'
 ! exec grep -r review-guild .solaria
@@ -37,7 +37,7 @@ spec:
   model: {preferred: anthropic:claude-haiku-5-5}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec: {provider: stub, placement: file}
 -- role.md --

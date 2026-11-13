@@ -38,8 +38,8 @@ type AzureBlobConfig struct {
 	Prefix string
 }
 
-// AzureBlob stores each environment's state as a blob in an Azure Storage
-// container, <prefix>/<environment>.json, holding the same JSON as a local
+// AzureBlob stores each target's state as a blob in an Azure Storage
+// container, <prefix>/<target>.json, holding the same JSON as a local
 // state file (ADR 0009). The lock is a lease on that blob, renewed until
 // Unlock, so a stopped run's lock expires on its own within a lease
 // period. Credentials come from the Azure credential chain.
@@ -60,7 +60,7 @@ type AzureBlob struct {
 	held map[string]*heldLease
 }
 
-// heldLease is a lease this process holds on an environment's blob.
+// heldLease is a lease this process holds on a target's blob.
 type heldLease struct {
 	nonce    string
 	lease    *lease.BlobClient
@@ -114,8 +114,8 @@ func (b *AzureBlob) ctx() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), b.timeout)
 }
 
-// Lock leases the environment's blob, creating an empty one first if the
-// environment has no state yet: a lease needs a blob, and Read treats an
+// Lock leases the target's blob, creating an empty one first if the
+// target has no state yet: a lease needs a blob, and Read treats an
 // empty one as no state. The lease ID is the nonce.
 func (b *AzureBlob) Lock(env string, info LockInfo) (string, error) {
 	ctx, cancel := b.ctx()
@@ -125,19 +125,19 @@ func (b *AzureBlob) Lock(env string, info LockInfo) (string, error) {
 		AccessConditions: &blob.AccessConditions{ModifiedAccessConditions: &blob.ModifiedAccessConditions{IfNoneMatch: to.Ptr(azcore.ETagAny)}},
 	})
 	if err != nil && !bloberror.HasCode(err, bloberror.BlobAlreadyExists, bloberror.ConditionNotMet, bloberror.LeaseIDMissing) {
-		return "", b.fail(err, "lock environment %q", env)
+		return "", b.fail(err, "lock target %q", env)
 	}
 
 	info.Nonce = NewNonce()
 	lc, err := lease.NewBlobClient(bb, &lease.BlobClientOptions{LeaseID: to.Ptr(info.Nonce)})
 	if err != nil {
-		return "", fmt.Errorf("lock environment %q: %w", env, err)
+		return "", fmt.Errorf("lock target %q: %w", env, err)
 	}
 	if _, err := lc.AcquireLease(ctx, b.leaseSeconds, nil); err != nil {
 		if bloberror.HasCode(err, bloberror.LeaseAlreadyPresent) {
 			return "", b.locked(ctx, env)
 		}
-		return "", b.fail(err, "lock environment %q", env)
+		return "", b.fail(err, "lock target %q", env)
 	}
 	raw, err := json.Marshal(info)
 	if err != nil {
@@ -146,7 +146,7 @@ func (b *AzureBlob) Lock(env string, info LockInfo) (string, error) {
 	metadata := map[string]*string{lockMetadata: to.Ptr(base64.StdEncoding.EncodeToString(raw))}
 	if _, err := bb.SetMetadata(ctx, metadata, &blob.SetMetadataOptions{AccessConditions: leased(info.Nonce)}); err != nil {
 		_, _ = lc.ReleaseLease(ctx, nil)
-		return "", b.fail(err, "lock environment %q", env)
+		return "", b.fail(err, "lock target %q", env)
 	}
 
 	h := &heldLease{nonce: info.Nonce, lease: lc, metadata: metadata, stop: make(chan struct{}), done: make(chan struct{})}
@@ -181,12 +181,12 @@ func (b *AzureBlob) renew(h *heldLease) {
 func (b *AzureBlob) locked(ctx context.Context, env string) error {
 	info, ok, err := b.lockInfo(ctx, env)
 	if err != nil {
-		return fmt.Errorf("environment %q is locked, and its lock information can't be read: %w", env, err)
+		return fmt.Errorf("target %q is locked, and its lock information can't be read: %w", env, err)
 	}
 	if !ok {
-		return fmt.Errorf("environment %q is locked by a lease Solaria didn't take on %s; if no one is using it, break the blob's lease in Azure", env, b.where(env))
+		return fmt.Errorf("target %q is locked by a lease Solaria didn't take on %s; if no one is using it, break the blob's lease in Azure", env, b.where(env))
 	}
-	return &LockedError{Environment: env, Holder: info}
+	return &LockedError{Target: env, Holder: info}
 }
 
 // lockInfo reads the lock information of env's blob, and whether its
@@ -197,7 +197,7 @@ func (b *AzureBlob) lockInfo(ctx context.Context, env string) (info LockInfo, le
 		return info, false, nil
 	}
 	if err != nil {
-		return info, false, b.fail(err, "read lock of environment %q", env)
+		return info, false, b.fail(err, "read lock of target %q", env)
 	}
 	if props.LeaseState == nil || *props.LeaseState != lease.StateTypeLeased {
 		return info, false, nil
@@ -223,7 +223,7 @@ func (b *AzureBlob) Unlock(env, nonce string) error {
 	h := b.held[env]
 	if h == nil || h.nonce != nonce {
 		b.mu.Unlock()
-		return fmt.Errorf("environment %q isn't locked by this run with %s", env, nonce)
+		return fmt.Errorf("target %q isn't locked by this run with %s", env, nonce)
 	}
 	delete(b.held, env)
 	b.mu.Unlock()
@@ -235,7 +235,7 @@ func (b *AzureBlob) Unlock(env, nonce string) error {
 	// Clear the lock information first: it describes the lease.
 	_, _ = b.blob(env).SetMetadata(ctx, nil, &blob.SetMetadataOptions{AccessConditions: leased(nonce)})
 	if _, err := h.lease.ReleaseLease(ctx, nil); err != nil {
-		return b.fail(err, "unlock environment %q", env)
+		return b.fail(err, "unlock target %q", env)
 	}
 	return nil
 }
@@ -247,32 +247,32 @@ func (b *AzureBlob) ForceUnlock(env, nonce string) error {
 	defer cancel()
 	props, err := b.blob(env).GetProperties(ctx, nil)
 	if err != nil && !bloberror.HasCode(err, bloberror.BlobNotFound) {
-		return b.fail(err, "read lock of environment %q", env)
+		return b.fail(err, "read lock of target %q", env)
 	}
 	if err != nil || props.LeaseState == nil || *props.LeaseState != lease.StateTypeLeased {
-		return fmt.Errorf("environment %q is not locked", env)
+		return fmt.Errorf("target %q is not locked", env)
 	}
 	info, ok, err := b.lockInfo(ctx, env)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("environment %q is locked by a lease Solaria didn't take on %s; break it in Azure if no one is using it", env, b.where(env))
+		return fmt.Errorf("target %q is locked by a lease Solaria didn't take on %s; break it in Azure if no one is using it", env, b.where(env))
 	}
 	if info.Nonce != nonce {
-		return fmt.Errorf("environment %q is locked with %s, not %s", env, info.Nonce, nonce)
+		return fmt.Errorf("target %q is locked with %s, not %s", env, info.Nonce, nonce)
 	}
 	lc, err := lease.NewBlobClient(b.blob(env), nil)
 	if err != nil {
-		return fmt.Errorf("unlock environment %q: %w", env, err)
+		return fmt.Errorf("unlock target %q: %w", env, err)
 	}
 	if _, err := lc.BreakLease(ctx, &lease.BlobBreakOptions{BreakPeriod: to.Ptr(int32(0))}); err != nil {
-		return b.fail(err, "unlock environment %q", env)
+		return b.fail(err, "unlock target %q", env)
 	}
 	return nil
 }
 
-// Read downloads the environment's blob. A missing or empty blob is no
+// Read downloads the target's blob. A missing or empty blob is no
 // state.
 func (b *AzureBlob) Read(env string) (*State, error) {
 	ctx, cancel := b.ctx()
@@ -282,7 +282,7 @@ func (b *AzureBlob) Read(env string) (*State, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, b.fail(err, "read state of environment %q", env)
+		return nil, b.fail(err, "read state of target %q", env)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
@@ -298,7 +298,7 @@ func (b *AzureBlob) Read(env string) (*State, error) {
 // Write checks lineage and serial against the blob, then replaces it under
 // the lease this process holds.
 func (b *AzureBlob) Write(s *State) error {
-	env := s.Environment
+	env := s.Target
 	b.mu.Lock()
 	h := b.held[env]
 	var renewErr error
@@ -307,7 +307,7 @@ func (b *AzureBlob) Write(s *State) error {
 	}
 	b.mu.Unlock()
 	if h == nil {
-		return fmt.Errorf("write state of environment %q: this run doesn't hold its lock", env)
+		return fmt.Errorf("write state of target %q: this run doesn't hold its lock", env)
 	}
 	current, err := b.Read(env)
 	if err != nil {
@@ -332,16 +332,16 @@ func (b *AzureBlob) Write(s *State) error {
 	})
 	if err != nil {
 		if renewErr != nil {
-			return fmt.Errorf("%w; the lock was probably lost, since renewing its lease failed: %w", b.fail(err, "write state of environment %q", env), renewErr)
+			return fmt.Errorf("%w; the lock was probably lost, since renewing its lease failed: %w", b.fail(err, "write state of target %q", env), renewErr)
 		}
-		return b.fail(err, "write state of environment %q", env)
+		return b.fail(err, "write state of target %q", env)
 	}
 	s.Serial = next.Serial
 	return nil
 }
 
-// Environments lists the non-empty state blobs directly under the prefix.
-func (b *AzureBlob) Environments() ([]string, error) {
+// Targets lists the non-empty state blobs directly under the prefix.
+func (b *AzureBlob) Targets() ([]string, error) {
 	ctx, cancel := b.ctx()
 	defer cancel()
 	prefix := ""

@@ -1,12 +1,12 @@
-# One agent, three places to run it. Only these environments differ; the
+# One agent, three places to run it. Only these targets differ; the
 # card in agent.yaml stays the same, and so does its specDigest.
 #
-# Every environment gets the same sandbox: ripgrep on top of the Solaria
+# Every target gets the same sandbox: ripgrep on top of the Solaria
 # sandbox base, with package managers and GitHub reachable.
 
 # A gitagent container image on this machine. Cheaper model for local runs.
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: local-gitagent
 spec:
@@ -21,7 +21,7 @@ spec:
 ---
 # Claude Managed Agents: Anthropic runs the agent loop and the sandbox.
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: ma-cloud
 spec:
@@ -36,7 +36,7 @@ spec:
 # Claude Managed Agents with the sandbox on this machine: Anthropic runs the
 # agent loop, and a worker container here runs its tools.
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: ma-self-hosted
 spec:

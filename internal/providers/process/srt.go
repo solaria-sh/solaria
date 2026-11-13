@@ -15,7 +15,7 @@ import (
 )
 
 // SRT is the command that runs a launcher inside Anthropic's
-// sandbox-runtime when an environment sets sandbox.isolation: srt (ADR
+// sandbox-runtime when a target sets sandbox.isolation: srt (ADR
 // 0017), and the npm package that installs it.
 const (
 	SRT        = "srt"
@@ -80,7 +80,7 @@ type SRTFilesystem struct {
 // MCP packages come from, the telemetry endpoint, and sandbox.network.
 func SRTFor(a *resolve.Agent, cacheDir string, modelHosts []string) SRTSettings {
 	hosts, local := NeededHosts(a, modelHosts)
-	// A run starts in its workspace unless the environment binds one.
+	// A run starts in its workspace unless the target binds one.
 	ws := a.WorkspacePath()
 	if ws == "" {
 		ws = "."

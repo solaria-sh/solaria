@@ -1,6 +1,6 @@
 // Package gitagent deploys agents as container images that run gitagent
 // (ADR 0006). Its one placement, docker, builds an image per agent and
-// environment with the local docker CLI:
+// target with the local docker CLI:
 //
 //   - the card becomes gitagent's config layer in the image's
 //     /root/.gitagent: gitagent.yaml (model, limits, MCP servers),
@@ -9,14 +9,14 @@
 //   - the tools become --allowed-tools or --disallowed-tools in the
 //     entrypoint, and permissions.ask becomes a denial, since nobody can
 //     approve in an unattended run;
-//   - the environment's sandbox becomes the image's base and packages
+//   - the target's sandbox becomes the image's base and packages
 //     (ADR 0007).
 //
-// The image is tagged solaria/<environment>/<agent>:<resolvedDigest[:12]>
+// The image is tagged solaria/<target>/<agent>:<resolvedDigest[:12]>
 // and labeled with the logical ID and both digests. Apply records a ready
 // docker run command as the run output; the task goes after it as -p.
 //
-// Environments can set providers.gitagent.platform to linux/amd64 (the
+// Targets can set providers.gitagent.platform to linux/amd64 (the
 // default, as in the cloud sandbox) or linux/arm64, and
 // providers.gitagent.commit to build another gitagent commit than the one
 // Solaria was tested with. The binding records the commit.
@@ -71,7 +71,7 @@ func NewWithDocker(opts provider.Options, d container.Docker) *Provider {
 	if log == nil {
 		log = io.Discard
 	}
-	return &Provider{env: opts.Environment, workDir: opts.WorkDir, log: log, docker: d}
+	return &Provider{env: opts.Target, workDir: opts.WorkDir, log: log, docker: d}
 }
 
 // Provider is the gitagent provider.
@@ -115,7 +115,7 @@ func (p *Provider) Validate(_ context.Context, a *resolve.Agent) []diag.Diagnost
 }
 
 // Plan starts from the default plan and adds what the digests don't
-// cover: the environment's sandbox, the generated image and the run
+// cover: the target's sandbox, the generated image and the run
 // command can change while the agent's definition stays the same.
 func (p *Provider) Plan(_ context.Context, desired *resolve.Agent, prior *state.Entry) (*provider.Plan, error) {
 	pl := provider.DefaultPlan(desired, prior)
@@ -133,9 +133,9 @@ func (p *Provider) Plan(_ context.Context, desired *resolve.Agent, prior *state.
 			pl.Reason = "the image's inputs changed although the agent didn't"
 			switch changes[0].Path {
 			case "gitagent":
-				pl.Reason = "the environment's gitagent commit changed"
+				pl.Reason = "the target's gitagent commit changed"
 			case "sandbox":
-				pl.Reason = "the environment's sandbox changed"
+				pl.Reason = "the target's sandbox changed"
 			}
 		}
 	case provider.Update:

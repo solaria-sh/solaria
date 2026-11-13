@@ -62,7 +62,7 @@ spec:
         - {name: Authorization, secretRef: GIT_HOST_TOKEN}
 `,
 	"environments.yaml": `apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec:
   provider: gitagent
@@ -76,7 +76,7 @@ spec:
         gitagent: {profile: fast}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: cloud}
 spec:
   provider: managed-agents
@@ -117,7 +117,7 @@ func resolveAll(t *testing.T, files map[string]string) map[string][]resolve.Agen
 	}
 	out := map[string][]resolve.Agent{}
 	for _, env := range []string{"local", "cloud"} {
-		agents, err := resolve.Environment(set, env)
+		agents, err := resolve.Target(set, env)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -359,8 +359,8 @@ func TestDigestStability(t *testing.T) {
 
 func TestUnknownEnvironment(t *testing.T) {
 	set, _ := config.Load([]string{write(t, project)})
-	if _, err := resolve.Environment(set, "nowhere"); err == nil || !strings.Contains(err.Error(), `no Environment named "nowhere"`) {
-		t.Errorf("err = %v, want no Environment named \"nowhere\"", err)
+	if _, err := resolve.Target(set, "nowhere"); err == nil || !strings.Contains(err.Error(), `no Target named "nowhere"`) {
+		t.Errorf("err = %v, want no Target named \"nowhere\"", err)
 	}
 }
 
@@ -470,7 +470,7 @@ spec:
     - {name: cli, secretRef: CLI_TOKEN, for: {env: CLI_TOKEN}}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec:
   provider: stub
@@ -481,7 +481,7 @@ spec:
       spec: {url: "https://github.com/example/spec.git", depth: 1}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: cloud}
 spec:
   provider: stub

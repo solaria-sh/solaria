@@ -9,7 +9,7 @@ Solaria doesn't start either. `apply` writes a bundle with a launcher, builds th
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-sdk}
 spec:
   provider: claude-agent-sdk
@@ -22,19 +22,19 @@ spec:
 
 ## What apply does
 
-1. Renders a bundle into `.solaria/claude-agent-sdk/<environment>/<agent>/<id>/`, where `<id>` is the first 12 hex digits of the bundle's build digest. The digest covers every file in the bundle, so it changes with the definition, the runtime, the SDK version and Solaria's launcher.
+1. Renders a bundle into `.solaria/claude-agent-sdk/<target>/<agent>/<id>/`, where `<id>` is the first 12 hex digits of the bundle's build digest. The digest covers every file in the bundle, so it changes with the definition, the runtime, the SDK version and Solaria's launcher.
 2. Installs the SDK into the bundle at an exact version: `npm install` from a generated `package.json`, which writes `package-lock.json`, or a virtual environment (`venv/`) for Python, whose resolved versions go to `requirements.lock`. Downloads are cached in `.solaria/claude-agent-sdk/.cache/`.
 3. Removes the agent's previous bundle.
 4. Records the command that starts the launcher. `apply` prints it:
 
 ```console
-$ solaria apply -e local-sdk
+$ solaria apply -t local-sdk
 ...
   Agent/hello: .solaria/claude-agent-sdk/local-sdk/hello version 3f9c1a0d2b7e (sha256:08ffaed7b158)
     run: node /path/to/project/.solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs
 ```
 
-`solaria status -e local-sdk -a hello` shows it again later, with the variables it needs, and `-o json` gives it as an `invocation` for programs (see [Starting an agent](../concepts.md#starting-an-agent)). Run it from the folder the agent should work in. The task goes after it with `-p`, or on stdin:
+`solaria status -t local-sdk -a hello` shows it again later, with the variables it needs, and `-o json` gives it as an `invocation` for programs (see [Starting an agent](../concepts.md#starting-an-agent)). Run it from the folder the agent should work in. The task goes after it with `-p`, or on stdin:
 
 ```bash
 node .solaria/claude-agent-sdk/local-sdk/hello/3f9c1a0d2b7e/launch.mjs -p "Say hello."
@@ -60,9 +60,9 @@ spec:
     packages: {apt: [ripgrep]}
 ```
 
-`apply` writes the same bundle, plus a `Dockerfile`, and builds `solaria/<environment>/<agent>:<id>` from it:
+`apply` writes the same bundle, plus a `Dockerfile`, and builds `solaria/<target>/<agent>:<id>` from it:
 
-1. The sandbox stages every Solaria image shares: the Solaria sandbox base, which has Node, Python and uv, or `sandbox.image`, then the environment's packages.
+1. The sandbox stages every Solaria image shares: the Solaria sandbox base, which has Node, Python and uv, or `sandbox.image`, then the target's packages.
 2. The SDK at its exact version, installed in `/opt/solaria/agent`. Nothing in this layer depends on the agent, so agents on the same SDK version and sandbox share it.
 3. The bundle, the only layer a card change rebuilds.
 
@@ -73,7 +73,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume "$PWD":/workspace
   --env ANTHROPIC_API_KEY solaria/local-sdk-docker/hello:3f9c1a0d2b7e -p "Say hello."
 ```
 
-The secrets come from the environment's dotenv file (`--env-file`) or the caller's environment (`--env NAME`). Inside, the launcher isolates the run as on `process`, but keeps the image's own `PATH`, so the run finds what `sandbox.packages` installed. The first build installs the sandbox base and takes several minutes; later builds reuse Docker's cache.
+The secrets come from the target's dotenv file (`--env-file`) or the caller's environment (`--env NAME`). Inside, the launcher isolates the run as on `process`, but keeps the image's own `PATH`, so the run finds what `sandbox.packages` installed. The first build installs the sandbox base and takes several minutes; later builds reuse Docker's cache.
 
 A `sandbox.image` replaces the Solaria sandbox base, so it must have the runtime (Node 18.14 or later with npm, or Python 3.10 or later with venv) and `npx` or `uvx` for stdio MCP servers. Plan warns about what it needs.
 
@@ -92,7 +92,7 @@ A local process sees everything its user has: settings, skills and plugins in th
 The launcher prints one JSON object on stdout: the SDK's result plus the agent's identity.
 
 ```json
-{"logicalId": "Agent/hello", "environment": "local-sdk", "resolvedDigest": "sha256:08ffaed7b158...", "runtime": "node", "sdkVersion": "0.3.319",
+{"logicalId": "Agent/hello", "target": "local-sdk", "resolvedDigest": "sha256:08ffaed7b158...", "runtime": "node", "sdkVersion": "0.3.319",
  "subtype": "success", "is_error": false, "result": "Hello!", "usage": {...}, "total_cost_usd": 0.0012, "num_turns": 1, "session_id": "..."}
 ```
 
@@ -127,7 +127,7 @@ When the agent has `output.schema`, `structured_output` holds the answer: a JSON
 | `secretRef` | A reference in `options.json`; the launcher reads the value from the secret source when the run starts |
 | `telemetry` | Claude Code's OpenTelemetry variables: metrics and logs over OTLP, with the agent's identity and `resourceAttributes` in `OTEL_RESOURCE_ATTRIBUTES` |
 
-Every run also gets the agent's identity in `SOLARIA_LOGICAL_ID`, `SOLARIA_ENVIRONMENT`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` ([Identity](../concepts.md#identity)).
+Every run also gets the agent's identity in `SOLARIA_LOGICAL_ID`, `SOLARIA_TARGET`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` ([Identity](../concepts.md#identity)).
 
 Every run uses permission mode `dontAsk`: the tools above are approved in advance, and any other call is denied instead of waiting for an answer.
 
@@ -135,7 +135,7 @@ Models from providers other than `anthropic` fail at plan time; fallback models 
 
 ## The workspace
 
-The [workspace](../concepts.md#the-workspace) is the launcher's working directory on `process`, and the folder mounted at `/workspace` on `docker`: the folder the run starts in, or the one the environment binds in `inputs.workspace.path`, which the recorded command then names itself.
+The [workspace](../concepts.md#the-workspace) is the launcher's working directory on `process`, and the folder mounted at `/workspace` on `docker`: the folder the run starts in, or the one the target binds in `inputs.workspace.path`, which the recorded command then names itself.
 
 A read-only workspace is mounted `:ro` on `docker`, and left unwritable by srt on `process`; plain `process` can't keep it from being written, so plan fails there. Either way the launcher adds `Edit(./**)` to `disallowedTools`, which denies the SDK's file-editing tools inside the workspace.
 
@@ -143,7 +143,7 @@ A read-only workspace is mounted `:ro` on `docker`, and left unwritable by srt o
 
 Before the run, the launcher clones each of the agent's [repositories](../concepts.md#repositories) into `repositories/<name>` in the workspace, from any git host. A clone that's already there fails the run rather than be overwritten, so start each run in a fresh workspace, or remove the clones first.
 
-- **git** gets a scratch `HOME` and no system configuration, so your credential helpers and settings don't apply. A repository's token reaches it only as an `Authorization: Basic` header for the URL's host (user name `x-access-token`, which GitHub, GitLab and Azure DevOps accept with a token), through git's environment: never in its arguments, the URL, its output or the run's environment. The clone happens before srt starts, so the network limits don't apply to it.
+- **git** gets a scratch `HOME` and no system configuration, so your credential helpers and settings don't apply. A repository's token reaches it only as an `Authorization: Basic` header for the URL's host (user name `x-access-token`, which GitHub, GitLab and Azure DevOps accept with a token), through git's target: never in its arguments, the URL, its output or the run's environment. The clone happens before srt starts, so the network limits don't apply to it.
 - **The token** is one more secret the command reads: `--env` or the dotenv file passes it to a `docker` run, and the invocation's `env` names it.
 - **Read-only** repositories need srt on `process`, which denies writes to their clones; the launcher also adds `Edit(./repositories/<name>/**)` to `disallowedTools`. A `docker` run is root in its container and can write any clone, so a read-only repository fails plan there, as on plain `process`.
 
@@ -160,10 +160,10 @@ The `process` placement runs on the machine as it is, so on its own it can't enf
 
 ### Isolating `process` runs with srt
 
-An environment can opt in to Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) (`srt`), which wraps the run: the SDK, its tools and stdio MCP servers share one boundary.
+A target can opt in to Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime) (`srt`), which wraps the run: the SDK, its tools and stdio MCP servers share one boundary.
 
 ```yaml
-kind: Environment
+kind: Target
 spec:
   provider: claude-agent-sdk
   placement: process
@@ -185,7 +185,7 @@ The `docker` placement enforces more:
 - `packages` install in exec form: package names are arguments, never shell text, and a name starting with `-` fails plan.
 - `resources.memory` becomes `docker run --memory`, 8 GiB by default.
 - Docker can't enforce `network` host lists or `resources.disk`, so plan warns about them.
-- `image` takes an image reference, or a Dockerfile path relative to the environment's file, which is built first.
+- `image` takes an image reference, or a Dockerfile path relative to the target's file, which is built first.
 
 ## Settings
 

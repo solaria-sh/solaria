@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # A Vault resource scopes credentials to the agents that reference it
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`.
+
 ## Context and problem statement
 
 Agents need credentials: a token for a remote MCP server, a variable for a CLI the agent runs. Today an McpServer header names a `secretRef`, and the environment's secret source (`env` or a dotenv file) supplies the value. That works where Solaria's launcher starts the run, and the launcher already passes each agent only the secrets its servers name. Managed Agents is different: agents there hold no credentials. Whoever starts a session attaches vaults, and the host substitutes credentials when the agent calls out. Solaria only warns ("give sessions a vault"), so remote MCP servers that need a credential can't be used there through Solaria. ADR 0004 planned a host-backed `Vault` kind for this. How does a project declare credentials, scope them to agents, and deliver them to each host, while secret values still never reach state, digests, logs or plans?

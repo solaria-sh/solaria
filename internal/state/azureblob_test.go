@@ -269,7 +269,7 @@ func TestAzureBlobWriteAndRead(t *testing.T) {
 	if got, err := b.Read("dev"); err != nil || got != nil {
 		t.Fatalf("Read after Lock = (%v, %v), want (nil, nil)", got, err)
 	}
-	if envs, err := b.Environments(); err != nil || len(envs) != 0 {
+	if envs, err := b.Targets(); err != nil || len(envs) != 0 {
 		t.Errorf("Environments after Lock = %v, %v; want none", envs, err)
 	}
 
@@ -298,7 +298,7 @@ func TestAzureBlobWriteAndRead(t *testing.T) {
 	f.mu.Lock()
 	blob := f.blobs["teams/platform/dev.json"]
 	f.mu.Unlock()
-	if blob == nil || !strings.Contains(string(blob.data), `"format": "solaria.sh/state/v1"`) {
+	if blob == nil || !strings.Contains(string(blob.data), `"format": "solaria.sh/state/v2"`) {
 		t.Fatalf("no state JSON at teams/platform/dev.json: %v", blob)
 	}
 	if blob.leased() || len(blob.metadata) != 0 {
@@ -306,7 +306,7 @@ func TestAzureBlobWriteAndRead(t *testing.T) {
 	}
 	f.blobs["teams/platform/nested/x.json"] = &fakeBlob{data: []byte("{}")}
 	f.blobs["teams/other.json"] = &fakeBlob{data: []byte("{}")}
-	envs, err := b.Environments()
+	envs, err := b.Targets()
 	if err != nil || len(envs) != 1 || envs[0] != "dev" {
 		t.Errorf("Environments = %v, %v; want [dev]", envs, err)
 	}

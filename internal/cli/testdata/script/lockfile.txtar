@@ -1,12 +1,12 @@
-# solaria.lock pins the digests an environment may run (ADR 0013).
+# solaria.lock pins the digests a target may run (ADR 0013).
 
 # Without a lock file, nothing is checked.
-exec solaria plan -e prod
+exec solaria plan -t prod
 stdout '^Plan: 1 to create'
 ! exists solaria.lock
 
-# lock pins every agent the environment selects. The file's bytes are fixed.
-exec solaria lock -e prod
+# lock pins every agent the target selects. The file's bytes are fixed.
+exec solaria lock -t prod
 cmp stdout lock-prod.txt
 cmp solaria.lock want-lock.json
 ! stderr .
@@ -14,119 +14,119 @@ exec solaria validate
 stdout '^valid: '
 
 # A matching configuration plans and applies.
-exec solaria plan -e prod
+exec solaria plan -t prod
 stdout '^Plan: 1 to create'
-exec solaria apply -e prod --auto-approve
-exec solaria status -e prod
-stdout '^Environment prod \(state serial 1, locked in solaria.lock\)$'
+exec solaria apply -t prod --auto-approve
+exec solaria status -t prod
+stdout '^Target prod \(state serial 1, locked in solaria.lock\)$'
 stdout '^  OBJECT .* CONFIGURATION +LOCKED$'
 stdout '^  Agent/triage .* up to date +sha256:[0-9a-f]{12}$'
 
 # Locking again changes nothing, and doesn't rewrite the file.
-exec solaria lock -e prod
-stdout '^solaria.lock already pins Environment "prod" to its current digests; nothing changed.$'
+exec solaria lock -t prod
+stdout '^solaria.lock already pins Target "prod" to its current digests; nothing changed.$'
 cmp solaria.lock want-lock.json
 
-# A change to the agent fails plan and apply in the locked environment,
+# A change to the agent fails plan and apply in the locked target,
 # before any host call. The unlocked one takes it.
 replace triage.md 'Sort' 'Label'
-! exec solaria plan -e prod
-stderr '^solaria.lock: error: Environment "prod" is locked to Agent/triage at resolvedDigest sha256:[0-9a-f]{64}, but the configuration resolves to sha256:[0-9a-f]{64}; run solaria lock -e prod -a triage to promote it$'
+! exec solaria plan -t prod
+stderr '^solaria.lock: error: Target "prod" is locked to Agent/triage at resolvedDigest sha256:[0-9a-f]{64}, but the configuration resolves to sha256:[0-9a-f]{64}; run solaria lock -t prod -a triage to promote it$'
 stderr '^Error: plan failed with 1 error$'
-! exec solaria apply -e prod --auto-approve
-stderr 'run solaria lock -e prod -a triage to promote it'
-exec solaria plan -e dev
+! exec solaria apply -t prod --auto-approve
+stderr 'run solaria lock -t prod -a triage to promote it'
+exec solaria plan -t dev
 stdout '^Plan: 2 to create'
 
 # status shows the lock's digest next to the deployed one.
-exec solaria status -e prod
+exec solaria status -t prod
 stdout '^  Agent/triage .* changed +sha256:[0-9a-f]{12}$'
 
 # Promoting the change.
-exec solaria lock -e prod -a triage
-stdout '^Locked Environment "prod" in solaria.lock:$'
+exec solaria lock -t prod -a triage
+stdout '^Locked Target "prod" in solaria.lock:$'
 stdout '^  ~  Agent/triage  sha256:[0-9a-f]{12} -> sha256:[0-9a-f]{12}$'
-exec solaria plan -e prod
+exec solaria plan -t prod
 stdout '^Plan: 0 to create, 1 to update'
 
-# An agent the environment starts selecting must be promoted too.
+# An agent the target starts selecting must be promoted too.
 replace solaria.yaml '  name: helper\n' '  name: helper\n  labels: {stage: prod}\n'
-! exec solaria plan -e prod
-stderr '^solaria.lock: error: Environment "prod" selects Agent/helper, which the lock doesn''t list yet \(resolvedDigest sha256:[0-9a-f]{64}\); run solaria lock -e prod -a helper to promote it$'
-exec solaria lock -e prod -a helper
+! exec solaria plan -t prod
+stderr '^solaria.lock: error: Target "prod" selects Agent/helper, which the lock doesn''t list yet \(resolvedDigest sha256:[0-9a-f]{64}\); run solaria lock -t prod -a helper to promote it$'
+exec solaria lock -t prod -a helper
 stdout '^  \+  Agent/helper  sha256:[0-9a-f]{12}$'
-exec solaria plan -e prod
+exec solaria plan -t prod
 
 # So must its removal.
 replace solaria.yaml '  labels: {stage: prod}\nspec:\n  instructions: [helper.md]' 'spec:\n  instructions: [helper.md]'
-! exec solaria plan -e prod
-stderr '^solaria.lock: error: Environment "prod" is locked with Agent/helper, which it no longer selects; run solaria lock -e prod -a helper to promote its removal$'
-exec solaria status -e prod
+! exec solaria plan -t prod
+stderr '^solaria.lock: error: Target "prod" is locked with Agent/helper, which it no longer selects; run solaria lock -t prod -a helper to promote its removal$'
+exec solaria status -t prod
 stdout '^  Agent/helper +- +- +- +- +- +no longer selected +sha256:[0-9a-f]{12}$'
-exec solaria lock -e prod -a helper
+exec solaria lock -t prod -a helper
 stdout '^  -  Agent/helper  sha256:[0-9a-f]{12}$'
-exec solaria plan -e prod
+exec solaria plan -t prod
 
-# -a names an agent the environment selects or the lock lists.
-! exec solaria lock -e prod -a nope
-stderr '^Error: Environment "prod" doesn''t select an Agent named "nope", and the lock doesn''t list one$'
-! exec solaria lock -e nope
-stderr '^Error: no Environment named "nope"$'
+# -a names an agent the target selects or the lock lists.
+! exec solaria lock -t prod -a nope
+stderr '^Error: Target "prod" doesn''t select an Agent named "nope", and the lock doesn''t list one$'
+! exec solaria lock -t nope
+stderr '^Error: no Target named "nope"$'
 
 # Digests from another definition format can't be compared: plan fails once
-# for the whole file. lock writes the new format and names the environments
+# for the whole file. lock writes the new format and names the targets
 # that need locking again.
-exec solaria lock -e dev
+exec solaria lock -t dev
 replace solaria.lock '"definitionFormat": "solaria.sh/definition/v1"' '"definitionFormat": "solaria.sh/definition/v0"'
-! exec solaria plan -e prod
-stderr '^solaria.lock: error: written for definition format solaria.sh/definition/v0, but this Solaria computes digests in solaria.sh/definition/v1, so every digest has changed; run solaria lock -e <environment> for each environment in it$'
+! exec solaria plan -t prod
+stderr '^solaria.lock: error: written for definition format solaria.sh/definition/v0, but this Solaria computes digests in solaria.sh/definition/v1, so every digest has changed; run solaria lock -t <target> for each target in it$'
 stderr '^Error: plan failed with 1 error$'
-exec solaria lock -e prod
-stdout '^Locked Environment "prod" in solaria.lock; its pins didn''t change.$'
-stderr '^warning: solaria.lock was written for definition format solaria.sh/definition/v0; lock these environments again too: dev$'
-exec solaria plan -e prod
+exec solaria lock -t prod
+stdout '^Locked Target "prod" in solaria.lock; its pins didn''t change.$'
+stderr '^warning: solaria.lock was written for definition format solaria.sh/definition/v0; lock these targets again too: dev$'
+exec solaria plan -t prod
 
-# validate reads the lock: an environment that left the configuration, and
+# validate reads the lock: a target that left the configuration, and
 # a malformed file.
 cp solaria.lock good.lock
 replace solaria.lock '"dev": {' '"gone": {'
 ! exec solaria validate
-stdout '^solaria.lock: error: locks Environment "gone", which isn''t in the configuration; run solaria lock -e gone --remove to unpin it$'
-exec solaria lock -e gone --remove
-stdout '^Removed Environment "gone" from solaria.lock. Plan and apply no longer check it.$'
+stdout '^solaria.lock: error: locks Target "gone", which isn''t in the configuration; run solaria lock -t gone --remove to unpin it$'
+exec solaria lock -t gone --remove
+stdout '^Removed Target "gone" from solaria.lock. Plan and apply no longer check it.$'
 exec solaria validate
-exec solaria lock -e gone --remove
-stdout '^Environment "gone" isn''t in solaria.lock; nothing to do.$'
-! exec solaria lock -e prod --remove -a triage
-stderr '^Error: --remove unpins the whole environment; it doesn''t take -a$'
+exec solaria lock -t gone --remove
+stdout '^Target "gone" isn''t in solaria.lock; nothing to do.$'
+! exec solaria lock -t prod --remove -a triage
+stderr '^Error: --remove unpins the whole target; it doesn''t take -a$'
 
 cp good.lock solaria.lock
 replace solaria.lock '"resolvedDigest": "sha256:' '"resolvedDigest": "sha256:zz'
 ! exec solaria validate
-stdout '^error: solaria.lock: environments.dev.agents.Agent/helper: specDigest and resolvedDigest must be sha256:<64 hex digits>$'
-! exec solaria plan -e dev
-stderr '^Error: solaria.lock: environments.dev'
+stdout '^error: solaria.lock: targets.dev.agents.Agent/helper: specDigest and resolvedDigest must be sha256:<64 hex digits>$'
+! exec solaria plan -t dev
+stderr '^Error: solaria.lock: targets.dev'
 cp good.lock solaria.lock
 
 # --lock-file points elsewhere, and the commands it suggests name it.
-exec solaria lock -e prod --lock-file pins/stage.lock
+exec solaria lock -t prod --lock-file pins/stage.lock
 exists pins/stage.lock
 replace triage.md 'Label' 'Route'
-! exec solaria plan -e prod --lock-file pins/stage.lock
-stderr '^pins/stage.lock: error: .* run solaria lock -e prod -a triage --lock-file pins/stage.lock to promote it$'
+! exec solaria plan -t prod --lock-file pins/stage.lock
+stderr '^pins/stage.lock: error: .* run solaria lock -t prod -a triage --lock-file pins/stage.lock to promote it$'
 
 # destroy works from state and ignores the lock.
-exec solaria destroy -e prod --auto-approve
+exec solaria destroy -t prod --auto-approve
 stdout '^Destroy complete: 0 created, 0 updated, 0 replaced, 1 deleted'
 
 -- lock-prod.txt --
-Locked Environment "prod" in solaria.lock:
+Locked Target "prod" in solaria.lock:
   +  Agent/triage  sha256:aee6fa6c5659
 -- want-lock.json --
 {
-  "format": "solaria.sh/lock/v1",
+  "format": "solaria.sh/lock/v2",
   "definitionFormat": "solaria.sh/definition/v1",
-  "environments": {
+  "targets": {
     "prod": {
       "agents": {
         "Agent/triage": {
@@ -156,7 +156,7 @@ spec:
   model: {preferred: anthropic:claude-haiku-5-5}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: dev
 spec:
@@ -164,7 +164,7 @@ spec:
   placement: file
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: prod
 spec:

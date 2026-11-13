@@ -5,7 +5,7 @@
 // unquoted null as no value.)
 //
 // Its one placement, file, keeps each "host object" as a JSON file under
-// .solaria/stub/<environment>/. Editing or deleting those files simulates
+// .solaria/stub/<target>/. Editing or deleting those files simulates
 // changes made outside Solaria.
 //
 // For tests, an agent can ask it to fail: providers.stub.fail set to apply
@@ -41,7 +41,7 @@ const PlacementFile = "file"
 
 // New returns the provider.
 func New(opts provider.Options) (provider.Provider, error) {
-	return &Provider{dir: filepath.Join(opts.WorkDir, ".solaria", "stub", opts.Environment), env: opts.Environment}, nil
+	return &Provider{dir: filepath.Join(opts.WorkDir, ".solaria", "stub", opts.Target), env: opts.Target}, nil
 }
 
 // Provider is the stub provider.
@@ -171,7 +171,7 @@ func name(id string) string {
 	return n
 }
 
-// hostID is stable per environment and agent, as a host's ID would be.
+// hostID is stable per target and agent, as a host's ID would be.
 func hostID(env, agent string) string {
 	sum := sha256.Sum256([]byte(env + "/" + agent))
 	return "stub_" + hex.EncodeToString(sum[:6])

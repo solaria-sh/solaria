@@ -2,31 +2,31 @@
 # it so apply <file> applies exactly what was reviewed (ADR 0018).
 cd project
 
-exec solaria plan -e local -o json
-stdout '^  "format": "solaria.sh/plan/v1",$'
+exec solaria plan -t local -o json
+stdout '^  "format": "solaria.sh/plan/v2",$'
 stdout '^  "definitionFormat": "solaria.sh/definition/v1",$'
-stdout '^  "environment": "local",$'
+stdout '^  "target": "local",$'
 stdout '^    "serial": 0$'
 stdout '"id": "Agent/writer",\n +"action": "create",\n +"after": \{\n +"specDigest": "sha256:[0-9a-f]{64}",'
 ! stdout 'lineage'
-! stdout 'Environment local'
+! stdout 'Target local'
 ! stdout tok-never-in-a-plan
 
 # --out saves the same JSON and prints the text plan.
 env WRITER_TOKEN=tok-never-in-a-plan
-exec solaria plan -e local --out first.plan
+exec solaria plan -t local --out first.plan
 stdout '^  \+ Agent/writer$'
 stdout '^Saved the plan to first.plan. Apply exactly this plan with: solaria apply first.plan$'
-grep '"format": "solaria.sh/plan/v1"' first.plan
+grep '"format": "solaria.sh/plan/v2"' first.plan
 ! grep tok-never-in-a-plan first.plan
 
-# A saved plan names its environment and options, so apply takes neither.
-! exec solaria apply -e local first.plan
-stderr '^Error: first.plan names its environment, local; leave out -e$'
+# A saved plan names its target and options, so apply takes neither.
+! exec solaria apply -t local first.plan
+stderr '^Error: first.plan names its target, local; leave out -t$'
 ! exec solaria apply first.plan --refresh=false
 stderr '^Error: --refresh comes from the plan in first.plan; leave it out$'
 ! exec solaria apply
-stderr 'required flag\(s\) "environment" not set'
+stderr 'required flag\(s\) "target" not set'
 
 # apply <file> applies without asking, since the plan was reviewed.
 exec solaria apply first.plan
@@ -37,24 +37,24 @@ stdout '^Apply complete: 1 created, 0 updated, 0 replaced, 0 deleted. State seri
 ! exec solaria apply first.plan
 stderr '^Error: first.plan no longer matches local, so nothing was applied:$'
 stderr '^  - the state changed since the plan: serial 0 then, 1 now$'
-stderr '^Plan again with: solaria plan -e local --out first.plan$'
+stderr '^Plan again with: solaria plan -t local --out first.plan$'
 
 # The plan records the state's lineage once there is one.
-exec solaria plan -e local -o json
+exec solaria plan -t local -o json
 stdout '"lineage": "[0-9a-f-]{36}",\n +"serial": 1'
 stdout '"action": "no-op",\n +"before": \{'
 
 # The configuration changed after the plan: the digests differ.
-exec solaria plan -e local --out edit.plan
+exec solaria plan -t local --out edit.plan
 replace role.md 'You write.' 'You write tersely.'
 ! exec solaria apply edit.plan
 stderr '^  - Agent/writer: the plan says no-op, and planning again says update$'
 replace role.md 'You write tersely.' 'You write.'
 
-exec solaria plan -e local --out digest.plan
-stdout '^No changes. The environment matches the configuration.$'
+exec solaria plan -t local --out digest.plan
+stdout '^No changes. The target matches the configuration.$'
 replace role.md 'You write.' 'You write at length.'
-exec solaria plan -e local --out update.plan
+exec solaria plan -t local --out update.plan
 replace role.md 'You write at length.' 'You write briefly.'
 ! exec solaria apply update.plan
 stderr '^  - Agent/writer: the plan applies sha256:[0-9a-f]{12} \(spec sha256:[0-9a-f]{12}\), and the configuration now resolves to sha256:[0-9a-f]{12} \(spec sha256:[0-9a-f]{12}\)$'
@@ -64,16 +64,16 @@ replace role.md 'You write briefly.' 'You write.'
 # The host changed after the plan: refresh finds the agent gone, so the
 # action differs although nothing else did.
 exec solaria apply digest.plan
-stdout '^No changes. The environment matches the configuration.$'
-exec solaria plan -e local --out drift.plan
+stdout '^No changes. The target matches the configuration.$'
+exec solaria plan -t local --out drift.plan
 rm .solaria/stub/local/writer.json
 ! exec solaria apply drift.plan
 stderr '^  - Agent/writer: the plan says no-op, and planning again says create$'
-exec solaria apply -e local --auto-approve
+exec solaria apply -t local --auto-approve
 
 # A plan made by another Solaria version, or for another definition
 # format, is refused.
-exec solaria plan -e local --out version.plan
+exec solaria plan -t local --out version.plan
 replace version.plan '"definitionFormat": "solaria.sh/definition/v1"' '"definitionFormat": "solaria.sh/definition/v0"'
 replace version.plan '"solariaVersion": "' '"solariaVersion": "v0.0.1-other'
 ! exec solaria apply version.plan
@@ -82,12 +82,12 @@ stderr '^  - the plan uses definition format solaria.sh/definition/v0, and this 
 
 # A newer plan format isn't guessed at.
 cp version.plan future.plan
-replace future.plan '"format": "solaria.sh/plan/v1"' '"format": "solaria.sh/plan/v2"'
+replace future.plan '"format": "solaria.sh/plan/v2"' '"format": "solaria.sh/plan/v3"'
 ! exec solaria apply future.plan
-stderr '^Error: future.plan: plan format solaria.sh/plan/v2 isn''t one this Solaria reads; it reads solaria.sh/plan/v1$'
+stderr '^Error: future.plan: plan format solaria.sh/plan/v3 isn''t one this Solaria reads; it reads solaria.sh/plan/v2$'
 
 # A destroy plan applies as a destroy.
-exec solaria plan -e local --destroy --out destroy.plan
+exec solaria plan -t local --destroy --out destroy.plan
 grep '"destroy": true' destroy.plan
 exec solaria apply destroy.plan
 stdout '^Destroy complete: 0 created, 0 updated, 0 replaced, 1 deleted. State serial \d+.$'
@@ -109,7 +109,7 @@ spec:
     - {name: api, secretRef: WRITER_TOKEN, for: {env: API_TOKEN}}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec:
   provider: stub

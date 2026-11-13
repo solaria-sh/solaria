@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # Resource model: envelope, kinds, references, provider passthrough
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`.
+
 ## Context and problem statement
 
 Agents, the places they run, and the tools they share all need a declarative, versionable format that people and coding agents can both write, editors can validate, and every provider can read.

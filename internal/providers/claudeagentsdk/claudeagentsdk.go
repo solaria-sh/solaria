@@ -1,7 +1,7 @@
 // Package claudeagentsdk deploys agents that run on the Claude Agent SDK
 // (ADR 0014). Its placement, process, runs the agent loop as a local Node
 // or Python process. Solaria never starts that process (ADR 0002); apply
-// writes a bundle per agent and environment that the caller starts:
+// writes a bundle per agent and target that the caller starts:
 //
 //   - options.json: the SDK options the definition maps to, with secrets as
 //     references;
@@ -15,7 +15,7 @@
 // is the first 12 hex digits of the bundle's build digest. Apply records
 // the command that starts the launcher as the run output.
 //
-// Environments can set providers.claude-agent-sdk.runtime to node (the
+// Targets can set providers.claude-agent-sdk.runtime to node (the
 // default) or python, and providers.claude-agent-sdk.version to install
 // another SDK version than the one Solaria was tested with.
 package claudeagentsdk
@@ -74,7 +74,7 @@ func NewWithHost(opts provider.Options, h Host, d container.Docker, managed func
 	if abs, err := filepath.Abs(workDir); err == nil {
 		workDir = abs
 	}
-	return &Provider{env: opts.Environment, workDir: workDir, log: log, host: h, docker: d, managed: managed}
+	return &Provider{env: opts.Target, workDir: workDir, log: log, host: h, docker: d, managed: managed}
 }
 
 // Provider is the claude-agent-sdk provider.

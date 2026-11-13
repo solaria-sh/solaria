@@ -19,7 +19,7 @@ Solaria applies that pattern to agents:
 | Providers | Host providers: `gitagent` in a local container, the Claude Agent SDK as a local process or in a container, Claude Managed Agents, and more later |
 | State | Which logical agent, with which content digest, is deployed where, under which host ID and version |
 | `plan` / `apply` | Diff a definition against what's deployed, then sync it |
-| Workspaces | Environments (`local`, `staging`, `prod`), each able to override provider and model |
+| Workspaces | Targets (`local`, `staging`, `prod`), each able to override provider and model |
 
 Solaria never runs the agent loop itself. Existing runtimes and platforms do that well. Solaria defines, deploys and tracks.
 
@@ -27,7 +27,7 @@ Some hosts have their own declarative tooling, such as `ant apply` for Claude Ma
 
 ## What a definition looks like
 
-This is the `v1alpha1` format. Every field is in the resource reference: [Agent](docs/resources/agent.md), [Environment](docs/resources/environment.md) and [McpServer](docs/resources/mcp-server.md).
+This is the `v1alpha1` format. Every field is in the resource reference: [Agent](docs/resources/agent.md), [Target](docs/resources/target.md) and [McpServer](docs/resources/mcp-server.md).
 
 ```yaml
 apiVersion: solaria.sh/v1alpha1
@@ -50,12 +50,12 @@ spec:
 
 ```console
 $ solaria validate
-valid: 1 Agent, 2 Environments, 1 McpServer
-$ solaria plan -e local-gitagent
-$ solaria apply -e ma-cloud
+valid: 1 Agent, 2 Targets, 1 McpServer
+$ solaria plan -t local-gitagent
+$ solaria apply -t ma-cloud
 ```
 
-The same definition, applied to two hosts, changes only the environment.
+The same definition, applied to two hosts, changes only the target.
 
 ## Install
 
@@ -84,22 +84,22 @@ Release archives and `checksums.txt` are on the [releases page](https://github.c
 ```console
 $ go install github.com/solaria-sh/solaria/cmd/solaria@latest
 $ cd examples/hello
-$ solaria plan -e local
-Environment local (stub/file)
+$ solaria plan -t local
+Target local (stub/file)
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.
-$ solaria apply -e local
+$ solaria apply -t local
 $ solaria status
-$ solaria destroy -e local
+$ solaria destroy -t local
 ```
 
-The same agent, in its `local-gitagent` environment, becomes a [gitagent](https://github.com/open-gitagent/gitagent) container image. Its digest is the same, because only the environment differs. This needs Docker, and the first build takes several minutes. `apply` prints the command that runs the image, and the task goes after it:
+The same agent, in its `local-gitagent` target, becomes a [gitagent](https://github.com/open-gitagent/gitagent) container image. Its digest is the same, because only the target differs. This needs Docker, and the first build takes several minutes. `apply` prints the command that runs the image, and the task goes after it:
 
 ```console
-$ solaria apply -e local-gitagent
+$ solaria apply -t local-gitagent
 $ export ANTHROPIC_API_KEY=...
 $ docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace \
     --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158 -p "Say hello."
@@ -108,18 +108,18 @@ $ docker run --rm --platform linux/amd64 --memory 8g --volume "$PWD":/workspace 
 In `local-sdk`, the same agent runs on the [Claude Agent SDK](docs/providers/claude-agent-sdk.md) as a local Node process. This needs Node 18.14 or later. `apply` installs the SDK into a bundle under `.solaria/claude-agent-sdk/` and prints the command that starts it, and `status -a` shows that command again with the variables it needs. The run gets `ANTHROPIC_API_KEY` and nothing else from your shell or home folder:
 
 ```console
-$ solaria apply -e local-sdk
-$ solaria status -e local-sdk -a hello
+$ solaria apply -t local-sdk
+$ solaria status -t local-sdk -a hello
 $ export ANTHROPIC_API_KEY=...
 $ node .solaria/claude-agent-sdk/local-sdk/hello/<id>/launch.mjs -p "Say hello."
 ```
 
-In `ma-cloud`, the same agent goes to [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview), which runs it on Anthropic's side. Again only the environment differs. `apply` creates real objects in your Anthropic organization, named `hello-example-*`, and `destroy` archives the agent, which can't be undone:
+In `ma-cloud`, the same agent goes to [Claude Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview), which runs it on Anthropic's side. Again only the target differs. `apply` creates real objects in your Anthropic organization, named `hello-example-*`, and `destroy` archives the agent, which can't be undone:
 
 ```console
 $ export ANTHROPIC_API_KEY=...
-$ solaria plan -e ma-cloud
-Environment ma-cloud (managed-agents/cloud)
+$ solaria plan -t ma-cloud
+Target ma-cloud (managed-agents/cloud)
 
   + Environment/ma-cloud
 
@@ -127,14 +127,14 @@ Environment ma-cloud (managed-agents/cloud)
       resolvedDigest: sha256:08ffaed7b158
 
 Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.
-$ solaria apply -e ma-cloud
+$ solaria apply -t ma-cloud
 ```
 
 `ma-self-hosted` keeps the agent loop on Anthropic's side but runs its tools in a worker container on your machine. Its first `apply` creates the environment and stops, saying how to get the environment's key from the Claude Console. Store the key as `ANTHROPIC_ENVIRONMENT_KEY` and apply again to start the worker.
 
 [`examples/reviewer`](examples/reviewer) takes one agent through all three hosts.
 
-To control what an environment may run, pin it. `solaria lock -e <environment>` writes each agent's digests to `solaria.lock`, which you commit. `plan` and `apply` then refuse anything else for that environment until the lock is updated and reviewed. `solaria digest` prints the same digests without state or a host, for CI. See [pinning environments](docs/concepts.md#pinning-environments).
+To control what a target may run, pin it. `solaria lock -t <target>` writes each agent's digests to `solaria.lock`, which you commit. `plan` and `apply` then refuse anything else for that target until the lock is updated and reviewed. `solaria digest` prints the same digests without state or a host, for CI. See [pinning targets](docs/concepts.md#pinning-targets).
 
 For completion and checks in your editor, point the YAML language server at the published schema (see [editors and coding agents](docs/editors.md)):
 
@@ -154,7 +154,7 @@ The [documentation](docs/README.md) covers the concepts, every resource field, e
 | M0 | Repository foundation and architecture decision records |
 | M1 | Spikes: gitagent v3 and Claude Managed Agents API details |
 | M2 | Core model, JSON Schema, `solaria validate` |
-| M3 | Environment overlays, references, content digests |
+| M3 | Target overlays, references, content digests |
 | M4 | State, plan/apply engine, CLI |
 | M5 | `gitagent` provider (Docker placement) |
 | M6 | `managed-agents` provider (cloud and self-hosted placements) |

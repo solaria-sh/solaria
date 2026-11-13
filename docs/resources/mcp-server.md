@@ -2,7 +2,7 @@
 
 # McpServer
 
-Offers one or more ways to reach an MCP server. Each provider picks one its placement supports. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: McpServer`. The other resources are [Agent](agent.md), [Environment](environment.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
+Offers one or more ways to reach an MCP server. Each provider picks one its placement supports. A YAML document with `apiVersion: solaria.sh/v1alpha1` and `kind: McpServer`. The other resources are [Agent](agent.md), [Target](target.md) and [Vault](vault.md), and the [concepts](../concepts.md) explain how they fit together.
 
 ## Fields
 
@@ -14,7 +14,7 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `kind` | `McpServer` | yes | Kind of this resource. |
 | `metadata` | object | yes | Identifies the server. |
 | `metadata.name` | string | yes | Unique name per kind. Lowercase letters, digits and hyphens, starting and ending with a letter or digit, at most 63 characters. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
-| `metadata.labels` | map of strings |  | Labels for selecting resources, for example from an Environment's agents.selector. |
+| `metadata.labels` | map of strings |  | Labels for selecting resources, for example from a Target's agents.selector. |
 | `metadata.annotations` | map of strings |  | Notes about how the resource is operated rather than what it is, such as an agent's owner, trigger or target autonomy. Keys are like label keys; values are any text. They're never part of a digest or sent to a host, so changing one changes nothing deployed. solaria status -o json shows an agent's. |
 | `spec` | object | yes | Describes how to reach the server. |
 | `spec.description` | string |  | Description of the server. |
@@ -31,11 +31,11 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.packages[].environmentVariables` | list of objects |  | Environment variables set for the server process. |
 | `spec.packages[].environmentVariables[].name` | string | yes | Name of the header or variable. |
 | `spec.packages[].environmentVariables[].value` | string |  | Value, when it isn't secret. |
-| `spec.packages[].environmentVariables[].secretRef` | string |  | Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |
+| `spec.packages[].environmentVariables[].secretRef` | string |  | Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |
 | `spec.remotes` | list of objects |  | Endpoints to connect to. At least 1. |
 | `spec.remotes[].type` | `streamable-http` or `sse` | yes | Remote transport: streamable-http or sse. |
 | `spec.remotes[].url` | string | yes | URL of the endpoint. A URI. |
 | `spec.remotes[].headers` | list of objects |  | Headers sent with every request. |
 | `spec.remotes[].headers[].name` | string | yes | Name of the header or variable. |
 | `spec.remotes[].headers[].value` | string |  | Value, when it isn't secret. |
-| `spec.remotes[].headers[].secretRef` | string |  | Name of a secret in the environment's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |
+| `spec.remotes[].headers[].secretRef` | string |  | Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |

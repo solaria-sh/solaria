@@ -19,7 +19,7 @@ spec:
   model: {preferred: anthropic:claude-haiku-5-5}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec:
   provider: stub

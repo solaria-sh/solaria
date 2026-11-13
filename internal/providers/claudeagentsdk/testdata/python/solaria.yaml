@@ -23,7 +23,7 @@ spec:
   packages: [{registryType: pypi, identifier: notes-mcp, version: "0.4.1", transport: {type: stdio}}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ci}
 spec:
   provider: claude-agent-sdk
@@ -35,7 +35,7 @@ spec:
     claude-agent-sdk: {runtime: python, version: 0.2.170}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ci-docker}
 spec:
   provider: claude-agent-sdk

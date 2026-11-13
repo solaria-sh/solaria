@@ -9,7 +9,7 @@
 //
 //   - an empty environment plus an allowlist: a minimal PATH, locale, proxy
 //     and certificate settings, the variables the provider needs, and the
-//     environment's secrets, by name;
+//     target's secrets, by name;
 //   - a scratch HOME, config and temp directory per run, removed afterwards,
 //     so user-level settings, skills, plugins, logins and memory are never
 //     found;
@@ -54,7 +54,7 @@ type Isolation struct {
 	// Vault credential whose variable is named differently from its secret.
 	// The secret is read as for Secrets, and the run sees only the variable.
 	SecretEnv map[string]string `json:"secretEnv,omitempty"`
-	// Dotenv is the absolute path of the environment's dotenv file.
+	// Dotenv is the absolute path of the target's dotenv file.
 	Dotenv string `json:"dotenv,omitempty"`
 	// Repositories are cloned into repositories/<name> in the workspace
 	// before the run starts (ADR 0017). Their tokens are read like
@@ -190,7 +190,7 @@ type Machine struct {
 }
 
 // Validate returns what every process placement says about an agent's
-// environment: what a local process can't enforce, managed settings that
+// target: what a local process can't enforce, managed settings that
 // reach every Claude Code process on this machine, and, with
 // sandbox.isolation: srt, why srt can't isolate runs here.
 func Validate(a *resolve.Agent, m Machine) diag.List {

@@ -1,5 +1,5 @@
 # The reviewer agent and the MCP server it uses. Nothing here names a
-# host: environments.yaml decides where it runs.
+# host: targets.yaml decides where it runs.
 apiVersion: solaria.sh/v1alpha1
 kind: Agent
 metadata:

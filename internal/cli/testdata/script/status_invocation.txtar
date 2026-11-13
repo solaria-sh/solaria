@@ -8,29 +8,29 @@ cp local-gitagent.json .solaria/state/local-gitagent.json
 
 # Without -a, the table alone.
 exec solaria status
-stdout '^Environment local-gitagent \(state serial 4\)$'
+stdout '^Target local-gitagent \(state serial 4\)$'
 stdout '^  Agent/hello +claude-agent-sdk/process +\.solaria/claude-agent-sdk/local-sdk/hello +3f9c1a0d2b7e +sha256:08ffaed7b158 +2026-11-01 10:00 +up to date$'
 ! stdout 'run:'
 
-exec solaria status -e local-sdk -a hello
+exec solaria status -t local-sdk -a hello
 cmp stdout status-sdk.txt
-exec solaria status -e local-sdk -a hello -o json
+exec solaria status -t local-sdk -a hello -o json
 cmp stdout status-sdk.json
 
 # An entry applied before Solaria recorded invocations, or the runtime,
 # still has its run command.
-exec solaria status -e local-gitagent -a hello
+exec solaria status -t local-gitagent -a hello
 ! stdout 'runtime:'
 stdout '^  run: docker run --rm --platform linux/amd64 --memory 8g --volume "\$PWD":/workspace --env ANTHROPIC_API_KEY solaria/local-gitagent/hello:08ffaed7b158$'
 stdout '^  Applied before Solaria recorded what the command needs; apply again to see it.$'
 
 # An agent the configuration selects but nothing applied yet.
-exec solaria status -e ma-cloud -a hello
+exec solaria status -t ma-cloud -a hello
 stdout '^  Agent/hello +- +- +- +- +- +not applied$'
-stdout '^  Not applied; run solaria apply -e ma-cloud first.$'
+stdout '^  Not applied; run solaria apply -t ma-cloud first.$'
 
 -- status-sdk.txt --
-Environment local-sdk (state serial 2)
+Target local-sdk (state serial 2)
   OBJECT       PROVIDER                  HOST ID                                    VERSION       DIGEST               APPLIED           CONFIGURATION
   Agent/hello  claude-agent-sdk/process  .solaria/claude-agent-sdk/local-sdk/hello  3f9c1a0d2b7e  sha256:08ffaed7b158  2026-11-01 10:00  up to date
 
@@ -42,7 +42,7 @@ Environment local-sdk (state serial 2)
   prints: solaria.sh/result/v1
 -- status-sdk.json --
 {
-  "environments": [
+  "targets": [
     {
       "name": "local-sdk",
       "serial": 2,

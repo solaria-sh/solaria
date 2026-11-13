@@ -38,7 +38,7 @@ type kindSchema struct {
 
 var kinds = []kindSchema{
 	{v1alpha1.KindAgent, &v1alpha1.Agent{}},
-	{v1alpha1.KindEnvironment, &v1alpha1.Environment{}},
+	{v1alpha1.KindTarget, &v1alpha1.Target{}},
 	{v1alpha1.KindMcpServer, &v1alpha1.McpServer{}},
 	{v1alpha1.KindVault, &v1alpha1.Vault{}},
 }
@@ -184,7 +184,7 @@ func extend(s *jsonschema.Schema, kind string) {
 			}
 		}
 	}
-	if d := s.Definitions["EnvironmentSpec"]; d != nil {
+	if d := s.Definitions["TargetSpec"]; d != nil {
 		if p, ok := d.Properties.Get("overrides"); ok {
 			p.PropertyNames = &jsonschema.Schema{Pattern: namePattern}
 		}

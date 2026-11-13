@@ -8,8 +8,8 @@ cmp hello/.gitignore want-gitignore
 # The project validates and plans with nothing installed.
 cd hello
 exec solaria validate
-stdout '^valid: 1 Agent, 2 Environments$'
-exec solaria plan -e local
+stdout '^valid: 1 Agent, 2 Targets$'
+exec solaria plan -t local
 stdout '\+ Agent/hello'
 stdout 'Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.'
 cd ..
@@ -47,8 +47,8 @@ Created 3 files in hello from template minimal:
 Next:
   cd hello
   solaria validate
-  solaria plan -e local
-  solaria apply -e local
+  solaria plan -t local
+  solaria apply -t local
 -- want-gitignore --
 # Solaria state, locks and rendered files
 .solaria/
@@ -68,8 +68,8 @@ Updated .gitignore.
 
 Next:
   solaria validate
-  solaria plan -e local
-  solaria apply -e local
+  solaria plan -t local
+  solaria apply -t local
 -- want-merged --
 bin/
 

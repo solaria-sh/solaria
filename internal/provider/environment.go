@@ -10,7 +10,7 @@ import (
 )
 
 // EnvironmentHost is implemented by providers whose host keeps an object
-// for the environment itself, which all its agents share (ADR 0012). A
+// for the target itself, which all its agents share (ADR 0012). A
 // Managed Agents environment is one: the sandbox template every session
 // starts from, and on self-hosted the work queue a worker polls.
 //
@@ -18,11 +18,11 @@ import (
 // updates it before them and deletes it after them.
 type EnvironmentHost interface {
 	// ValidateEnvironment reports problems with the environment as this
-	// host sees it, once per environment rather than once per agent.
+	// host sees it, once per target rather than once per agent.
 	ValidateEnvironment(ctx context.Context, desired *Environment) []diag.Diagnostic
 	// PlanEnvironment decides what to do with the environment's object.
 	// desired is nil when nothing should remain: on destroy, or when the
-	// environment has no agents left. Most providers start from
+	// target has no agents left. Most providers start from
 	// DefaultEnvironmentPlan.
 	PlanEnvironment(ctx context.Context, desired *Environment, prior *state.EnvironmentEntry) (*EnvironmentPlan, error)
 	// ApplyEnvironment creates or updates the object. It may return a
@@ -36,19 +36,24 @@ type EnvironmentHost interface {
 	DestroyEnvironment(ctx context.Context, e *state.EnvironmentEntry) error
 }
 
-// Environment is an environment as its host sees it: its spec and the
-// agents it receives.
+// Environment is a target as a host with environment-level objects sees
+// it: its spec and the agents it receives. ADR 0020 turns it into one
+// Environment resource of a target.
 type Environment struct {
 	Name string
-	Spec *v1alpha1.EnvironmentSpec
-	// Dir is the folder of the environment's file, which relative paths
+	Spec *v1alpha1.TargetSpec
+	// Dir is the folder of the target's file, which relative paths
 	// in Spec start from.
 	Dir    string
 	Agents []*resolve.Agent
 }
 
-// ID returns the environment's logical ID.
-func (e *Environment) ID() string { return v1alpha1.KindEnvironment + "/" + e.Name }
+// ID returns the target's logical ID.
+func (e *Environment) ID() string { return HostKind + "/" + e.Name }
+
+// HostKind starts the logical ID of an environment-level host object, as
+// in Environment/<name>, the step plan shows for it (ADR 0012).
+const HostKind = "Environment"
 
 // EnvironmentPlan is what will happen to an environment's object.
 type EnvironmentPlan struct {

@@ -1,4 +1,4 @@
-# An agent says whether it may change its workspace, and an environment
+# An agent says whether it may change its workspace, and a target
 # binds which folder it is (ADR 0017).
 cd project
 
@@ -10,13 +10,13 @@ stdout '^widen.yaml:8:23: error: spec.inputs.workspace.path: folder .*missing no
 rm widen.yaml
 
 # Docker mounts the bound folder read-only.
-exec solaria plan -e local-gitagent
+exec solaria plan -t local-gitagent
 stdout '^  \+ Agent/reader$'
 ! stderr 'error'
 
 # Managed Agents' workspace belongs to the session: it can't be bound to a
 # folder here or kept read-only, so plan fails rather than ignore either.
-! exec solaria plan -e ma-cloud
+! exec solaria plan -t ma-cloud
 stderr '^solaria.yaml: error: Agent/reader on managed-agents/cloud: workspace.access is read-only, and this host can''t keep the workspace from being written: it belongs to the host''s session \(ADR 0017\)$'
 stderr '^solaria.yaml: error: Agent/reader on managed-agents/cloud: spec.inputs.workspace.path names a folder on this machine, and this host''s runs don''t work on one \(ADR 0017\)$'
 ! stdout .
@@ -25,15 +25,15 @@ stderr '^solaria.yaml: error: Agent/reader on managed-agents/cloud: spec.inputs.
 # The state is written by hand: applying needs Docker.
 mkdir .solaria/state
 cp ../local-gitagent.json .solaria/state/local-gitagent.json
-exec solaria status -e local-gitagent -a reader
+exec solaria status -t local-gitagent -a reader
 stdout '^  workspace: /work/product, wherever it runs \(read-only\)$'
-exec solaria status -e local-gitagent -a reader -o json
+exec solaria status -t local-gitagent -a reader -o json
 stdout '"workspace": "path",\n +"workspacePath": "/work/product",\n +"workspaceAccess": "read-only"'
 
 # A process run can write anywhere its user can, so without srt a read-only
 # workspace fails plan.
 [!exec:node] skip 'the process placement checks for node'
-! exec solaria plan -e local-sdk
+! exec solaria plan -t local-sdk
 stderr '^solaria.yaml: error: Agent/reader on claude-agent-sdk/process: workspace.access is read-only, and a process run can write anywhere its user can; set sandbox.isolation: srt or use the docker placement to keep the workspace read-only$'
 
 -- project/solaria.yaml --
@@ -47,7 +47,7 @@ spec:
   workspace: {access: read-only}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-gitagent}
 spec:
   provider: gitagent
@@ -56,7 +56,7 @@ spec:
     workspace: {path: product}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: ma-cloud}
 spec:
   provider: managed-agents
@@ -65,14 +65,14 @@ spec:
     workspace: {path: product}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local-sdk}
 spec:
   provider: claude-agent-sdk
   placement: process
 -- project/widen.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: widen}
 spec:
   provider: gitagent

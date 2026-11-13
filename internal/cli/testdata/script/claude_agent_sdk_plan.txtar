@@ -3,8 +3,8 @@
 mkdir docker
 cp $EXAMPLES/hello/instructions.md docker
 cd docker
-exec solaria plan -e sdk-docker
-stdout '^Environment sdk-docker \(claude-agent-sdk/docker\)$'
+exec solaria plan -t sdk-docker
+stdout '^Target sdk-docker \(claude-agent-sdk/docker\)$'
 stdout 'resolvedDigest: sha256:08ffaed7b158'
 stdout 'note: builds solaria/sdk-docker/hello:[0-9a-f]{12} for linux/amd64 with @anthropic-ai/claude-agent-sdk@0\.3\.319; the first build installs the sandbox base and the SDK, which takes several minutes'
 ! stderr 'error|managed settings'
@@ -16,8 +16,8 @@ cd ..
 mkdir hello
 cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md hello
 cd hello
-exec solaria plan -e local-sdk
-stdout '^Environment local-sdk \(claude-agent-sdk/process\)$'
+exec solaria plan -t local-sdk
+stdout '^Target local-sdk \(claude-agent-sdk/process\)$'
 stdout '^  \+ Agent/hello$'
 stdout 'resolvedDigest: sha256:08ffaed7b158'
 stdout 'note: writes a bundle to \.solaria/claude-agent-sdk/local-sdk/hello/[0-9a-f]{12} and installs @anthropic-ai/claude-agent-sdk@0\.3\.319 into it with npm, which needs network access'
@@ -25,10 +25,10 @@ stdout 'note: writes a bundle to \.solaria/claude-agent-sdk/local-sdk/hello/[0-9
 
 # What the SDK can't run fails the plan, before anything is written.
 cd ../other
-! exec solaria plan -e dev
+! exec solaria plan -t dev
 stderr 'error: Agent/hello on claude-agent-sdk/process: model openai:gpt-6-astra isn''t available; this host runs anthropic models only'
 stderr 'error: Agent/hello on claude-agent-sdk/process: sandbox.image isn''t supported here'
-stderr 'error: Agent/hello on claude-agent-sdk/process: Environment providers.claude-agent-sdk.runtime must be node or python, not deno'
+stderr 'error: Agent/hello on claude-agent-sdk/process: Target providers.claude-agent-sdk.runtime must be node or python, not deno'
 ! stdout .
 ! exists .solaria/claude-agent-sdk
 
@@ -44,7 +44,7 @@ spec:
   limits: {maxTurns: 5}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: sdk-docker}
 spec:
   provider: claude-agent-sdk
@@ -64,7 +64,7 @@ spec:
   tools: {builtin: [read]}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: dev}
 spec:
   provider: claude-agent-sdk

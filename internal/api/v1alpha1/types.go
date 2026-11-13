@@ -14,7 +14,7 @@ type ObjectMeta struct {
 	// hyphens, starting and ending with a letter or digit, at most 63
 	// characters.
 	Name string `json:"name" jsonschema:"required,minLength=1,maxLength=63,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
-	// Labels for selecting resources, for example from an Environment's
+	// Labels for selecting resources, for example from a Target's
 	// agents.selector.
 	Labels map[string]string `json:"labels,omitempty"`
 	// Notes about how the resource is operated rather than what it is, such
@@ -26,7 +26,7 @@ type ObjectMeta struct {
 }
 
 // Agent declares what an agent is: its instructions, model, tools, skills and
-// limits. Where it runs is decided by an Environment.
+// limits. Where it runs is decided by a Target.
 type Agent struct {
 	// API version of this resource.
 	APIVersion string `json:"apiVersion" jsonschema:"required"`
@@ -57,16 +57,16 @@ type AgentSpec struct {
 	// Bounds each run of the agent.
 	Limits *LimitsSpec `json:"limits,omitempty"`
 	// What the agent's final answer must look like. Part of the agent's
-	// identity: environments can't change it.
+	// identity: targets can't change it.
 	Output *OutputSpec `json:"output,omitempty"`
 	// Vaults whose credentials the agent may use, by reference to Vault
 	// resources. Once an agent lists any, every secret its MCP servers need
 	// must come from one of them, and the run gets nothing else.
 	Vaults []VaultRef `json:"vaults,omitempty"`
 	// The folder the agent works on, and whether it may change it. Each
-	// environment says which folder, in spec.inputs.workspace.
+	// target says which folder, in spec.inputs.workspace.
 	Workspace *WorkspaceSpec `json:"workspace,omitempty"`
-	// Git repositories the agent works on. Each environment binds every
+	// Git repositories the agent works on. Each target binds every
 	// name to a URL in spec.inputs.repositories, and the repository is
 	// cloned into repositories/<name> in the workspace before a run.
 	Repositories []RepositoryNeed `json:"repositories,omitempty"`
@@ -78,7 +78,7 @@ type AgentSpec struct {
 // RepositoryNeed is a repository an agent works on, and what it may do to
 // its copy.
 type RepositoryNeed struct {
-	// Name the environment binds the repository under, and its folder in
+	// Name the target binds the repository under, and its folder in
 	// the workspace: repositories/<name>.
 	Name string `json:"name" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$,maxLength=63"`
 	// read-only or read-write: whether the agent may change its clone. A
@@ -229,27 +229,27 @@ type LimitsSpec struct {
 	Timeout string `json:"timeout,omitempty" jsonschema:"pattern=^([0-9]+(h|m|s))+$"`
 }
 
-// Environment binds agents to a provider and placement, and says how their
+// Target binds agents to a provider and placement, and says how their
 // sandbox, secrets and telemetry are set up there.
-type Environment struct {
+type Target struct {
 	// API version of this resource.
 	APIVersion string `json:"apiVersion" jsonschema:"required"`
 	// Kind of this resource.
 	Kind string `json:"kind" jsonschema:"required"`
-	// Identifies the environment.
+	// Identifies the target.
 	Metadata ObjectMeta `json:"metadata" jsonschema:"required"`
-	// Describes the environment.
-	Spec EnvironmentSpec `json:"spec" jsonschema:"required"`
+	// Describes the target.
+	Spec TargetSpec `json:"spec" jsonschema:"required"`
 }
 
-// EnvironmentSpec describes where and how agents run.
-type EnvironmentSpec struct {
+// TargetSpec describes where and how agents run.
+type TargetSpec struct {
 	// Who runs the agent loop, for example gitagent or managed-agents.
 	Provider string `json:"provider" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 	// Where the provider's sandbox lives, for example docker, cloud or
 	// self-hosted.
 	Placement string `json:"placement" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
-	// Which agents this environment receives. When omitted, it receives
+	// Which agents this target receives. When omitted, it receives
 	// every agent.
 	Agents *AgentSelection `json:"agents,omitempty"`
 	// The machine the agents' tools run on.
@@ -258,26 +258,26 @@ type EnvironmentSpec struct {
 	Secrets *SecretsSpec `json:"secrets,omitempty"`
 	// Where agents send OpenTelemetry data.
 	Telemetry *TelemetrySpec `json:"telemetry,omitempty"`
-	// Where agents' inputs come from in this environment.
+	// Where agents' inputs come from in this target.
 	Inputs *InputsSpec `json:"inputs,omitempty"`
-	// Where Solaria keeps this environment's state: what it deployed, and
+	// Where Solaria keeps this target's state: what it deployed, and
 	// the lock that stops two applies at once. When omitted, state is a
-	// local file under .solaria/state, which suits personal environments;
-	// a shared environment needs state everyone who applies it can reach.
+	// local file under .solaria/state, which suits personal targets;
+	// a shared target needs state everyone who applies it can reach.
 	State *StateSpec `json:"state,omitempty"`
-	// Changes to agents in this environment only, keyed by agent name.
+	// Changes to agents in this target only, keyed by agent name.
 	Overrides map[string]AgentOverride `json:"overrides,omitempty"`
-	// Settings for the environment's provider, keyed by provider name, such
+	// Settings for the target's provider, keyed by provider name, such
 	// as the platform gitagent builds images for. Each provider documents
 	// its own settings. They describe the host, not the agents, so they
 	// aren't part of any agent's digest.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
 }
 
-// StateSpec says where an environment's state is kept. It describes where
+// StateSpec says where a target's state is kept. It describes where
 // Solaria works, not the agents, so it isn't part of any digest.
 type StateSpec struct {
-	// Keeps the state in Azure Blob Storage, as one blob per environment
+	// Keeps the state in Azure Blob Storage, as one blob per target
 	// holding the same JSON as a local state file. The lock is a lease on
 	// that blob, renewed while a command runs, so a stopped run's lock
 	// expires within a minute. Credentials come from the Azure credential
@@ -297,7 +297,7 @@ type AzureBlobState struct {
 	Container string `json:"container" jsonschema:"required,minLength=3,maxLength=63,pattern=^[a-z0-9](-?[a-z0-9])+$"`
 	// A folder in the container for this project's state, such as
 	// solaria/reviewers, so several projects can share a container. The blob
-	// is <prefix>/<environment>.json, or <environment>.json without one.
+	// is <prefix>/<target>.json, or <target>.json without one.
 	Prefix string `json:"prefix,omitempty" jsonschema:"pattern=^[A-Za-z0-9_-][A-Za-z0-9_.-]*(/[A-Za-z0-9_-][A-Za-z0-9_.-]*)*/?$"`
 }
 
@@ -325,7 +325,7 @@ type LabelSelector struct {
 }
 
 // InputsSpec binds the inputs agents declare to sources in one
-// environment. It describes the place, so it isn't part of any digest.
+// target. It describes the place, so it isn't part of any digest.
 type InputsSpec struct {
 	// The folder agents work on.
 	Workspace *WorkspaceInput `json:"workspace,omitempty"`
@@ -480,25 +480,25 @@ const (
 	OTLPHTTPProtobuf OTLPProtocol = "http/protobuf"
 )
 
-// AgentOverride changes an agent in one environment.
+// AgentOverride changes an agent in one target.
 type AgentOverride struct {
 	// Model fields to replace.
 	Model *ModelOverride `json:"model,omitempty"`
-	// Tools to take away in this environment. An override can only narrow
+	// Tools to take away in this target. An override can only narrow
 	// the agent's tools: validate fails on one that adds a tool.
 	Tools *ToolsOverride `json:"tools,omitempty"`
-	// Permissions to tighten in this environment.
+	// Permissions to tighten in this target.
 	Permissions *PermissionsOverride `json:"permissions,omitempty"`
 	// Limits to replace.
 	Limits *LimitsSpec `json:"limits,omitempty"`
-	// Workspace access to narrow in this environment: an override can make
+	// Workspace access to narrow in this target: an override can make
 	// a read-write workspace read-only, never the reverse.
 	Workspace *WorkspaceSpec `json:"workspace,omitempty"`
 	// Providers fields to merge over the agent's own.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
 }
 
-// ToolsOverride narrows an agent's tools in one environment, for example so
+// ToolsOverride narrows an agent's tools in one target, for example so
 // a shadow stage only reads.
 type ToolsOverride struct {
 	// Built-in tools to keep, out of the agent's spec.tools.builtin. Tools
@@ -520,7 +520,7 @@ type MCPToolOverride struct {
 	AllowTools []string `json:"allowTools" jsonschema:"required,minItems=1,uniqueItems=true"`
 }
 
-// PermissionsOverride tightens an agent's permissions in one environment.
+// PermissionsOverride tightens an agent's permissions in one target.
 type PermissionsOverride struct {
 	// Tools to add to the agent's permissions.ask: a builtin name, or
 	// server/tool for an MCP tool. The agent's own entries stay.
@@ -637,7 +637,7 @@ type KeyValue struct {
 	Name string `json:"name" jsonschema:"required,minLength=1"`
 	// Value, when it isn't secret.
 	Value string `json:"value,omitempty"`
-	// Name of a secret in the environment's secret source, in
+	// Name of a secret in the target's secret source, in
 	// UPPER_SNAKE_CASE. Its value is never stored by Solaria.
 	SecretRef string `json:"secretRef,omitempty" jsonschema:"pattern=^[A-Z_][A-Z0-9_]*$"`
 }
@@ -649,7 +649,7 @@ type VaultRef struct {
 }
 
 // Vault is a set of credentials that agents use by reference. A credential
-// says what it unlocks; its value comes from the environment's secret
+// says what it unlocks; its value comes from the target's secret
 // source when the agent runs, and is never written to a Vault.
 type Vault struct {
 	// API version of this resource.
@@ -674,7 +674,7 @@ type VaultSpec struct {
 type Credential struct {
 	// Name of the credential, unique in the vault.
 	Name string `json:"name" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$,maxLength=63"`
-	// Name of the secret that holds the value, in the environment's secret
+	// Name of the secret that holds the value, in the target's secret
 	// source (a variable or a dotenv entry).
 	SecretRef string `json:"secretRef" jsonschema:"required,pattern=^[A-Z_][A-Z0-9_]*$"`
 	// What the credential unlocks: an MCP server, an environment variable

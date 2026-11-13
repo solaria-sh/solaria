@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-12
 decision-makers: Renan Tarouco da Fonseca
 ---
@@ -104,18 +104,22 @@ ADR 0012's `EnvironmentHost` stays, but the engine calls it once for each Enviro
 
 ### Migration
 
-Nothing about the agents changes: specs, definitions and digests stay as they are. The break is in documents, the CLI, state and the lock file.
+Nothing about the agents changes: specs, definitions and digests stay as they are. The break is in documents, the CLI, state, the lock file and the plan JSON.
 
-- **Documents:** a `kind: Environment` with `spec.provider` fails to decode. The error names the file and line, and says to rename the kind to `Target` and move `sandbox` into an Environment it references. Decoding the old kind under the reused name for a release would leave `kind: Environment` with two meanings while the docs explain one, so there's no grace period. The kind is `v1alpha1`. The embedded templates, examples, testscripts and generated docs change in the same pull request.
-- **CLI:** `-e/--environment` becomes `-t/--target` on every command that takes it. `init` is the only command that uses `-t`, for `--template`, and it takes no target. The old flag stays hidden for one minor release and warns.
-- **State:** the files stay at `.solaria/state/<target>.json`, and Azure Blob state at `<prefix>/<target>.json`, with the same names. The state format is bumped:
+It lands in two pull requests in one release, so no release has one half. The first renames the kind to `Target` and changes nothing else. The second adds the `Environment` kind, `spec.environments`, and the host objects above.
+
+- **Documents:** an old `kind: Environment` fails before its schema is checked, at the line of `kind`: `kind Environment is now called Target (ADR 0020); change this document's kind to Target`. Once the new kind exists, the error is kept for an `Environment` with `spec.provider`, and also says to move `sandbox` into an Environment the target references. Decoding the old kind under the reused name for a release would leave `kind: Environment` with two meanings while the docs explain one, so there's no grace period. The kind is `v1alpha1`. The embedded templates, examples, testscripts and generated docs change in the same pull request.
+- **CLI:** `-e/--environment` becomes `-t/--target` on every command that takes it. `init` is the only command that uses `-t`, for `--template`, and it takes no target. The old flag is removed rather than kept hidden, so `-e` fails as an unknown flag.
+- **State:** the files stay at `.solaria/state/<target>.json`, and Azure Blob state at `<prefix>/<target>.json`, with the same names. The state format becomes `solaria.sh/state/v2`:
   - `environment` becomes `target`;
   - the single `host` entry becomes `environments`, keyed by Environment name;
   - `vaults` is keyed as before.
 
   Older state is read and upgraded on the next write. The old `host` entry becomes the entry of the target's default Environment, or of its only one. Plan then shows an in-place update to the new host name and metadata, not a replace. For a self-hosted worker that means a new container name and the same environment ID and key.
-- **Lock:** `solaria.lock` becomes format `solaria.sh/lock/v2`, with `targets` in place of `environments`. `plan` reads v1 and `solaria lock` writes v2. `definitionFormat` is unchanged, so no pin goes stale.
-- **Managed Agents objects:** the first apply after the upgrade makes a metadata-only update to every agent and environment, which adds `solaria_target`. Agents get a new version with the same `resolvedDigest`, as a rollback does (ADR 0011).
+- **Lock:** `solaria.lock` becomes format `solaria.sh/lock/v2`, with `targets` in place of `environments`. `plan` reads v1 and `solaria lock` writes v2. A file that mixes the two names is refused. `definitionFormat` is unchanged, so no pin goes stale.
+- **Plan JSON:** the format becomes `solaria.sh/plan/v2`, with `target` in place of `environment` (ADR 0018). A plan saved in v1 is refused like any unknown format; plan again.
+- **Identity:** runs see `SOLARIA_TARGET` instead of `SOLARIA_ENVIRONMENT`, and telemetry sends `solaria.target` instead of `solaria.environment` (ADR 0008).
+- **Managed Agents objects:** the first apply after the upgrade updates every agent and environment. Their metadata gets `solaria_target`, and the update sets `solaria_environment` to an empty string, which deletes it, because the host merges metadata. The environment's description becomes `Solaria target <name>`. Agents get a new version with the same `resolvedDigest`, as a rollback does (ADR 0011). A vault drops the old key the next time it's renamed. On `self-hosted`, the worker image is rebuilt once, because its labels name the target.
 
 ### Consequences
 
@@ -135,7 +139,7 @@ Nothing about the agents changes: specs, definitions and digests stay as they ar
 - Validation tests cover environment assignment: the default, selectors, an agent that matches two entries, and an agent with no Environment.
 - Engine tests with a fake hosting provider cover one host object per Environment, the upgrade of old state, and binding or unbinding an agent.
 - The `managed-agents` golden transcripts cover two Environments in one target and the metadata update.
-- `internal/cli/testdata/script/` covers the hidden `-e` flag and lock v1 being read.
+- `internal/cli/testdata/script/` covers the old kind's error and the removed `-e` flag; unit tests cover state v1 and lock v1 being read.
 - Every embedded template still validates and plans (ADR 0015).
 
 ## Pros and cons of the options
@@ -170,4 +174,3 @@ Nothing about the agents changes: specs, definitions and digests stay as they ar
 - [ADR 0004](0004-resource-model.md): the resource model. ADR 0006: placements, and "local" as an environment. [ADR 0007](0007-portable-sandbox-is-packages.md): the portable sandbox. ADR 0009: state per environment. [ADR 0012](0012-environment-level-host-objects.md): environment-level host objects. ADR 0013: the lock file. ADR 0016: vaults per environment. ADR 0017: input bindings. Each is revised when this is accepted.
 - [Managed Agents: environments](https://platform.claude.com/docs/en/managed-agents/environments), and the [Managed Agents spike](../spikes/2026-11-managed-agents-api.md).
 - Verified on 2026-11-13 against the real API: a Managed Agents environment's `name` can be changed in place, which the upgrade relies on. `POST /v1/environments/{id}` with only a new `name` returned the same ID with the new name, and a later `GET` showed it. The API reference lists `name` as an updatable field, and the `managed-agents` provider already sends it on every update. The API doesn't document whether names must be unique, so a rename shouldn't count on it.
-- To verify before acceptance: the exact wording and position of the decode error for an old `kind: Environment`.

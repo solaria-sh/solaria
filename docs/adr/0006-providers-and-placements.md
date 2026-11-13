@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # Providers and placements; "local" is an environment
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`.
+
 ## Context and problem statement
 
 Agent hosts come in two kinds:

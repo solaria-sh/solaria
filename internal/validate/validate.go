@@ -3,7 +3,7 @@
 // cost portability.
 //
 // Provider capabilities (which models, transports and sandboxes a host
-// accepts) are checked at plan time, once an environment's provider is known.
+// accepts) are checked at plan time, once a target's provider is known.
 package validate
 
 import (
@@ -36,8 +36,8 @@ func Validate(set *config.Set) diag.List {
 	for _, r := range set.Kind(v1alpha1.KindAgent) {
 		diags = append(diags, agent(set, r)...)
 	}
-	for _, r := range set.Kind(v1alpha1.KindEnvironment) {
-		diags = append(diags, environment(set, r)...)
+	for _, r := range set.Kind(v1alpha1.KindTarget) {
+		diags = append(diags, target(set, r)...)
 	}
 	for _, r := range set.Kind(v1alpha1.KindVault) {
 		diags = append(diags, vault(set, r)...)
@@ -310,7 +310,7 @@ func narrowing(r *config.Resource, name string, agent v1alpha1.AgentSpec, o v1al
 		for i, tool := range p.Ask {
 			if askTarget(tool, keptBuiltin, keptMCP) != "" {
 				errorf(r.Pos("spec", "overrides", name, "permissions", "ask", strconv.Itoa(i)),
-					"%s.permissions.ask[%d]: %q is not one of Agent %q's tools in this environment", field, i, tool, name)
+					"%s.permissions.ask[%d]: %q is not one of Agent %q's tools in this target", field, i, tool, name)
 			}
 		}
 	}
@@ -321,9 +321,9 @@ func narrowing(r *config.Resource, name string, agent v1alpha1.AgentSpec, o v1al
 	return diags
 }
 
-func environment(set *config.Set, r *config.Resource) diag.List {
+func target(set *config.Set, r *config.Resource) diag.List {
 	var diags diag.List
-	spec := r.Environment().Spec
+	spec := r.Target().Spec
 	errorf := func(p diag.Pos, format string, args ...any) {
 		diags = append(diags, diag.Errorf(r.File, p, format, args...))
 	}
@@ -399,7 +399,7 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 
 // passthrough warns about provider-specific fields: they are allowed, but
 // make the resource less portable, and ADR 0004 says that must be visible.
-// repositoryInputs checks where an environment's repositories come from,
+// repositoryInputs checks where a target's repositories come from,
 // and that each repository its agents declare is bound, with a credential
 // they may use (ADR 0017).
 func repositoryInputs(set *config.Set, r *config.Resource, selected map[string]bool) diag.List {
@@ -408,7 +408,7 @@ func repositoryInputs(set *config.Set, r *config.Resource, selected map[string]b
 		diags = append(diags, diag.Errorf(r.File, p, format, args...))
 	}
 	var bound map[string]v1alpha1.RepositoryInput
-	if in := r.Environment().Spec.Inputs; in != nil {
+	if in := r.Target().Spec.Inputs; in != nil {
 		bound = in.Repositories
 	}
 	used := map[string]bool{}
@@ -422,7 +422,7 @@ func repositoryInputs(set *config.Set, r *config.Resource, selected map[string]b
 			used[need.Name] = true
 			in, ok := bound[need.Name]
 			if !ok {
-				errorf(r.Pos("spec", "inputs", "repositories"), "spec.inputs.repositories: Agent %q needs repository %q, and this environment doesn't bind it", name, need.Name)
+				errorf(r.Pos("spec", "inputs", "repositories"), "spec.inputs.repositories: Agent %q needs repository %q, and this target doesn't bind it", name, need.Name)
 				continue
 			}
 			c := in.Credential
@@ -451,7 +451,7 @@ func repositoryInputs(set *config.Set, r *config.Resource, selected map[string]b
 			}
 		}
 		if !used[name] {
-			diags = append(diags, diag.Warnf(r.File, r.KeyPos("spec", "inputs", "repositories", name), "%s: no agent in this environment declares repository %q", field, name))
+			diags = append(diags, diag.Warnf(r.File, r.KeyPos("spec", "inputs", "repositories", name), "%s: no agent in this target declares repository %q", field, name))
 		}
 	}
 	return diags

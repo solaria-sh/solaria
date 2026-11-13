@@ -1,0 +1,21 @@
+# kind Environment was renamed to Target (ADR 0020). An old document fails
+# with the fix, not as an unknown kind.
+! exec solaria validate
+stdout '^solaria.yaml:7:7: error: kind Environment is now called Target \(ADR 0020\); change this document''s kind to Target$'
+
+# The -e flag went with it.
+! exec solaria plan -e local
+stderr 'unknown shorthand flag: ''e'' in -e'
+
+-- solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: hello}
+spec: {instructions: [hello.md], model: {preferred: anthropic:claude-sonnet-5-5}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: local}
+spec: {provider: stub, placement: file}
+-- hello.md --
+Say hello.

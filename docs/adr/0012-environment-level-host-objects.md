@@ -6,6 +6,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 # Environment-level host objects
 
+> [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`. Host object steps keep the ID `Environment/<name>`.
+
 ## Context and problem statement
 
 Solaria's state and plan were built around agents: each agent has one state entry, one plan step and one host binding (ADR 0009). Managed Agents also has an object that belongs to the environment rather than to an agent. A Managed Agents environment is the sandbox template every session starts from (packages, networking), and on `self-hosted` it's the work queue that one worker polls. Every agent in a Solaria environment shares it. Where should that object live in the plan and the state?

@@ -28,8 +28,8 @@
   <section class="block orbit-block" aria-labelledby="orbit-h">
     <div class="wrap orbit-grid">
       <div class="orbit-copy">
-        <h2 id="orbit-h" class="display">The card stays put. Environments decide where it runs.</h2>
-        <p><code>reviewer</code> is one card: instructions, model, tools, skills and limits. It names no host. Three environments place it in a local container, on Managed Agents with tools on your machine, and fully in Anthropic's cloud.</p>
+        <h2 id="orbit-h" class="display">The card stays put. Targets decide where it runs.</h2>
+        <p><code>reviewer</code> is one card: instructions, model, tools, skills and limits. It names no host. Three targets place it in a local container, on Managed Agents with tools on your machine, and fully in Anthropic's cloud.</p>
         <p>Open a host to see what it changes. <code>local-gitagent</code> swaps the model for Haiku, so only its digest moves.</p>
 <pre class="card-yaml"><code><span class="k">kind:</span> Agent
 <span class="k">metadata:</span> {name: reviewer}
@@ -73,7 +73,7 @@
         <li class="law">
           <span class="ord">Second law</span>
           <h3>An agent keeps one identity on every host.</h3>
-          <p class="proof"><svg class="chk" viewBox="0 0 18 18" aria-hidden="true"><rect x=".5" y=".5" width="17" height="17" rx="2"/><path d="M4 9.5l3.2 3L14 5.5"/></svg><span>State records which agent, with which content digest, runs where. The digest moves only when the card, or an environment's override, changes. <code>solaria.lock</code> pins it per environment, for review in git.</span></p>
+          <p class="proof"><svg class="chk" viewBox="0 0 18 18" aria-hidden="true"><rect x=".5" y=".5" width="17" height="17" rx="2"/><path d="M4 9.5l3.2 3L14 5.5"/></svg><span>State records which agent, with which content digest, runs where. The digest moves only when the card, or a target's override, changes. <code>solaria.lock</code> pins it per target, for review in git.</span></p>
         </li>
         <li class="law">
           <span class="ord">Third law</span>
@@ -159,14 +159,14 @@
       <div class="install">
 <pre class="console static"><code><span class="cmd">git clone {{.Repo}}</span>
 <span class="cmd">cd solaria/examples/hello</span>
-<span class="cmd">solaria plan -e local</span>
-Environment local (stub/file)
+<span class="cmd">solaria plan -t local</span>
+Target local (stub/file)
 
   <span class="c">+ Agent/hello</span>
       resolvedDigest: <span class="dg">sha256:08ffaed7b158</span>
 
 <span class="m">Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.</span>
-<span class="cmd">solaria apply -e local</span>
+<span class="cmd">solaria apply -t local</span>
 <span class="cmd">solaria status</span></code></pre>
       </div>
     </div>

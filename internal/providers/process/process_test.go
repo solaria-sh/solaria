@@ -26,7 +26,7 @@ func agent(dir string) *resolve.Agent {
 	return &resolve.Agent{
 		Name:   "triage",
 		EnvDir: dir,
-		Env: &v1alpha1.EnvironmentSpec{
+		Env: &v1alpha1.TargetSpec{
 			Secrets: &v1alpha1.SecretsSpec{Source: v1alpha1.SecretsDotenv, Path: "secrets.env"},
 		},
 		Definition: resolve.Definition{Tools: resolve.Tools{MCP: map[string]resolve.MCPServer{
@@ -528,7 +528,7 @@ func TestPreludeDotenvMatchesGo(t *testing.T) {
 func srtAgent() *resolve.Agent {
 	return &resolve.Agent{
 		Name: "triage",
-		Env: &v1alpha1.EnvironmentSpec{
+		Env: &v1alpha1.TargetSpec{
 			Sandbox: &v1alpha1.SandboxSpec{
 				Isolation: v1alpha1.IsolationSRT,
 				Network:   &v1alpha1.NetworkSpec{Allow: []string{"tracker.example.com"}},

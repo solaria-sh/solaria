@@ -12,7 +12,7 @@ import (
 func TestStateBackend(t *testing.T) {
 	dir := t.TempDir()
 	err := os.WriteFile(filepath.Join(dir, "envs.yaml"), []byte(`apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: shared}
 spec:
   provider: stub
@@ -21,7 +21,7 @@ spec:
     azureBlob: {account: agentstate, container: solaria-state}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec: {provider: stub, placement: file}
 `), 0o644)

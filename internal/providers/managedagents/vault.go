@@ -96,7 +96,7 @@ func vaultWhere(v *provider.Vault) string {
 }
 
 // vaultName is the host vault's display name: one per Vault and
-// environment.
+// target.
 func vaultName(v *provider.Vault, s settings) string {
 	return s.namePrefix + v.Env.Name + "/" + v.Name
 }
@@ -191,12 +191,12 @@ func (p *Provider) ApplyVault(ctx context.Context, pl *provider.VaultPlan) (*pro
 	}
 
 	var vaultID string
-	meta := map[string]string{metaLogicalID: v.ID(), metaEnvironment: v.Env.Name}
+	meta := map[string]string{metaLogicalID: v.ID(), metaTarget: v.Env.Name}
 	if update {
 		vaultID = pl.Prior.Binding.HostID
 		if old, _ := pl.Prior.Config["name"].(string); old != vaultName(v, s) {
 			p.logf("Renaming vault %s to %s\n", vaultID, vaultName(v, s))
-			if _, err := p.client.Beta.Vaults.Update(ctx, vaultID, anthropic.BetaVaultUpdateParams{DisplayName: param.NewOpt(vaultName(v, s))}); err != nil {
+			if _, err := p.client.Beta.Vaults.Update(ctx, vaultID, anthropic.BetaVaultUpdateParams{DisplayName: param.NewOpt(vaultName(v, s)), Metadata: updateMetadata(meta)}); err != nil {
 				return nil, err
 			}
 		}

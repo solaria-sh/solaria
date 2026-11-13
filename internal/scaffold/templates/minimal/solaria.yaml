@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://solaria.sh/schemas/v1alpha1/solaria.json
 #
-# A Solaria project: one agent, and two environments to run it in.
+# A Solaria project: one agent, and two targets to run it in.
 #
 #   solaria validate          check this file and the files it names
-#   solaria plan -e local     show what apply would do
-#   solaria apply -e local    deploy the agent with the stub provider
+#   solaria plan -t local     show what apply would do
+#   solaria apply -t local    deploy the agent with the stub provider
 #   solaria status            show what is deployed where
 #
-# The Agent says what the agent is. It names no host: the environments below
+# The Agent says what the agent is. It names no host: the targets below
 # decide where it runs.
 apiVersion: solaria.sh/v1alpha1
 kind: Agent
@@ -26,7 +26,7 @@ spec:
 # .solaria/. It needs no credentials and nothing installed, so it's the place
 # to try plan and apply.
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: local
 spec:
@@ -36,9 +36,9 @@ spec:
 # local-sdk runs the same agent on the Claude Agent SDK as a local Node
 # process. Planning needs Node 18.14 or later; apply installs the SDK into
 # .solaria/. Running the agent needs ANTHROPIC_API_KEY, and
-# `solaria status -e local-sdk -a hello` shows the command that starts it.
+# `solaria status -t local-sdk -a hello` shows the command that starts it.
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: local-sdk
 spec:

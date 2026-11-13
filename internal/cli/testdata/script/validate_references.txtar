@@ -23,7 +23,7 @@ environments.yaml:9:32: error: spec.secrets.path only applies when source is dot
 environments.yaml:11:12: error: spec.sandbox.image: file "./Dockerfile" not found
 environments.yaml:12:42: warning: spec.sandbox.network.allow is ignored when mode is unrestricted
 environments.yaml:14:5: warning: spec.overrides: Agent "reviewer" is not selected by spec.agents.selector, so this override has no effect
-environments.yaml:16:9: warning: spec.overrides.reviewer.providers.gitagent: fields for one provider make Environment/local less portable
+environments.yaml:16:9: warning: spec.overrides.reviewer.providers.gitagent: fields for one provider make Target/local less portable
 environments.yaml:17:5: error: spec.overrides: no Agent named "ghost"
 environments.yaml:33:3: error: spec: missing required field "model"
 -- agent.yaml --
@@ -52,7 +52,7 @@ spec:
   remotes: [{type: streamable-http, url: "https://example.com/mcp"}]
 -- environments.yaml --
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: local}
 spec:
   provider: gitagent
@@ -70,7 +70,7 @@ spec:
     ghost: {}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: broken-target}
 spec:
   provider: gitagent

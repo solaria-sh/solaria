@@ -195,7 +195,7 @@ section.part { padding: 72px 0 24px; }
       <div>
         <p class="display big">Agents do the work. People steer.</p>
         <p>Solaria is a control plane for AI agent definitions. You declare an agent once: its instructions, model, tools, skills and sandbox. Solaria then plans and applies it to any host a provider supports, and records what it deployed where.</p>
-<pre>Environment local (stub/file)
+<pre>Target local (stub/file)
 
   <span style="color:var(--update)">~ Agent/hello</span>
       <span style="color:var(--update)">~ limits.maxTurns: 5 -> 2</span>
@@ -247,9 +247,9 @@ Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.</pre>
         <div class="b-grid">
           <div>
             <h1 class="display">One agent at the center. Every host in orbit.</h1>
-            <p class="sub">The card stays put. Environments decide where it runs. Pick a host to see what changes and what doesn't.</p>
+            <p class="sub">The card stays put. Targets decide where it runs. Pick a host to see what changes and what doesn't.</p>
             <dl class="readout" id="readoutB">
-              <dt>Environment</dt><dd id="rEnv">ma-cloud</dd>
+              <dt>Target</dt><dd id="rEnv">ma-cloud</dd>
               <dt>Provider</dt><dd id="rProv">managed-agents / cloud</dd>
               <dt>Agent loop</dt><dd id="rLoop">Claude Managed Agents</dd>
               <dt>Digest</dt><dd class="mono" id="rDig" style="color:var(--gold-ink)">sha256:08ffaed7b158</dd>
@@ -336,8 +336,8 @@ Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.</pre>
   // Hero A: the console types a real plan, then apply latches each host.
   const A = { run: 0 };
   const script = [
-    { cmd: "solaria plan -e ma-cloud" },
-    { t: "Environment ma-cloud (managed-agents/cloud)" },
+    { cmd: "solaria plan -t ma-cloud" },
+    { t: "Target ma-cloud (managed-agents/cloud)" },
     { t: "" },
     { t: "  + Environment/ma-cloud", k: "c" },
     { t: "" },
@@ -345,7 +345,7 @@ Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.</pre>
     { h: '      resolvedDigest: <span class="dg">sha256:08ffaed7b158</span>' },
     { t: "" },
     { t: "Plan: 2 to create, 0 to update, 0 to replace, 0 to delete or archive.", k: "m" },
-    { cmd: "solaria apply -e ma-cloud --auto-approve", pause: 500 },
+    { cmd: "solaria apply -t ma-cloud --auto-approve", pause: 500 },
     { t: "Apply complete: 2 created, 0 updated, 0 replaced, 0 deleted. State serial 1.", hostAfter: 1 },
   ];
   async function runA() {
@@ -370,7 +370,7 @@ Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.</pre>
         ln.classList.add("latch");
       }
       if (s.hostAfter) {
-        // ma-cloud is what was applied; the other two are the same card in other environments.
+        // ma-cloud is what was applied; the other two are the same card in other targets.
         const order = [1, 0, 2];
         for (const i of order) {
           await sleep(i === 1 ? 260 : 520); if (!live()) return;

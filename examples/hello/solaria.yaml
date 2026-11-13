@@ -1,4 +1,4 @@
-# The smallest Solaria project: one agent and five environments.
+# The smallest Solaria project: one agent and five targets.
 #
 # local uses the stub provider, which writes "host objects" to files under
 # .solaria/stub/. It needs no credentials, so it's the place to try plan
@@ -45,7 +45,7 @@ spec:
   limits: {maxTurns: 5}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: local
 spec:
@@ -53,7 +53,7 @@ spec:
   placement: file
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: local-gitagent
 spec:
@@ -63,7 +63,7 @@ spec:
     network: {mode: unrestricted}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: local-sdk
 spec:
@@ -73,7 +73,7 @@ spec:
     network: {mode: unrestricted}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: ma-cloud
 spec:
@@ -83,7 +83,7 @@ spec:
     managed-agents: {namePrefix: hello-example-}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata:
   name: ma-self-hosted
 spec:

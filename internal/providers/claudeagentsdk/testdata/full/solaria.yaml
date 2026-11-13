@@ -43,7 +43,7 @@ spec:
       headers: [{name: Authorization, secretRef: DOCS_TOKEN}, {name: X-Team, value: platform}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: dev}
 spec:
   provider: claude-agent-sdk
@@ -58,7 +58,7 @@ spec:
     resourceAttributes: {service.namespace: platform, team: "code review, core"}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: dev-docker}
 spec:
   provider: claude-agent-sdk
@@ -72,7 +72,7 @@ spec:
     claude-agent-sdk: {platform: linux/arm64}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: dev-srt}
 spec:
   provider: claude-agent-sdk
@@ -84,7 +84,7 @@ spec:
   telemetry: {endpoint: "http://localhost:4318"}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: srt-read-only}
 spec:
   provider: claude-agent-sdk
@@ -97,7 +97,7 @@ spec:
       workspace: {access: read-only}
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Environment
+kind: Target
 metadata: {name: docker-read-only}
 spec:
   provider: claude-agent-sdk

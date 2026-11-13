@@ -1,17 +1,17 @@
 # The full cycle on examples/hello with the stub provider.
 cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md .
 exec solaria validate
-stdout '^valid: 1 Agent, 5 Environments$'
+stdout '^valid: 1 Agent, 5 Targets$'
 
 # A first plan creates the agent and changes nothing.
-exec solaria plan -e local
+exec solaria plan -t local
 cmp stdout plan-create.txt
 ! exists .solaria/state/local.json
-! exec solaria plan -e local --detailed-exitcode
+! exec solaria plan -t local --detailed-exitcode
 ! stderr .
 
 # Apply records the agent at serial 1.
-exec solaria apply -e local --auto-approve
+exec solaria apply -t local --auto-approve
 stdout '^Apply complete: 1 created, 0 updated, 0 replaced, 0 deleted. State serial 1.$'
 stdout '^  Agent/hello: stub_[0-9a-f]{12} version 1 \(sha256:08ffaed7b158\)$'
 grep '"serial": 1' .solaria/state/local.json
@@ -20,57 +20,57 @@ exists .solaria/stub/local/hello.json
 exists .solaria/.gitignore
 
 # Nothing changed, so nothing to do.
-exec solaria plan -e local --detailed-exitcode
+exec solaria plan -t local --detailed-exitcode
 cmp stdout plan-none.txt
 exec solaria status
 stdout '^  Agent/hello +stub/file +stub_[0-9a-f]{12} +1 +sha256:08ffaed7b158 +\S+ \S+ +up to date$'
 
 # -a shows one agent, and how to start it; the stub has no command.
-exec solaria status -e local -a hello
+exec solaria status -t local -a hello
 stdout '^  Agent/hello +stub/file '
 stdout '^  stub runs the agent on its host; there''s no command to start it.$'
-exec solaria status -e local -a hello -o json
+exec solaria status -t local -a hello -o json
 stdout '"logicalId": "Agent/hello"'
 stdout '"configuration": "upToDate"'
 ! stdout '"invocation"'
 ! exec solaria status -a hello
-stderr '^Error: --agent needs --environment'
-! exec solaria status -e local -a nobody
-stderr '^Error: agent "nobody" isn''t in the state of Environment "local", and its configuration doesn''t select it$'
+stderr '^Error: --agent needs --target'
+! exec solaria status -t local -a nobody
+stderr '^Error: agent "nobody" isn''t in the state of Target "local", and its configuration doesn''t select it$'
 
-# An override changes only this environment: resolvedDigest moves,
+# An override changes only this target: resolvedDigest moves,
 # specDigest stays.
 replace solaria.yaml '  placement: file' '  placement: file\n  overrides:\n    hello: {limits: {maxTurns: 2}}'
 exec solaria status
 stdout 'overrides changed$'
-! exec solaria plan -e local --detailed-exitcode
+! exec solaria plan -t local --detailed-exitcode
 cmp stdout plan-override.txt
 
 # Editing the instructions changes the agent itself.
 replace instructions.md 'one short sentence' 'two short sentences'
-exec solaria plan -e local
+exec solaria plan -t local
 cmp stdout plan-instructions.txt
 
 # Apply asks first; anything but yes cancels.
 stdin no.txt
-! exec solaria apply -e local
+! exec solaria apply -t local
 stderr '^Error: apply cancelled$'
 grep '"serial": 1' .solaria/state/local.json
 stdin yes.txt
-exec solaria apply -e local
+exec solaria apply -t local
 stdout 'Apply complete: 0 created, 1 updated, 0 replaced, 0 deleted. State serial 2.'
 stdout 'version 2'
 grep '"history"' .solaria/state/local.json
 
 # Destroy removes the host object and empties the state.
 stdin yes.txt
-exec solaria destroy -e local
+exec solaria destroy -t local
 stdout '^  - Agent/hello$'
 stdout 'Destroy complete: 0 created, 0 updated, 0 replaced, 1 deleted. State serial 3.'
 ! exists .solaria/stub/local/hello.json
 exec solaria status -o json
 stdout '"logicalId": "Agent/hello",\n +"configuration": "notApplied"'
-exec solaria plan -e local
+exec solaria plan -t local
 stdout '\+ Agent/hello'
 
 -- yes.txt --
@@ -78,26 +78,26 @@ yes
 -- no.txt --
 no
 -- plan-create.txt --
-Environment local (stub/file)
+Target local (stub/file)
 
   + Agent/hello
       resolvedDigest: sha256:08ffaed7b158
 
 Plan: 1 to create, 0 to update, 0 to replace, 0 to delete.
 -- plan-none.txt --
-Environment local (stub/file)
+Target local (stub/file)
 
-No changes. The environment matches the configuration.
+No changes. The target matches the configuration.
 -- plan-override.txt --
-Environment local (stub/file)
+Target local (stub/file)
 
   ~ Agent/hello
       ~ limits.maxTurns: 5 -> 2
-      resolvedDigest: sha256:08ffaed7b158 -> sha256:627f9817d8d8 (specDigest unchanged: only this environment's overrides differ)
+      resolvedDigest: sha256:08ffaed7b158 -> sha256:627f9817d8d8 (specDigest unchanged: only this target's overrides differ)
 
 Plan: 0 to create, 1 to update, 0 to replace, 0 to delete.
 -- plan-instructions.txt --
-Environment local (stub/file)
+Target local (stub/file)
 
   ~ Agent/hello
       ~ instructions[0]: text changed (1 line -> 1 line)
