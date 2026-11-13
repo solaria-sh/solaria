@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.18.0](https://github.com/solaria-sh/solaria/compare/v0.17.0...v0.18.0) (2026-11-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* Target.spec.sandbox is removed. Move it into an Environment and reference it from spec.environments; validate says so. Plan JSON and status JSON list environments instead of host.
+* documents must use kind: Target, and commands take -t instead of -e. Saved v1 plans must be planned again.
+
+### Added
+
+* add the Environment kind for reusable sandboxes ([#55](https://github.com/solaria-sh/solaria/issues/55)) ([bbe26a6](https://github.com/solaria-sh/solaria/commit/bbe26a6bca021a7d7b45e7d5d1d6f92e9c494bab))
+* **brand:** add a brand kit and link previews for solaria.sh ([#51](https://github.com/solaria-sh/solaria/issues/51)) ([671e23f](https://github.com/solaria-sh/solaria/commit/671e23f8ff87daac3f9ca474e0e021b9f6e7db75))
+* rename the Environment kind to Target ([#54](https://github.com/solaria-sh/solaria/issues/54)) ([a76debf](https://github.com/solaria-sh/solaria/commit/a76debf8353976b37d3907471be77cdd67af5f9b))
+
+
+### Fixed
+
+* **brand:** center the X header so phones don't cover it ([#53](https://github.com/solaria-sh/solaria/issues/53)) ([75b822c](https://github.com/solaria-sh/solaria/commit/75b822ccbdfe5b4d435ef9727010756fa20128b0))
+
 ## [0.17.0](https://github.com/solaria-sh/solaria/compare/v0.16.0...v0.17.0) (2026-11-12)
 
 
