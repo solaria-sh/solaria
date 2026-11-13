@@ -5,7 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}}</title>
 <meta name="description" content="{{.Description}}">
-<meta name="theme-color" content="#f1f2f4" media="(prefers-color-scheme: light)">
+{{if .Image}}<meta property="og:type" content="website">
+<meta property="og:site_name" content="Solaria">
+<meta property="og:title" content="{{.Title}}">
+<meta property="og:description" content="{{.Description}}">
+<meta property="og:url" content="{{.URL}}">
+<meta property="og:image" content="{{.Image}}">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Solaria: declare an agent once, apply it wherever it can run">
+<meta name="twitter:card" content="summary_large_image">
+{{end}}<meta name="theme-color" content="#f1f2f4" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1a1e1d" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">

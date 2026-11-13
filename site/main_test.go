@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -141,6 +142,48 @@ func TestHostingFiles(t *testing.T) {
 		if !found {
 			t.Errorf("_headers doesn't serve %s as text/plain; it has %q", script, rules[script])
 		}
+	}
+}
+
+// TestSocialCard checks that pages carry link-preview tags and that the
+// image they name is in the build at the size the tags declare.
+func TestSocialCard(t *testing.T) {
+	out := t.TempDir()
+	b := &builder{repo: "..", site: ".", out: out}
+	if err := b.build(); err != nil {
+		t.Fatal(err)
+	}
+
+	for file, url := range map[string]string{
+		"index.html":               SiteURL + "/",
+		"docs/concepts/index.html": SiteURL + "/docs/concepts/",
+	} {
+		page, err := os.ReadFile(filepath.Join(out, filepath.FromSlash(file)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, tag := range []string{
+			`<meta property="og:url" content="` + url + `">`,
+			`<meta property="og:image" content="` + SiteURL + SocialImage + `">`,
+			`<meta name="twitter:card" content="summary_large_image">`,
+		} {
+			if !strings.Contains(string(page), tag) {
+				t.Errorf("%s doesn't have %s", file, tag)
+			}
+		}
+	}
+
+	f, err := os.Open(filepath.Join(out, SocialImage))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	cfg, err := png.DecodeConfig(f)
+	if err != nil {
+		t.Fatalf("decode %s: %v", SocialImage, err)
+	}
+	if cfg.Width != 1280 || cfg.Height != 640 {
+		t.Errorf("%s is %dx%d; the og:image tags say 1280x640", SocialImage, cfg.Width, cfg.Height)
 	}
 }
 

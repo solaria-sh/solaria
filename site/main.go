@@ -33,6 +33,14 @@ import (
 // RepoURL is the one place the repository's address is written down.
 const RepoURL = "https://github.com/solaria-sh/solaria"
 
+// SiteURL is where the site is published. Link previews (og:url, og:image)
+// need absolute URLs.
+const SiteURL = "https://solaria.sh"
+
+// SocialImage is the card X, Slack and others show for a link to the site.
+// brand/build.py renders it from the brand kit; it's 1280x640.
+const SocialImage = "/social-preview.png"
+
 func main() {
 	out := flag.String("out", "public", "folder to write the site into")
 	repo := flag.String("repo", "..", "the Solaria repository, for docs/")
@@ -85,6 +93,7 @@ type heading struct{ ID, Text string }
 
 type view struct {
 	Title, Heading, Description, Repo, EditURL string
+	URL, Image                                 string // absolute, for link previews
 	Doc                                        bool
 	Body                                       template.HTML
 	TOC                                        []heading
@@ -156,6 +165,8 @@ func (b *builder) build() error {
 		Title:       "Solaria: plan and apply agent definitions across hosts",
 		Description: "Solaria is a control plane for AI agent definitions. Declare an agent once, then plan and apply it to any host a provider supports.",
 		Repo:        RepoURL,
+		URL:         SiteURL + "/",
+		Image:       SiteURL + SocialImage,
 	}); err != nil {
 		return err
 	}
@@ -194,6 +205,8 @@ func (b *builder) build() error {
 			Description: firstParagraph(src),
 			Repo:        RepoURL,
 			EditURL:     RepoURL + "/blob/main/" + p.src,
+			URL:         SiteURL + p.url,
+			Image:       SiteURL + SocialImage,
 			Doc:         true,
 			Body:        template.HTML(body), //nolint:gosec // rendered from the repository's own docs
 			TOC:         toc,
