@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-14
 decision-makers: Renan Tarouco da Fonseca
 ---
@@ -63,7 +63,7 @@ The worker serves the wrapped tools to every session it claims, through the SDK'
 
 A server's `environmentVariables` that use `secretRef` reach the worker container from the target's secret source, through docker's environment as the environment key does, never its command line, state or the image. The worker passes each server only its own variables. With vaults (ADR 0016), a credential `for: {mcpServer: …}` grants the secret to a server that runs on the worker, instead of being dropped with a warning as it is today.
 
-One worker serves every agent in its Environment, so a server's process gets the same secrets whichever agent calls it. Plan fails when two agents in one Environment use the same worker-run server but are granted different credentials for it; the error suggests separate Environments.
+One worker serves every agent in its Environment, so a server's process gets the same secrets whichever agent calls it. That's safe because `validate` already requires every agent that uses a server to be granted all of its secrets, straight from the secret source or through its vaults (ADR 0016), so agents sharing a worker can't disagree about what the server gets.
 
 ### Approvals
 
@@ -84,7 +84,7 @@ Permission policies don't apply to custom tools: the worker runs every call. So 
 ### Confirmation
 
 - Golden transcripts for `managed-agents/self-hosted` cover an agent with a stdio-only server: the worker image, the declared custom tools, `allowTools`, and the tool list recorded in state.
-- Unit tests cover transport selection on both placements, tool name and schema limits, the approval error and the credential conflict.
+- Unit tests cover transport selection on both placements, tool name and schema limits, and the approval error.
 - A worker test starts a stdio server through the MCP SDK and answers a custom tool call against a fake session, without Docker or the network.
 - `SOLARIA_IT_MANAGED_AGENTS=1` gains a self-hosted case with a stdio server, run only with the maintainer's go-ahead.
 - `docs/providers/managed-agents.md` and ADR 0005's transport table follow.

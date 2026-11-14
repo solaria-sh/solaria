@@ -80,8 +80,11 @@ type agentBody struct {
 	Toolset                   *anthropic.BetaManagedAgentsAgentToolset20260401Params
 	MCPToolsets               []anthropic.BetaManagedAgentsMCPToolsetParams
 	MCPServers                []anthropic.BetaManagedAgentsURLMCPServerParams
-	Skills                    []anthropic.BetaManagedAgentsSkillParamsUnion
-	Metadata                  map[string]string
+	// CustomTools are the tools of the MCP servers the self-hosted worker
+	// runs (ADR 0021).
+	CustomTools []anthropic.BetaManagedAgentsCustomToolParams
+	Skills      []anthropic.BetaManagedAgentsSkillParamsUnion
+	Metadata    map[string]string
 	// Passthrough are the agent's providers.managed-agents fields, sent as
 	// they are.
 	Passthrough map[string]any
@@ -90,8 +93,10 @@ type agentBody struct {
 // renderAgent turns a resolved agent into the body of its create or update
 // request. skills holds each skill's uploaded version; a skill without one
 // is rendered with an empty ID, which is how plans compare bodies before
-// uploading.
-func renderAgent(a *resolve.Agent, s settings, skills map[string]skillRef) agentBody {
+// uploading. tools holds the listed tools of the servers the worker runs;
+// a server without a list declares none, as plans render it before apply
+// lists them.
+func renderAgent(a *resolve.Agent, s settings, skills map[string]skillRef, tools map[string]toolList) agentBody {
 	d := a.Definition
 	body := agentBody{
 		Name:        s.namePrefix + a.Name,
@@ -128,6 +133,10 @@ func renderAgent(a *resolve.Agent, s settings, skills map[string]skillRef) agent
 
 	for _, name := range slices.Sorted(maps.Keys(d.Tools.MCP)) {
 		srv := d.Tools.MCP[name]
+		if stdioPackage(a.Placement, srv.Spec) != nil {
+			body.CustomTools = append(body.CustomTools, customTools(name, srv, tools[name])...)
+			continue
+		}
 		url, _ := remote(srv.Spec)
 		body.MCPServers = append(body.MCPServers, anthropic.BetaManagedAgentsURLMCPServerParams{Name: name, URL: url})
 		ts := anthropic.BetaManagedAgentsMCPToolsetParams{
@@ -255,7 +264,19 @@ func (b agentBody) newParams() anthropic.BetaAgentNewParams {
 	for i := range b.MCPToolsets {
 		p.Tools = append(p.Tools, anthropic.BetaAgentNewParamsToolUnion{OfMCPToolset: &b.MCPToolsets[i]})
 	}
+	for i := range b.CustomTools {
+		p.Tools = append(p.Tools, anthropic.BetaAgentNewParamsToolUnion{OfCustom: &b.CustomTools[i]})
+	}
 	return p
+}
+
+// toolCount is how many entries the request's tools list has.
+func (b agentBody) toolCount() int {
+	n := len(b.MCPToolsets) + len(b.CustomTools)
+	if b.Toolset != nil {
+		n++
+	}
+	return n
 }
 
 // updateParams returns the update request. Lists are replaced whole on the
@@ -285,6 +306,9 @@ func (b agentBody) updateParams(version int64) anthropic.BetaAgentUpdateParams {
 	for i := range b.MCPToolsets {
 		p.Tools = append(p.Tools, anthropic.BetaAgentUpdateParamsToolUnion{OfMCPToolset: &b.MCPToolsets[i]})
 	}
+	for i := range b.CustomTools {
+		p.Tools = append(p.Tools, anthropic.BetaAgentUpdateParamsToolUnion{OfCustom: &b.CustomTools[i]})
+	}
 	return p
 }
 
@@ -313,8 +337,14 @@ func validateAgent(a *resolve.Agent, s settings, where string) diag.List {
 	if n := utf8.RuneCountInString(system(d.Instructions)); n > maxSystem {
 		errorf("the instructions are %d characters; the host takes %d", n, maxSystem)
 	}
-	if n := len(d.Tools.MCP); n > maxMCPServers {
-		errorf("the agent uses %d MCP servers; the host takes %d", n, maxMCPServers)
+	remotes := 0
+	for _, srv := range d.Tools.MCP {
+		if stdioPackage(a.Placement, srv.Spec) == nil {
+			remotes++
+		}
+	}
+	if remotes > maxMCPServers {
+		errorf("the agent uses %d MCP servers the host connects to; the host takes %d", remotes, maxMCPServers)
 	}
 	for _, name := range slices.Sorted(maps.Keys(d.Tools.MCP)) {
 		_, r := remote(d.Tools.MCP[name].Spec)
@@ -342,6 +372,12 @@ func validateAgent(a *resolve.Agent, s settings, where string) diag.List {
 	for _, t := range d.Permissions.Ask {
 		server, tool, ok := strings.Cut(t, "/")
 		if !ok {
+			continue
+		}
+		if srv, used := d.Tools.MCP[server]; used && stdioPackage(a.Placement, srv.Spec) != nil {
+			// Permission policies don't apply to custom tools: the worker
+			// runs every call (ADR 0021).
+			errorf("permissions.ask lists %s, but McpServer %q has no remote, so the worker runs it and serves its tools as custom tools, which can't ask for approval; use a server with a remote", t, server)
 			continue
 		}
 		if srv, used := d.Tools.MCP[server]; used && srv.AllowTools != nil && !slices.Contains(srv.AllowTools, tool) {

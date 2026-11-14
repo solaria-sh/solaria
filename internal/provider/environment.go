@@ -15,8 +15,9 @@ import (
 // template every session starts from, and on self-hosted the work queue a
 // worker polls.
 //
-// The engine plans these objects together with the agents. It creates or
-// updates them before the agents and deletes them after.
+// The engine plans these objects before the agents, so Plan can use what
+// PlanEnvironment learned from the prior entry. It creates or updates them
+// before the agents and deletes them after.
 type EnvironmentHost interface {
 	// ValidateEnvironment reports problems with the Environment as this
 	// host sees it, once per Environment rather than once per agent.

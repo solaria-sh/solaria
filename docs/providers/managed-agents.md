@@ -46,9 +46,9 @@ A session starts in the environment of the agent's Environment. `solaria status 
 | `model.fallback` | not supported; plan warns |
 | `instructions` | `system`, the files joined with a blank line |
 | `tools.builtin` | the `agent_toolset_20260401` toolset, with every tool off except those listed. `shell` becomes `bash`; the others keep their names. |
-| `tools.mcp` | `mcp_servers` (the server's streamable HTTP remote, else SSE) and one `mcp_toolset` each. Servers without a remote fail plan: Anthropic opens the connection, on both placements. |
-| `allowTools` | the toolset's per-tool configs, with its default off |
-| `permissions.ask` | `always_ask` on that tool; every other tool is `always_allow`, because MCP toolsets would otherwise ask by default |
+| `tools.mcp` | `mcp_servers` (the server's streamable HTTP remote, else SSE) and one `mcp_toolset` each. On `self-hosted`, a server with only an npm or PyPI stdio package runs on the worker instead, and its tools become custom tools: see [MCP servers on the worker](#mcp-servers-on-the-worker). Other servers without a remote fail plan: Anthropic opens the connection. |
+| `allowTools` | the toolset's per-tool configs, with its default off, or the custom tools declared for a server on the worker |
+| `permissions.ask` | `always_ask` on that tool; every other tool is `always_allow`, because MCP toolsets would otherwise ask by default. A tool of a server on the worker fails plan: custom tools can't ask for approval. |
 | `skills` | custom skills, pinned by version |
 | `limits` | not enforced; plan warns. Session budgets cap cost. |
 | `output.schema` | not supported; plan fails |
@@ -64,7 +64,7 @@ Apply keeps one host vault per [Vault](../concepts.md#credentials-and-vaults) an
 
 | Vault credential | Host credential |
 |---|---|
-| `for: {mcpServer: …}` | a static bearer token for the server's remote URL. The host sends `Authorization: Bearer <token>`, so the server must take the secret in its `Authorization` header, or plan fails. A leading `Bearer ` in the value is dropped, so one value works here and where a launcher sends the header as it is. A secret only a package uses isn't stored, with a warning: Managed Agents runs no MCP packages. |
+| `for: {mcpServer: …}` | a static bearer token for the server's remote URL. The host sends `Authorization: Bearer <token>`, so the server must take the secret in its `Authorization` header, or plan fails. A leading `Bearer ` in the value is dropped, so one value works here and where a launcher sends the header as it is. A secret only a package uses isn't stored: on `cloud` it gets a warning, since Managed Agents runs no MCP packages, and for a server on the `self-hosted` worker the worker passes it to the server itself. |
 | `for: {env: NAME}` | an environment variable `NAME`. The sandbox holds a placeholder, and the host puts the value into outbound requests to any host the agent's Environment allows in `spec.network`. |
 | `for: {gitHost: …}` | nothing: it authenticates a repository's clone, and the caller passes its value as the `github_repository` resource's token. |
 
@@ -90,7 +90,7 @@ An Environment's `spec` becomes the cloud environment's config:
 
 ## `self-hosted`
 
-The agent loop stays on Anthropic's side; a worker container on your machine runs the tools. Anthropic still opens the MCP connections.
+The agent loop stays on Anthropic's side; a worker container on your machine runs the tools. Anthropic opens the connections to MCP servers with a remote; the worker runs those with only a stdio package (see [MCP servers on the worker](#mcp-servers-on-the-worker)).
 
 Each Environment gets its own environment, key and worker:
 
@@ -102,6 +102,19 @@ The default Environment's key is `ANTHROPIC_ENVIRONMENT_KEY`, or the name in `en
 The worker is a small Go program on the SDK's `EnvironmentWorker`, built into an image on the [Solaria sandbox base](../concepts.md#the-sandbox) with the Environment's packages, tagged `solaria/<name>/worker:<digest>`. The key reaches docker through its environment, never its command line, and the container never holds an API key. `resources.memory` becomes the container's memory limit. `image` is accepted: the worker image starts from it, and it needs `/bin/bash`. Docker can't enforce network host lists or disk limits, so plan warns about them.
 
 A plan that finds the worker container stopped plans an update, which starts it again.
+
+### MCP servers on the worker
+
+Anthropic can't start a stdio server, so on `self-hosted` the worker runs every MCP server that has no remote and has an npm or PyPI package with `transport: {type: stdio}`, and serves its tools to the agents as [custom tools](https://platform.claude.com/docs/en/managed-agents/self-hosted-sandboxes-custom-tools) ([ADR 0021](../adr/0021-self-hosted-worker-runs-stdio-mcp-servers.md)). A server with a remote still uses it. Plan notes the servers that run on the worker.
+
+- **Install.** The worker image installs each server at the version its package pins: npm packages with `npm install --prefix /opt/solaria/mcp/<server>`, PyPI packages into a virtual environment there. A new version or argument changes the image, so apply rebuilds it and restarts the worker. With `image`, the image needs `npm` or `python3` with `venv`; plan warns.
+- **Tools.** Apply lists each server's tools once, after building the image, by running `solaria-worker list-tools` in it, and records them in state. The agent declares them as custom tools named `<server>__<tool>`, narrowed by `allowTools`; later plans render from state and show changes as field diffs. Until a server has been listed, plan says apply will list it. A server that fails to start or list fails apply before any agent changes. A server whose tools change at runtime keeps the tools listed at apply until the next one.
+- **Limits.** A tool name longer than 128 characters with its prefix, an input schema with `$ref` or a top-level `oneOf`, `anyOf` or `allOf`, a property name other than letters, digits, `_`, `.` and `-`, or more than 256 tools on one agent fails apply, naming the server and tool.
+- **Calls.** Each session starts its own server process the first time it calls one of the server's tools, in the session's workdir, and stops it when the session ends. A call times out after 10 minutes and becomes an error result.
+- **Secrets.** A package variable with `secretRef` reaches the worker container from the target's secret source through docker's environment, as the key does, and the worker passes each server only its own variables, never the key. Every agent that uses a server is granted all its secrets, straight or through its vaults, so one worker serving several agents gives the server the same values.
+- **Approvals.** The worker runs every custom tool call, so `permissions.ask` on a tool of a server on the worker fails plan. Use a server with a remote for tools that need approval.
+
+The server's tool names, descriptions and results reach the model, and the worker runs `bash` next to it: run only servers you trust.
 
 ## Settings
 
