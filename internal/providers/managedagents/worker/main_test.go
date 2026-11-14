@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -68,6 +69,9 @@ func echoServer(t *testing.T) server {
 // TestWrappedTool lists a server's tools and answers a custom tool call
 // the way a session does, then ends the session.
 func TestWrappedTool(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the worker runs in Linux containers, and starts a server's command by a name without .exe")
+	}
 	t.Setenv("SOLARIA_TEST_ECHO_TOKEN", "echo-secret")
 	t.Setenv("ANTHROPIC_ENVIRONMENT_KEY", "envkey-secret")
 	s := echoServer(t)
