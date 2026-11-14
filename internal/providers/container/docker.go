@@ -128,12 +128,38 @@ type RunRequest struct {
 	// process lists.
 	Secrets map[string]string
 	Labels  map[string]string
+	// Args go after the image, to its entrypoint.
+	Args []string
 }
 
 // RunDetached starts a container that restarts unless stopped, and
 // returns its ID.
 func (c CLI) RunDetached(ctx context.Context, req RunRequest) (string, error) {
-	args := []string{"run", "--detach", "--restart", "unless-stopped", "--name", req.Name, "--platform", req.Platform}
+	out, err := c.runContainer(ctx, []string{"--detach", "--restart", "unless-stopped", "--name", req.Name}, req)
+	if err != nil {
+		return "", fmt.Errorf("docker run %s: %w", req.Name, err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// RunOnce runs a container to completion, removes it, and returns what it
+// printed on stdout. Name may be empty.
+func (c CLI) RunOnce(ctx context.Context, req RunRequest) ([]byte, error) {
+	flags := []string{"--rm"}
+	if req.Name != "" {
+		flags = append(flags, "--name", req.Name)
+	}
+	out, err := c.runContainer(ctx, flags, req)
+	if err != nil {
+		return nil, fmt.Errorf("docker run %s: %w", req.Image, err)
+	}
+	return out, nil
+}
+
+// runContainer runs docker run with flags and the request.
+func (c CLI) runContainer(ctx context.Context, flags []string, req RunRequest) ([]byte, error) {
+	args := append([]string{"run"}, flags...)
+	args = append(args, "--platform", req.Platform)
 	if req.Memory != "" {
 		args = append(args, "--memory", req.Memory)
 	}
@@ -149,15 +175,16 @@ func (c CLI) RunDetached(ctx context.Context, req RunRequest) (string, error) {
 		args = append(args, "--label", k+"="+req.Labels[k])
 	}
 	args = append(args, req.Image)
+	args = append(args, req.Args...)
 	var errb bytes.Buffer
 	cmd := exec.CommandContext(ctx, c.command(), args...)
 	cmd.Env = env
 	cmd.Stderr = &errb
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("docker run %s: %w: %s", req.Name, c.explain(err), strings.TrimSpace(errb.String()))
+		return nil, fmt.Errorf("%w: %s", c.explain(err), strings.TrimSpace(errb.String()))
 	}
-	return strings.TrimSpace(string(out)), nil
+	return out, nil
 }
 
 // InspectContainer returns a container by name, or nil when there is none.

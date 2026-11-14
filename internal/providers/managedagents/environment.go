@@ -3,8 +3,10 @@ package managedagents
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -83,6 +85,20 @@ func (p *Provider) ValidateEnvironment(_ context.Context, e *provider.Environmen
 		for _, pkg := range container.OptionLikePackages(sb) {
 			errorf("package %q starts with '-'; package managers would read it as an option", pkg)
 		}
+		servers := workerServers(e)
+		if len(servers) > 0 && sb != nil && sb.Image != "" {
+			var need []string
+			for _, w := range servers {
+				switch w.Package.RegistryType {
+				case v1alpha1.RegistryNPM:
+					need = append(need, "npm")
+				case v1alpha1.RegistryPyPI:
+					need = append(need, "python3 with venv")
+				}
+			}
+			slices.Sort(need)
+			warnf("spec.image replaces the Solaria sandbox base, so it must have %s for the MCP servers the worker runs", strings.Join(slices.Compact(need), " and "))
+		}
 		return diags
 	}
 
@@ -136,6 +152,23 @@ func (p *Provider) PlanEnvironment(ctx context.Context, e *provider.Environment,
 	pl := provider.DefaultEnvironmentPlan("", e, dg, cfg, prior)
 	if e.Spec.Placement != PlacementSelfHosted {
 		return pl, nil
+	}
+	// The agents, planned next, declare the tools the worker's servers
+	// listed; those that changed are listed again at apply.
+	listed := readToolLists(prior)
+	servers := workerServers(e)
+	var unlisted []string
+	keep := map[string]toolList{}
+	for _, w := range servers {
+		if tl, ok := listed[w.Name]; ok && tl.Key == w.key() {
+			keep[w.Name] = tl
+		} else {
+			unlisted = append(unlisted, w.Name)
+		}
+	}
+	p.recordTools(e.Name, keep)
+	if len(unlisted) > 0 {
+		pl.Notes = append(pl.Notes, fmt.Sprintf("lists the tools of McpServer %s once the worker image is built", strings.Join(unlisted, ", ")))
 	}
 
 	s, _ := readSettings(e.Spec, e.Spec.Placement)
@@ -286,6 +319,20 @@ func (p *Provider) startWorker(ctx context.Context, e *provider.Environment, s s
 	if err != nil {
 		return err
 	}
+	servers := workerServers(e)
+	values := map[string]string{"ANTHROPIC_ENVIRONMENT_KEY": key}
+	for _, w := range servers {
+		for _, ref := range w.Secrets {
+			v, ok, err := src.Lookup(ref)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("McpServer %s, which the worker runs, needs secret %s, which %s doesn't have", w.Name, ref, src.Describe)
+			}
+			values[ref] = v
+		}
+	}
 	dir := filepath.Join(p.workDir, ".solaria", Name, hostName(e), "worker")
 	if err := writeWorkerContext(dir, w.files); err != nil {
 		return fmt.Errorf("write the worker's build context: %w", err)
@@ -309,6 +356,9 @@ func (p *Provider) startWorker(ctx context.Context, e *provider.Environment, s s
 		return err
 	}
 	outputs[outWorkerImage] = w.image
+	if err := p.listTools(ctx, e, s, w.image, servers, values, outputs); err != nil {
+		return err
+	}
 
 	name := workerName(e)
 	p.logf("Starting the worker container %s\n", name)
@@ -321,13 +371,67 @@ func (p *Provider) startWorker(ctx context.Context, e *provider.Environment, s s
 		Platform: s.platform,
 		Memory:   container.Memory(e.Sandbox),
 		Env:      map[string]string{"ANTHROPIC_ENVIRONMENT_ID": envID},
-		Secrets:  map[string]string{"ANTHROPIC_ENVIRONMENT_KEY": key},
+		Secrets:  values,
 		Labels:   w.labels,
 	})
 	if err != nil {
 		return err
 	}
 	outputs[outWorkerContainer] = name
+	return nil
+}
+
+// listTools records the tools of the worker's MCP servers in outputs, and
+// for the agents applied next. Lists that state already has for the same
+// package, arguments and secrets are kept; the others come from running
+// "solaria-worker list-tools" in the image, which starts each server once.
+func (p *Provider) listTools(ctx context.Context, e *provider.Environment, s settings, image string, servers []workerServer, secretValues map[string]string, outputs map[string]string) error {
+	lists := map[string]toolList{}
+	var unlisted []string
+	for _, w := range servers {
+		if tl, ok := p.tools[e.Name][w.Name]; ok && tl.Key == w.key() {
+			lists[w.Name] = tl
+		} else {
+			unlisted = append(unlisted, w.Name)
+		}
+	}
+	if len(unlisted) > 0 {
+		p.logf("Listing the tools of McpServer %s\n", strings.Join(unlisted, ", "))
+		vals := maps.Clone(secretValues)
+		delete(vals, "ANTHROPIC_ENVIRONMENT_KEY") // servers never get it
+		out, err := p.docker.RunOnce(ctx, container.RunRequest{
+			Image:    image,
+			Platform: s.platform,
+			Memory:   container.Memory(e.Sandbox),
+			Secrets:  vals,
+			Args:     []string{"list-tools"},
+		})
+		if err != nil {
+			return fmt.Errorf("list the tools of the worker's MCP servers: %w", err)
+		}
+		var got map[string][]mcpTool
+		if err := json.Unmarshal(out, &got); err != nil {
+			return fmt.Errorf("list the tools of the worker's MCP servers: read what the worker printed: %w", err)
+		}
+		for _, w := range servers {
+			if _, kept := lists[w.Name]; kept {
+				continue
+			}
+			tools, ok := got[w.Name]
+			if !ok {
+				return fmt.Errorf("the worker listed no tools for McpServer %s", w.Name)
+			}
+			lists[w.Name] = toolList{Key: w.key(), Tools: tools}
+		}
+	}
+	for name, tl := range lists {
+		raw, err := json.Marshal(tl)
+		if err != nil {
+			return err
+		}
+		outputs[outToolsPrefix+name] = string(raw)
+	}
+	p.recordTools(e.Name, lists)
 	return nil
 }
 
@@ -361,9 +465,14 @@ func renderWorker(e *provider.Environment, s settings) (*worker, error) {
 	b.WriteString("COPY go.mod go.sum main.go ./\n")
 	b.WriteString("RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -o /solaria-worker .\n\n")
 	container.WriteSandboxStages(&b, base, container.Packages(e.Sandbox))
-	b.WriteString("# Tools run in /workspace; memory stores mount under /mnt/memory.\n")
 	b.WriteString("FROM sandbox\n")
+	servers := workerServers(e)
+	mcpConfig, err := renderServers(&b, servers)
+	if err != nil {
+		return nil, err
+	}
 	b.WriteString("COPY --from=worker /solaria-worker /usr/local/bin/solaria-worker\n")
+	b.WriteString("# Tools run in /workspace; memory stores mount under /mnt/memory.\n")
 	b.WriteString("RUN mkdir -p /workspace /mnt/memory\n")
 	b.WriteString("WORKDIR /workspace\n")
 	b.WriteString(`ENTRYPOINT ["solaria-worker"]` + "\n")
@@ -373,6 +482,9 @@ func renderWorker(e *provider.Environment, s settings) (*worker, error) {
 		"main.go":    workerMain,
 		"go.mod":     workerGoMod,
 		"go.sum":     workerGoSum,
+	}
+	if len(servers) > 0 {
+		files["mcp.json"] = mcpConfig
 	}
 	dg, err := digest.Of(files)
 	if err != nil {
@@ -439,6 +551,17 @@ func (p *Provider) environmentConfig(e *provider.Environment) (map[string]any, e
 		"platform":  s.platform,
 		"memory":    container.Memory(e.Sandbox),
 		"keySecret": keySecret(e, s),
+	}
+	if servers := workerServers(e); len(servers) > 0 {
+		mcp := map[string]any{}
+		for _, ws := range servers {
+			pkg := ws.Package
+			mcp[ws.Name] = map[string]any{
+				"package": string(pkg.RegistryType) + ":" + pkg.Identifier + "@" + pkg.Version,
+				"secrets": list(ws.Secrets),
+			}
+		}
+		cfg["worker"].(map[string]any)["mcpServers"] = mcp
 	}
 	if w.base != nil {
 		cfg["worker"].(map[string]any)["sandboxImage"] = w.base.Tag

@@ -39,11 +39,11 @@ Transport support confirmed by the M1 spikes:
 |---|---|---|---|
 | `gitagent` / `docker` | ✓ | ✓ | ✓ |
 | `managed-agents` / `cloud` | ✗ | ✓ | via fallback |
-| `managed-agents` / `self-hosted` | ✗ (Anthropic opens MCP connections, not the worker) | ✓ | via fallback |
+| `managed-agents` / `self-hosted` | ✓ npm and PyPI, when the server has no remote: the worker runs it and serves its tools as custom tools (ADR 0021) | ✓ | via fallback |
 
 **Credentials depend on the host.** gitagent substitutes `${VAR}` in headers when connecting, so `secretRef` becomes an environment variable passed to the container. Managed Agents never stores credentials on the agent: they live in vaults attached when a session starts. On that provider, a `secretRef` header is reported at plan time as "supply through a vault at session start." A host-backed `Vault` resource is planned with the v0.2 dependency graph.
 
-Deferred: OCI stdio packages (they need Docker inside the sandbox), and a stdio→HTTP bridge that would expose a local package to remote-only hosts. On cloud placements that bridge needs a publicly reachable endpoint, which is an infrastructure decision, not something to hide inside a provider. A later version may also accept references to entries in the official registry.
+Deferred: OCI stdio packages (they need Docker inside the sandbox), and a stdio→HTTP bridge that would expose a local package to remote-only hosts such as `managed-agents/cloud`. That bridge needs a publicly reachable endpoint, which is an infrastructure decision, not something to hide inside a provider. A later version may also accept references to entries in the official registry.
 
 ### Consequences
 
@@ -60,4 +60,4 @@ Tests cover transport selection for every provider and placement, including the 
 - [MCP transports, 2025-11-25 specification](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
 - [`server.json` format](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/generic-server-json.md)
 - [Managed Agents MCP connector](https://platform.claude.com/docs/en/managed-agents/mcp-connector)
-- Spikes: [gitagent v3](../spikes/2026-11-gitagent-v3.md), [Managed Agents API](../spikes/2026-11-managed-agents-api.md). Revised 2026-11-04: transport table and credentials.
+- Spikes: [gitagent v3](../spikes/2026-11-gitagent-v3.md), [Managed Agents API](../spikes/2026-11-managed-agents-api.md). Revised 2026-11-04: transport table and credentials. Revised 2026-11-14: stdio on `managed-agents/self-hosted` (ADR 0021).

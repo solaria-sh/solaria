@@ -24,10 +24,12 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/v2"
 	"github.com/anthropics/anthropic-sdk-go/v2/option"
 
+	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/config"
 	"github.com/solaria-sh/solaria/internal/engine"
 	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/providers/container"
+	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/state"
 	"github.com/solaria-sh/solaria/internal/validate"
 )
@@ -407,10 +409,25 @@ func fail(w http.ResponseWriter, code int, msg string) {
 type fakeDocker struct {
 	calls      []string
 	containers map[string]*container.Container
+	// listed is what list-tools prints, by server.
+	listed map[string][]mcpTool
+	// files, when set, adds the Dockerfile and mcp.json of each build to
+	// the transcript.
+	files bool
 }
 
 func (d *fakeDocker) Build(_ context.Context, req container.BuildRequest, _ io.Writer) error {
 	d.calls = append(d.calls, fmt.Sprintf("build %s --platform %s", req.Tag, req.Platform))
+	if !d.files {
+		return nil
+	}
+	for _, name := range []string{req.Dockerfile, filepath.Join(req.Context, "mcp.json")} {
+		b, err := os.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		d.calls = append(d.calls, "  file "+filepath.Base(name)+":\n    | "+strings.ReplaceAll(strings.TrimSpace(string(b)), "\n", "\n    | "))
+	}
 	return nil
 }
 
@@ -432,6 +449,19 @@ func (d *fakeDocker) RunDetached(_ context.Context, req container.RunRequest) (s
 		req.Name, req.Image, req.Platform, req.Memory, req.Env, secrets))
 	d.containers[req.Name] = &container.Container{ID: "c1", Image: req.Image, Running: true}
 	return "c1", nil
+}
+
+// RunOnce answers list-tools with tools for every server in tools.
+func (d *fakeDocker) RunOnce(_ context.Context, req container.RunRequest) ([]byte, error) {
+	var secrets []string
+	for _, k := range slices.Sorted(maps.Keys(req.Secrets)) {
+		secrets = append(secrets, k+"="+strings.Repeat("*", len(req.Secrets[k])))
+	}
+	d.calls = append(d.calls, fmt.Sprintf("run --rm %s %v --platform %s secrets=%v", req.Image, req.Args, req.Platform, secrets))
+	if d.listed == nil {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(d.listed)
 }
 
 func (d *fakeDocker) InspectContainer(_ context.Context, name string) (*container.Container, error) {
@@ -661,6 +691,78 @@ func TestSelfHostedLifecycle(t *testing.T) {
 	r.check("self-hosted")
 }
 
+// stdioProject adds an agent whose McpServer has only an npm package, so
+// the self-hosted worker runs it (ADR 0021).
+func stdioProject(r *rig, version, allow string) {
+	r.edit("files.yaml", `apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: scribe}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-sonnet-5-5}
+  tools:
+    mcp: [{ref: files`+allow+`}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: McpServer
+metadata: {name: files}
+spec:
+  packages:
+    - registryType: npm
+      identifier: "@example/files-mcp"
+      version: "`+version+`"
+      transport: {type: stdio}
+      packageArguments: [{type: named, name: --root, value: /workspace}]
+      environmentVariables:
+        - {name: FILES_TOKEN, secretRef: FILES_TOKEN}
+        - {name: FILES_MODE, value: strict}
+`)
+}
+
+// TestWorkerRunsStdioServers covers a server without a remote on
+// self-hosted: the worker image installs it, apply lists its tools once
+// and declares them on the agent, and later plans render from state.
+func TestWorkerRunsStdioServers(t *testing.T) {
+	t.Setenv("SOLARIA_TEST_ENVIRONMENT_KEY", "envkey-secret")
+	t.Setenv("FILES_TOKEN", "files-secret")
+	r := newRig(t)
+	r.docker.listed = map[string][]mcpTool{"files": {
+		{Name: "read_file", Description: "Read a file.", InputSchema: map[string]any{
+			"type": "object", "properties": map[string]any{"path": map[string]any{"type": "string"}}, "required": []any{"path"}, "additionalProperties": false,
+		}},
+		{Name: "write_file", InputSchema: map[string]any{"type": "object"}},
+	}}
+	stdioProject(r, "1.2.0", "")
+	r.docker.files = true
+	refresh := engine.PlanOptions{Refresh: true}
+	if err := r.step("create", "ma-self-hosted", refresh); err != nil {
+		t.Fatal(err)
+	}
+	st, err := r.state.Read("ma-self-hosted")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(st.Environments["Environment/tools"].Binding.Outputs[outToolsPrefix+"files"], "read_file") {
+		t.Errorf("state has no tool list: %v", st.Environments["Environment/tools"].Binding.Outputs)
+	}
+	r.docker.files = false
+	if err := r.step("unchanged", "ma-self-hosted", refresh); err != nil {
+		t.Fatal(err)
+	}
+	stdioProject(r, "1.2.0", ", allowTools: [read_file]")
+	if err := r.step("narrow with allowTools", "ma-self-hosted", refresh); err != nil {
+		t.Fatal(err)
+	}
+	stdioProject(r, "1.3.0", ", allowTools: [read_file]")
+	if err := r.step("a new version of the server", "ma-self-hosted", refresh); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(r.golden.String(), "files-secret") || strings.Contains(r.golden.String(), "envkey-secret") {
+		t.Error("a secret reached the transcript")
+	}
+	r.check("self-hosted-stdio")
+}
+
 func TestWorkerDockerfileGolden(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Join("testdata", "project"))
 	if err != nil {
@@ -854,4 +956,107 @@ func TestVaultLifecycle(t *testing.T) {
 		}
 	}
 	r.check("vault")
+}
+
+// TestWorkerServerErrors covers what plan refuses for servers without a
+// remote (ADR 0021).
+func TestWorkerServerErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name, target string
+		edit         func(r *rig)
+		want         string
+	}{{
+		name:   "cloud has no worker",
+		target: "ma-cloud",
+		edit:   func(r *rig) { stdioProject(r, "1.2.0", "") },
+		want:   `McpServer "files"`,
+	}, {
+		name:   "approvals on a worker-run tool",
+		target: "ma-self-hosted",
+		edit: func(r *rig) {
+			stdioProject(r, "1.2.0", "")
+			y := readFile(r.t, filepath.Join(r.dir, "files.yaml"))
+			r.edit("files.yaml", strings.Replace(y, "  tools:\n", "  permissions: {ask: [files/write_file]}\n  tools:\n", 1))
+		},
+		want: `permissions.ask lists files/write_file, but McpServer "files" has no remote, so the worker runs it`,
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRig(t)
+			tc.edit(r)
+			_, err := r.engine().Plan(context.Background(), tc.target, engine.PlanOptions{})
+			var failed *engine.FailedError
+			if !errors.As(err, &failed) {
+				t.Fatalf("plan: err = %v, want a failed plan", err)
+			}
+			if got := failed.Diagnostics.String(); !strings.Contains(got, tc.want) {
+				t.Errorf("diagnostics lack %q:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestStdioPackage(t *testing.T) {
+	pkg := v1alpha1.MCPPackage{RegistryType: v1alpha1.RegistryNPM, Identifier: "x", Version: "1.0.0", Transport: v1alpha1.MCPPackageTransport{Type: provider.TransportStdio}}
+	stdioOnly := v1alpha1.McpServerSpec{Packages: []v1alpha1.MCPPackage{pkg}}
+	both := v1alpha1.McpServerSpec{Packages: []v1alpha1.MCPPackage{pkg}, Remotes: []v1alpha1.MCPRemote{{Type: v1alpha1.RemoteStreamableHTTP, URL: "https://x.example.com/mcp"}}}
+	for _, tc := range []struct {
+		name      string
+		placement string
+		spec      v1alpha1.McpServerSpec
+		worker    bool
+	}{
+		{"self-hosted, stdio only", PlacementSelfHosted, stdioOnly, true},
+		{"self-hosted, remote first", PlacementSelfHosted, both, false},
+		{"cloud has no worker", PlacementCloud, stdioOnly, false},
+	} {
+		if got := stdioPackage(tc.placement, tc.spec) != nil; got != tc.worker {
+			t.Errorf("%s: runs on the worker = %v, want %v", tc.name, got, tc.worker)
+		}
+	}
+}
+
+func TestCheckTools(t *testing.T) {
+	tl := toolList{Tools: []mcpTool{
+		{Name: "ok", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"a.b": map[string]any{"type": "string"}}}},
+		{Name: strings.Repeat("x", 125)},
+		{Name: "refs", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"a": map[string]any{"$ref": "#/$defs/a"}}}},
+		{Name: "union", InputSchema: map[string]any{"anyOf": []any{map[string]any{"type": "object"}}}},
+		{Name: "props", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"a b": map[string]any{}}}},
+	}}
+	got := checkTools("srv", resolve.MCPServer{}, tl)
+	want := []string{
+		"tool " + strings.Repeat("x", 125) + " would be declared as srv__" + strings.Repeat("x", 125) + ", but a custom tool's name has 1 to 128 letters, digits, underscores and hyphens",
+		"tool refs's input schema uses $ref, which custom tools don't take",
+		"tool union's input schema has a top-level anyOf, which custom tools don't take",
+		`tool props's input property "a b" isn't 1 to 64 letters, digits, underscores, dots and hyphens`,
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("checkTools:\n got %q\nwant %q", got, want)
+	}
+	// allowTools leaves the other tools out, and names only listed ones.
+	got = checkTools("srv", resolve.MCPServer{AllowTools: []string{"missing", "ok"}}, tl)
+	if want := []string{"allowTools names missing, which the server doesn't list"}; !slices.Equal(got, want) {
+		t.Errorf("checkTools with allowTools: %q, want %q", got, want)
+	}
+}
+
+func TestCustomTools(t *testing.T) {
+	tl := toolList{Tools: []mcpTool{
+		{Name: "read", Description: "Read.", InputSchema: map[string]any{"type": "object", "properties": map[string]any{"p": map[string]any{"type": "string"}}, "required": []any{"p"}, "additionalProperties": false}},
+		{Name: "write"},
+	}}
+	got := customTools("files", resolve.MCPServer{}, tl)
+	if len(got) != 2 || got[0].Name != "files__read" || got[1].Name != "files__write" {
+		t.Fatalf("names: %+v", got)
+	}
+	if got[1].Description != "Tool write of MCP server files." {
+		t.Errorf("default description: %q", got[1].Description)
+	}
+	s := got[0].InputSchema
+	if !slices.Equal(s.Required, []string{"p"}) || s.Properties["p"] == nil || s.ExtraFields["additionalProperties"] != false {
+		t.Errorf("schema: %+v", s)
+	}
+	if got := customTools("files", resolve.MCPServer{AllowTools: []string{"write"}}, tl); len(got) != 1 || got[0].Name != "files__write" {
+		t.Errorf("allowTools: %+v", got)
+	}
 }

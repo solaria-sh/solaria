@@ -275,6 +275,12 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 		}
 	}
 
+	// Environments are planned before their agents, so a provider can
+	// render an agent from what its Environment's host object holds, such
+	// as the tools a self-hosted worker serves (ADR 0021).
+	if err := e.planEnvironments(ctx, plan, prov, wants, opts); err != nil {
+		return nil, err
+	}
 	seen := map[string]bool{}
 	for i := range desired {
 		a := &desired[i]
@@ -304,9 +310,6 @@ func (e *Engine) Plan(ctx context.Context, env string, opts PlanOptions) (*Plan,
 	}
 	slices.SortFunc(plan.Steps, func(a, b *provider.Plan) int { return cmp.Compare(a.ID, b.ID) })
 
-	if err := e.planEnvironments(ctx, plan, prov, wants, opts); err != nil {
-		return nil, err
-	}
 	if err := e.planVaults(ctx, plan, prov, vaults, opts); err != nil {
 		return nil, err
 	}

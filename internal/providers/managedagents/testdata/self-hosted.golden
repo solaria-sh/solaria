@@ -148,9 +148,9 @@ POST /v1/agents
     ]
   }
 --- docker
-build solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64
+build solaria/ma-self-hosted/worker:7350b7412450 --platform linux/amd64
 rm solaria-ma-self-hosted-worker
-run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
+run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:7350b7412450 --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
 
 ### unchanged
 --- plan
@@ -186,9 +186,9 @@ POST /v1/environments/env_01
     "name": "ma-self-hosted"
   }
 --- docker
-build solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64
+build solaria/ma-self-hosted/worker:7350b7412450 --platform linux/amd64
 rm solaria-ma-self-hosted-worker
-run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:543487924d6e --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
+run solaria-ma-self-hosted-worker solaria/ma-self-hosted/worker:7350b7412450 --platform linux/amd64 --memory 4g env=map[ANTHROPIC_ENVIRONMENT_ID:env_01] secrets=[ANTHROPIC_ENVIRONMENT_KEY=*************]
 
 ### destroy
 --- plan
@@ -212,5 +212,5 @@ DELETE /v1/skills/skill_03
 DELETE /v1/environments/env_01
 --- docker
 rm solaria-ma-self-hosted-worker
-rmi solaria/ma-self-hosted/worker:543487924d6e
+rmi solaria/ma-self-hosted/worker:7350b7412450
 

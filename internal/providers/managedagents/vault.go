@@ -54,8 +54,9 @@ func (c hostCredential) sameTarget(o hostCredential) bool {
 // hostCredentials maps a Vault's credentials to the host's, with what the
 // host can't hold. A credential for an MCP server becomes a static bearer
 // token for the server's remote URL, which the host sends as
-// "Authorization: Bearer <token>". Managed Agents runs no MCP packages, so a
-// secret only a package uses isn't stored.
+// "Authorization: Bearer <token>". Anthropic runs no MCP packages, so a
+// secret only a package uses isn't stored; on self-hosted, the worker runs
+// a server without a remote and gets the secret itself (ADR 0021).
 func hostCredentials(v *provider.Vault, where string) (map[string]hostCredential, diag.List) {
 	var diags diag.List
 	out := map[string]hostCredential{}
@@ -66,6 +67,9 @@ func hostCredentials(v *provider.Vault, where string) (map[string]hostCredential
 		}
 		if c.Server == nil {
 			continue // validate reports the missing McpServer
+		}
+		if stdioPackage(v.Placement, *c.Server) != nil {
+			continue // the worker runs the server, with the secret
 		}
 		url, r := remote(*c.Server)
 		if r == nil {
@@ -80,6 +84,10 @@ func hostCredentials(v *provider.Vault, where string) (map[string]hostCredential
 			}
 		}
 		switch {
+		case header == "" && v.Placement == PlacementSelfHosted:
+			// Another package of the server might use it, but the worker
+			// only runs a server without a remote.
+			diags = append(diags, diag.Warnf("", diag.Pos{}, "%s: credential %q: McpServer %q uses secret %s only in a package variable, but has a remote, which Anthropic connects to instead of running the package; it isn't stored", where, c.Name, c.MCPServer, c.SecretRef))
 		case header == "":
 			diags = append(diags, diag.Warnf("", diag.Pos{}, "%s: credential %q: McpServer %q uses secret %s only in a package variable, and Managed Agents runs no MCP packages; it isn't stored", where, c.Name, c.MCPServer, c.SecretRef))
 		case !strings.EqualFold(header, "Authorization"):

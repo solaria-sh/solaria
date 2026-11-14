@@ -12,6 +12,10 @@
 //     once the environment's key, which only the Console can generate, is
 //     in the secret source.
 //
+// On self-hosted, the worker also runs the agents' MCP servers that have
+// only stdio packages, and serves their tools as custom tools the agents
+// declare (ADR 0021). Apply lists those tools when it builds the worker.
+//
 // Each agent becomes a Managed Agents agent, whose version increases with
 // every change. Its skills are uploaded as custom skills and pinned by
 // version. Destroy archives agents, which the host can't delete.
@@ -79,6 +83,7 @@ const (
 type Docker interface {
 	container.Docker
 	RunDetached(ctx context.Context, req container.RunRequest) (string, error)
+	RunOnce(ctx context.Context, req container.RunRequest) ([]byte, error)
 	InspectContainer(ctx context.Context, name string) (*container.Container, error)
 	RemoveContainer(ctx context.Context, name string) error
 }
@@ -105,6 +110,11 @@ type Provider struct {
 	log          io.Writer
 	client       anthropic.Client
 	docker       Docker
+	// tools holds the tools of each Environment's worker-run MCP servers,
+	// by Environment and server: what its state records, from
+	// PlanEnvironment, then what ApplyEnvironment lists. The engine plans
+	// and applies an Environment before its agents.
+	tools map[string]map[string]toolList
 }
 
 // Name returns managed-agents.
@@ -118,13 +128,18 @@ func (p *Provider) Placements() []string { return []string{PlacementCloud, Place
 
 // Capabilities of Managed Agents. It runs Claude models only, without
 // fallback, and connects to remote MCP servers from Anthropic's side on both
-// placements. Approvals are native: a tool under permissions.ask pauses the
-// session until someone answers. Only the self-hosted worker can start from
-// a custom image.
+// placements; on self-hosted, the worker runs stdio servers too (ADR 0021).
+// Approvals are native: a tool under permissions.ask pauses the session
+// until someone answers. Only the self-hosted worker can start from a
+// custom image.
 func (p *Provider) Capabilities(placement string) provider.Capabilities {
+	transports := []string{provider.TransportStreamableHTTP, provider.TransportSSE}
+	if placement == PlacementSelfHosted {
+		transports = append(transports, provider.TransportStdio)
+	}
 	return provider.Capabilities{
 		ModelProviders: []string{"anthropic"},
-		MCPTransports:  []string{provider.TransportStreamableHTTP, provider.TransportSSE},
+		MCPTransports:  transports,
 		SandboxImage:   placement == PlacementSelfHosted,
 		Repositories:   repositories(placement),
 		Approvals:      true,
@@ -150,13 +165,23 @@ func (p *Provider) Validate(_ context.Context, a *resolve.Agent) []diag.Diagnost
 }
 
 // Plan starts from the default plan, and also updates an agent whose
-// request changed while its digests didn't, as when namePrefix changes.
+// request changed while its digests didn't, as when namePrefix changes or
+// a worker-run server's tools change. When its Environment hasn't listed a
+// worker-run server's tools yet, apply lists them, so the agent updates.
 func (p *Provider) Plan(_ context.Context, desired *resolve.Agent, prior *state.Entry) (*provider.Plan, error) {
 	pl := provider.DefaultPlan(desired, prior)
 	s, _ := readSettings(desired.Env, desired.Placement)
-	reqDigest, err := requestDigest(renderAgent(desired, s, nil))
+	tools, missing := p.toolsFor(desired)
+	reqDigest, err := requestDigest(renderAgent(desired, s, nil, tools))
 	if err != nil {
 		return nil, err
+	}
+	if len(missing) > 0 {
+		pl.Notes = append(pl.Notes, fmt.Sprintf("declares the tools of McpServer %s, which apply lists when it builds the worker", strings.Join(missing, ", ")))
+		if pl.Action == provider.NoOp {
+			pl.Action = provider.Update
+			pl.Reason = "its worker-run MCP servers' tools are listed at apply"
+		}
 	}
 	switch pl.Action {
 	case provider.NoOp:
@@ -196,7 +221,19 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		outputs[outSkillPrefix+name+".digest"] = dg
 	}
 
-	body := renderAgent(a, s, refs)
+	tools, missing := p.toolsFor(a)
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("the tools of McpServer %s weren't listed; they're listed when Environment %s's worker is built, so apply again", strings.Join(missing, ", "), a.Environment)
+	}
+	for _, w := range agentServers(a) {
+		if problems := checkTools(w.Name, a.Definition.Tools.MCP[w.Name], tools[w.Name]); len(problems) > 0 {
+			return nil, fmt.Errorf("McpServer %s: %s", w.Name, strings.Join(problems, "; "))
+		}
+	}
+	body := renderAgent(a, s, refs, tools)
+	if n := body.toolCount(); n > maxTools {
+		return nil, fmt.Errorf("the agent would have %d tools, counting each of its worker-run MCP servers' tools; the host takes %d", n, maxTools)
+	}
 	opts := passthrough(body.Passthrough)
 	var agent *anthropic.BetaManagedAgentsAgent
 	var err error
@@ -229,7 +266,7 @@ func (p *Provider) Apply(ctx context.Context, pl *provider.Plan) (*provider.Appl
 		}
 	}
 
-	reqDigest, err := requestDigest(renderAgent(a, s, nil))
+	reqDigest, err := requestDigest(renderAgent(a, s, nil, tools))
 	if err != nil {
 		return nil, err
 	}

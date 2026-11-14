@@ -28,11 +28,11 @@ ENV GOPATH=/opt/go GOBIN=/usr/local/bin CARGO_HOME=/opt/cargo PATH=/opt/cargo/bi
 FROM base AS sandbox
 RUN ["/bin/sh","-c","apt-get update && apt-get install -y --no-install-recommends \"$@\" && rm -rf /var/lib/apt/lists/*","apt","jq"]
 
-# Tools run in /workspace; memory stores mount under /mnt/memory.
 FROM sandbox
 COPY --from=worker /solaria-worker /usr/local/bin/solaria-worker
+# Tools run in /workspace; memory stores mount under /mnt/memory.
 RUN mkdir -p /workspace /mnt/memory
 WORKDIR /workspace
 ENTRYPOINT ["solaria-worker"]
 === image
-solaria/ma-self-hosted/worker:543487924d6e
+solaria/ma-self-hosted/worker:7350b7412450
