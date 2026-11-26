@@ -70,7 +70,11 @@ func (p *Provider) Capabilities(string) provider.Capabilities {
 		ReadOnlyRepositories: true,
 		Approvals:            true,
 		OutputSchema:         true,
-		Destroy:              provider.DestroyDelete,
+		Limits: map[string]provider.Enforcement{
+			"maxTurns": provider.EnforcedNative, "timeout": provider.EnforcedNative,
+			"maxTokens": provider.EnforcedNative, "maxBudgetUsd": provider.EnforcedNative,
+		},
+		Destroy: provider.DestroyDelete,
 	}
 }
 

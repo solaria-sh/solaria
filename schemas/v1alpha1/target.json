@@ -210,6 +210,16 @@
           "type": "string",
           "pattern": "^([0-9]+(h|m|s))+$",
           "description": "Longest a run may take, as a duration such as 30m or 1h30m."
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Most tokens one run may use: input, output and cache tokens, as the host reports them. A run that goes over stops with error_max_tokens."
+        },
+        "maxBudgetUsd": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Most one run may cost, in US dollars, by the host's own estimate. A run that goes over stops with error_max_budget_usd."
         }
       },
       "additionalProperties": false,

@@ -86,8 +86,8 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
     "SOLARIA_LOGICAL_ID": "Agent/reviewer",
-    "SOLARIA_RESOLVED_DIGEST": "sha256:6db02469623cb7b3ebfdd7cc7c31aa21ec25dc175a051bf4579e70737741b1ab",
-    "SOLARIA_SPEC_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:c365f2643d424bb4f869e248b22cb093ae71b4025607c743a59c7d166b2f7b63",
+    "SOLARIA_SPEC_DIGEST": "sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52",
     "SOLARIA_TARGET": "docker-read-only"
   },
   "scratch": {
@@ -116,7 +116,7 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
   "agent": {
     "logicalId": "Agent/reviewer",
     "target": "docker-read-only",
-    "resolvedDigest": "sha256:6db02469623cb7b3ebfdd7cc7c31aa21ec25dc175a051bf4579e70737741b1ab"
+    "resolvedDigest": "sha256:c365f2643d424bb4f869e248b22cb093ae71b4025607c743a59c7d166b2f7b63"
   },
   "sdk": {
     "runtime": "node",
@@ -126,12 +126,14 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
   "cacheDir": "/var/cache/solaria",
   "timeout": "15m0s",
   "timeoutMs": 900000,
+  "maxTokens": 2000000,
   "systemPromptFile": "system-prompt.md",
   "options": {
     "model": "claude-sonnet-5-5",
     "fallbackModel": "claude-haiku-5-5",
     "effort": "high",
     "maxTurns": 40,
+    "maxBudgetUsd": 5,
     "tools": [
       "Edit",
       "Grep",
@@ -250,9 +252,9 @@ You review pull requests.
 
 Never push.
 === image
-solaria/docker-read-only/reviewer:4b778dd7fff6 for linux/amd64
+solaria/docker-read-only/reviewer:76fc5bcf7e71 for linux/amd64
 === run
-docker run --rm -i --platform linux/amd64 --memory 8g --volume $ROOT/product:/workspace:ro --env DOCS_TOKEN --env GITHUB_TOKEN --env ANTHROPIC_API_KEY solaria/docker-read-only/reviewer:4b778dd7fff6
+docker run --rm -i --platform linux/amd64 --memory 8g --volume $ROOT/product:/workspace:ro --env DOCS_TOKEN --env GITHUB_TOKEN --env ANTHROPIC_API_KEY solaria/docker-read-only/reviewer:76fc5bcf7e71
 === invocation
 {
   "argv": [
@@ -272,7 +274,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume $ROOT/product:/wo
     "GITHUB_TOKEN",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/docker-read-only/reviewer:4b778dd7fff6"
+    "solaria/docker-read-only/reviewer:76fc5bcf7e71"
   ],
   "workspace": "path",
   "workspacePath": "$ROOT/product",
@@ -291,10 +293,10 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume $ROOT/product:/wo
 === labels
 org.opencontainers.image.description=Reviews pull requests.
 sh.solaria.logical-id=Agent/reviewer
-sh.solaria.resolved-digest=sha256:6db02469623cb7b3ebfdd7cc7c31aa21ec25dc175a051bf4579e70737741b1ab
+sh.solaria.resolved-digest=sha256:c365f2643d424bb4f869e248b22cb093ae71b4025607c743a59c7d166b2f7b63
 sh.solaria.sdk-runtime=node
 sh.solaria.sdk-version=0.3.319
-sh.solaria.spec-digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614
+sh.solaria.spec-digest=sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52
 sh.solaria.target=docker-read-only
 === secrets
 DOCS_TOKEN,GITHUB_TOKEN

@@ -7,7 +7,7 @@ cp $EXAMPLES/hello/solaria.yaml $EXAMPLES/hello/instructions.md hello
 cd hello
 exec solaria plan -t ma-cloud
 cmp stdout ../cloud.txt
-stderr '^solaria.yaml: warning: Agent/hello on managed-agents/cloud: limits aren''t enforced on Managed Agents'
+stderr '^solaria.yaml: warning: Agent/hello on managed-agents/cloud: limits.maxTurns isn''t enforced on this host, so it won''t stop a run'
 exec solaria plan -t ma-self-hosted
 cmp stdout ../self-hosted.txt
 

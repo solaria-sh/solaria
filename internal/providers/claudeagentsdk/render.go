@@ -125,6 +125,9 @@ type bundleFile struct {
 	// enforces. Zero means no limit.
 	Timeout   string `json:"timeout,omitempty"`
 	TimeoutMS int64  `json:"timeoutMs,omitempty"`
+	// MaxTokens is limits.maxTokens, which the launcher enforces by adding
+	// up the usage the SDK streams.
+	MaxTokens int64 `json:"maxTokens,omitempty"`
 	// SystemPromptFile is relative to the bundle.
 	SystemPromptFile string `json:"systemPromptFile,omitempty"`
 	// Workspace is the absolute path of the folder the target binds
@@ -156,6 +159,7 @@ type sdkOptions struct {
 	FallbackModel   string               `json:"fallbackModel,omitempty"`
 	Effort          string               `json:"effort,omitempty"`
 	MaxTurns        int                  `json:"maxTurns,omitempty"`
+	MaxBudgetUSD    float64              `json:"maxBudgetUsd,omitempty"`
 	Tools           []string             `json:"tools"`
 	AllowedTools    []string             `json:"allowedTools"`
 	DisallowedTools []string             `json:"disallowedTools"`
@@ -220,6 +224,7 @@ func (r *renderer) render() error {
 		}
 		bf.Timeout, bf.TimeoutMS = t, d.Milliseconds()
 	}
+	bf.MaxTokens = a.Definition.Limits.MaxTokens
 	if len(a.Definition.Instructions) > 0 {
 		parts := make([]string, len(a.Definition.Instructions))
 		for i, s := range a.Definition.Instructions {
@@ -399,6 +404,7 @@ func (r *renderer) options() sdkOptions {
 		Model:           anthropicModel(d.Model.Preferred),
 		Effort:          string(d.Model.Effort),
 		MaxTurns:        d.Limits.MaxTurns,
+		MaxBudgetUSD:    d.Limits.MaxBudgetUSD,
 		Tools:           []string{},
 		AllowedTools:    []string{},
 		DisallowedTools: []string{},

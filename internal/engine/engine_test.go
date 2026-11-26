@@ -197,6 +197,43 @@ func TestCapabilityWarningsDoNotStopThePlan(t *testing.T) {
 	}
 }
 
+// TestLimitEnforcement checks ADR 0004: a limit the host doesn't enforce
+// only warns, and overrides can set the token and cost caps.
+func TestLimitEnforcement(t *testing.T) {
+	overrides := "  overrides:\n    a: {limits: {maxTokens: 1000, maxBudgetUsd: 2.5}}\n"
+	for _, tc := range []struct {
+		name   string
+		limits map[string]provider.Enforcement
+		want   string
+	}{
+		{"one unenforced", map[string]provider.Enforcement{"maxTokens": provider.EnforcedLauncher}, "limits.maxBudgetUsd isn't enforced on this host, so it won't stop a run"},
+		{"none enforced", nil, "limits.maxTokens, limits.maxBudgetUsd aren't enforced on this host, so they won't stop a run"},
+		{"all enforced", map[string]provider.Enforcement{"maxTokens": provider.EnforcedLauncher, "maxBudgetUsd": provider.EnforcedNative}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			caps := provider.Capabilities{
+				ModelProviders: []string{"anthropic"},
+				Fallback:       true,
+				Approvals:      true,
+				MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP},
+				Limits:         tc.limits,
+				Destroy:        provider.DestroyDelete,
+			}
+			plan, err := newHarness(t, caps).engine(project("anthropic:claude-haiku-5-5", overrides)).Plan(context.Background(), "dev", PlanOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := plan.Diagnostics.String()
+			if tc.want == "" && strings.Contains(got, "limits.") {
+				t.Errorf("unexpected limits warning:\n%s", got)
+			}
+			if tc.want != "" && !strings.Contains(got, "warning: Agent/a on limited/here: "+tc.want) {
+				t.Errorf("warnings lack %q:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
 // TestOutputSchemaCapability checks ADR 0019: plan fails for an agent with
 // an output schema on a host that can't enforce it, before any host call,
 // and passes on one that can.

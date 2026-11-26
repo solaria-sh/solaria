@@ -115,7 +115,13 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		ReadOnlyRepositories: placement == process.Placement,
 		Isolation:            isolation(placement),
 		OutputSchema:         true,
-		Destroy:              provider.DestroyDelete,
+		// The SDK stops at maxTurns and maxBudgetUsd; the launcher aborts
+		// on timeout and maxTokens, adding up usage from the stream.
+		Limits: map[string]provider.Enforcement{
+			"maxTurns": provider.EnforcedNative, "timeout": provider.EnforcedLauncher,
+			"maxTokens": provider.EnforcedLauncher, "maxBudgetUsd": provider.EnforcedNative,
+		},
+		Destroy: provider.DestroyDelete,
 	}
 }
 

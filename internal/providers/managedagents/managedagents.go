@@ -143,7 +143,9 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		SandboxImage:   placement == PlacementSelfHosted,
 		Repositories:   repositories(placement),
 		Approvals:      true,
-		Destroy:        provider.DestroyArchive,
+		// No Limits: a session runs until the agent finishes or is
+		// interrupted, so plan warns for each limit set.
+		Destroy: provider.DestroyArchive,
 	}
 }
 

@@ -17,6 +17,7 @@ import sys
 sys.dont_write_bytecode = True
 
 import asyncio  # noqa: E402
+import contextlib  # noqa: E402
 import copy  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
@@ -51,6 +52,7 @@ OPTION_NAMES = {
     "fallbackModel": "fallback_model",
     "effort": "effort",
     "maxTurns": "max_turns",
+    "maxBudgetUsd": "max_budget_usd",
     "tools": "tools",
     "allowedTools": "allowed_tools",
     "disallowedTools": "disallowed_tools",
@@ -66,6 +68,35 @@ OPTION_NAMES = {
 
 class LaunchError(Exception):
     pass
+
+
+class TokenLimit(Exception):
+    """The run used more tokens than limits.maxTokens."""
+
+    def __init__(self, used):
+        super().__init__(used)
+        self.used = used
+
+
+class TokenCount:
+    """Add up a run's tokens, as limits.maxTokens counts them: input, output
+    and cache tokens of every model call, the subagents' included. The SDK
+    streams one assistant message per content block, and the blocks of one
+    call share its message ID and carry its usage so far, so each call
+    counts once, at its latest usage."""
+
+    def __init__(self):
+        self.calls = {}
+
+    def add(self, m):
+        usage = getattr(m, "usage", None)
+        if usage:
+            self.calls[getattr(m, "message_id", None) or getattr(m, "uuid", None) or id(m)] = usage
+        return self.total()
+
+    def total(self):
+        keys = ("input_tokens", "output_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
+        return sum((u.get(k) or 0) for u in self.calls.values() for k in keys)
 
 
 def read_json(name):
@@ -131,16 +162,22 @@ def enter_srt(bundle):
     return res.returncode if res.returncode >= 0 else 1
 
 
-async def run_query(sdk, task, opts, timeout):
+async def run_query(sdk, task, opts, timeout, max_tokens):
     """Return the SDK's result message, or None when there was none. Raise
-    asyncio.TimeoutError when the run takes longer than timeout seconds."""
+    asyncio.TimeoutError when the run takes longer than timeout seconds, and
+    TokenLimit when it uses more than max_tokens tokens."""
     result = None
+    tokens = TokenCount()
 
     async def consume():
         nonlocal result
-        async for m in sdk.query(prompt=task, options=sdk.ClaudeAgentOptions(**opts)):
-            if isinstance(m, sdk.ResultMessage):
-                result = m
+        stream = sdk.query(prompt=task, options=sdk.ClaudeAgentOptions(**opts))
+        async with contextlib.aclosing(stream):
+            async for m in stream:
+                if isinstance(m, sdk.ResultMessage):
+                    result = m
+                elif max_tokens and isinstance(m, sdk.AssistantMessage) and tokens.add(m) > max_tokens:
+                    raise TokenLimit(tokens.total())
 
     if timeout:
         await asyncio.wait_for(consume(), timeout)
@@ -183,13 +220,21 @@ def main():
             raise LaunchError(f"can't load {bundle['sdk']['package']}; run solaria apply to install it: {err}") from None
 
         timeout = bundle.get("timeoutMs", 0) / 1000
+        max_tokens = bundle.get("maxTokens", 0)
         try:
-            result = asyncio.run(run_query(sdk, task, opts, timeout))
+            result = asyncio.run(run_query(sdk, task, opts, timeout, max_tokens))
         except asyncio.TimeoutError:
             emit({
                 "subtype": "error_timeout",
                 "is_error": True,
                 "errors": [f"the run took longer than limits.timeout ({bundle['timeout']})"],
+            })
+            return 1
+        except TokenLimit as err:
+            emit({
+                "subtype": "error_max_tokens",
+                "is_error": True,
+                "errors": [f"the run used {err.used} tokens, more than limits.maxTokens ({max_tokens})"],
             })
             return 1
         if result is None:

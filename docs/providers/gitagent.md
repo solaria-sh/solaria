@@ -39,7 +39,7 @@ The build context stays in `.solaria/gitagent/<target>/<agent>/` for inspection.
 | `tools.mcp` | `mcp_servers`. A remote is used when the server has one, so the agent reaches the same server it would on a cloud host; otherwise `npx` or `uvx` runs the package. |
 | `allowTools` | `--allowed-tools` when every MCP ref lists `allowTools`, or `--disallowed-tools` for the built-ins the agent leaves out when none do. A mix can't be expressed, so plan fails. |
 | `permissions.ask` | the tool is denied: nobody can approve during an unattended run |
-| `limits` | `max_turns` and `timeout` |
+| `limits` | `maxTurns` and `timeout` become `max_turns` and `timeout_s`. gitagent has no token or cost cap, so `maxTokens` and `maxBudgetUsd` aren't enforced; plan warns. |
 | `output.schema` | not supported; plan fails |
 | `secretRef` | `${NAME}` in `gitagent.yaml`; the run command passes the variable from the secret source |
 | `telemetry` | `OTEL_*` variables in the run command. gitagent doesn't read `OTEL_RESOURCE_ATTRIBUTES` yet, so the identity and `resourceAttributes` set there don't reach its traces. |

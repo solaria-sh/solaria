@@ -15,7 +15,7 @@ spec:
       - {ref: docs}
   skills: [skills/triage]
   permissions: {ask: [shell, github/create_issue]}
-  limits: {maxTurns: 40, timeout: 15m}
+  limits: {maxTurns: 40, timeout: 15m, maxTokens: 2000000, maxBudgetUsd: 5}
   output: {schema: review.schema.yaml}
 ---
 apiVersion: solaria.sh/v1alpha1

@@ -111,6 +111,7 @@ The launcher prints one JSON object on stdout: the SDK's result plus the agent's
 | 0 | `success` | The run succeeded. |
 | 1 | `error_max_turns`, `error_max_budget_usd`, `error_during_execution`, ... | The SDK's own error, or `success` with `is_error` set. |
 | 1 | `error_timeout` | The run took longer than `limits.timeout` and was aborted. |
+| 1 | `error_max_tokens` | The run used more tokens than `limits.maxTokens` and was aborted. |
 | 1 | `error_max_structured_output_retries` | The agent has `output.schema` and gave no answer that matched it. |
 | 2 | `error_launch` | The run couldn't start: no task, a missing secret, binary or API key, or the SDK isn't installed. |
 
@@ -133,6 +134,8 @@ When the agent has `output.schema`, `structured_output` holds the answer: a JSON
 | `permissions.ask` | The tool is denied: left out of `tools`, and in `disallowedTools`. Nobody can approve during an unattended run. |
 | `limits.maxTurns` | `maxTurns` |
 | `limits.timeout` | The launcher aborts the run |
+| `limits.maxTokens` | The launcher adds up the usage the SDK streams, counting each model call once (the subagents' too), and aborts the run once it's over. A run can go past it by the call in flight. |
+| `limits.maxBudgetUsd` | `maxBudgetUsd` (`max_budget_usd` in Python), the SDK's cost estimate |
 | `output.schema` | `outputFormat` (`output_format` in Python) of type `json_schema` |
 | `secretRef` | A reference in `options.json`; the launcher reads the value from the secret source when the run starts |
 | `telemetry` | Claude Code's OpenTelemetry variables: metrics and logs over OTLP, with the agent's identity and `resourceAttributes` in `OTEL_RESOURCE_ATTRIBUTES` |
