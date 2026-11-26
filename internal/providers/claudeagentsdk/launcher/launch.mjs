@@ -4,7 +4,7 @@
 //   node launch.mjs -p "<task>"
 //   echo "<task>" | node launch.mjs
 //
-// It clones the agent's repositories into the workspace, enters srt when
+// It runs its Environment's setup steps in the workspace, enters srt when
 // the environment isolates runs with it, isolates the run (isolate.mjs),
 // calls the Claude Agent SDK with the options in options.json, and prints
 // one JSON object: the SDK's result plus the agent's logical ID, resolved
@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { adopt, clone, isolate } from "./isolate.mjs";
+import { SetupError, adopt, isolate, setup } from "./isolate.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const readJSON = (name) => JSON.parse(fs.readFileSync(path.join(here, name), "utf8"));
@@ -36,7 +36,7 @@ const resultFields = [
 
 class LaunchError extends Error {}
 
-// insideSRT marks the launcher srt starts, after the clones.
+// insideSRT marks the launcher srt starts, after setup.
 const insideSRT = "SOLARIA_INSIDE_SRT";
 
 // checkArgs fails early on a command line the run can't take.
@@ -88,8 +88,8 @@ function workspace(bundle) {
 }
 
 // enterSRT runs this launcher again inside srt, with the same arguments,
-// stdin and stdout, and returns its exit code. The clones are done by then,
-// so srt's settings can keep a read-only one from being written.
+// stdin and stdout, and returns its exit code. Setup is done by then, so
+// srt's settings can keep a workspace it prepared from being written.
 function enterSRT(bundle) {
   const argv = ["--settings", path.join(here, bundle.srt), "--", process.execPath, fileURLToPath(import.meta.url), ...process.argv.slice(2)];
   const res = spawnSync("srt", argv, { stdio: "inherit", env: { ...process.env, [insideSRT]: "1" } });
@@ -129,8 +129,9 @@ async function main() {
     if (process.env[insideSRT] !== "1") {
       checkArgs(process.argv.slice(2));
       try {
-        clone(readJSON("isolation.json"), workspace(bundle));
+        setup(readJSON("isolation.json"), workspace(bundle));
       } catch (err) {
+        if (err instanceof SetupError) throw err;
         throw new LaunchError(err.message);
       }
       if (bundle.srt) return enterSRT(bundle);
@@ -196,6 +197,10 @@ async function main() {
     print(fields);
     return result.subtype === "success" && !result.is_error ? 0 : 1;
   } catch (err) {
+    if (err instanceof SetupError) {
+      print({ subtype: "error_setup", is_error: true, errors: [err.message] });
+      return 2;
+    }
     const launch = err instanceof LaunchError;
     print({ subtype: launch ? "error_launch" : "error_during_execution", is_error: true, errors: [err.message] });
     return launch ? 2 : 1;

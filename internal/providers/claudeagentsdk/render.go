@@ -33,8 +33,12 @@ type bundle struct {
 	// Solaria's launcher are in it as well as the definition. Its first 12
 	// hex digits name the bundle's directory.
 	BuildDigest string
+	// SetupDigest identifies the setup steps the launcher runs, with the
+	// target's values and the names of their secrets; "" when there are
+	// none.
+	SetupDigest string
 	// Secrets are the names of the secrets the launcher reads: those the
-	// run is given, and those that authenticate its clones.
+	// run is given, and those its setup steps use.
 	Secrets []string
 	// Dotenv is the absolute path of the dotenv file the secrets come
 	// from, when the target has one.
@@ -276,7 +280,7 @@ func (r *renderer) render() error {
 	// The caller supplies secrets by their own names, including those a
 	// Vault credential gives the run under another (iso.SecretEnv); the
 	// prelude renames them.
-	b.Secrets = slices.Compact(slices.Sorted(slices.Values(append(a.SecretRefs(), a.CloneSecretRefs()...))))
+	b.Secrets = slices.Compact(slices.Sorted(slices.Values(append(a.SecretRefs(), a.SetupSecretRefs()...))))
 	b.Files[isolationFile] = iso.JSON()
 
 	switch b.Runtime {
@@ -301,6 +305,11 @@ func (r *renderer) render() error {
 		files[p] = digest.Bytes(c)
 	}
 	var err error
+	if steps := a.Setup(); len(steps) > 0 {
+		if b.SetupDigest, err = digest.Of(steps); err != nil {
+			return err
+		}
+	}
 	if r.docker() {
 		// The platform isn't in any file, but it's a different image.
 		b.BuildDigest, err = digest.Of(map[string]any{"files": files, "platform": r.platform})
@@ -437,12 +446,6 @@ func (r *renderer) options() sdkOptions {
 		// tools there too makes the agent's attempts fail plainly. The run
 		// works in its workspace, so ./** is the workspace.
 		o.DisallowedTools = append(o.DisallowedTools, "Edit(./**)")
-	}
-	for _, repo := range d.Repositories {
-		if repo.Access == v1alpha1.AccessReadOnly {
-			// The same for a read-only clone, which srt keeps unwritten.
-			o.DisallowedTools = append(o.DisallowedTools, "Edit(./repositories/"+repo.Name+"/**)")
-		}
 	}
 	asked := map[string]bool{}
 	for _, t := range d.Permissions.Ask {

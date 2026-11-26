@@ -22,6 +22,7 @@ import (
 	"github.com/solaria-sh/solaria/internal/digest"
 	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/providers/container"
+	"github.com/solaria-sh/solaria/internal/providers/process"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/secrets"
 	"github.com/solaria-sh/solaria/internal/state"
@@ -333,6 +334,16 @@ func (p *Provider) startWorker(ctx context.Context, e *provider.Environment, s s
 			values[ref] = v
 		}
 	}
+	for _, ref := range setupSecrets(e) {
+		v, ok, err := src.Lookup(ref)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("the setup steps of Environment %s need secret %s, which %s doesn't have", e.Name, ref, src.Describe)
+		}
+		values[ref] = v
+	}
 	dir := filepath.Join(p.workDir, ".solaria", Name, hostName(e), "worker")
 	if err := writeWorkerContext(dir, w.files); err != nil {
 		return fmt.Errorf("write the worker's build context: %w", err)
@@ -467,7 +478,8 @@ func renderWorker(e *provider.Environment, s settings) (*worker, error) {
 	container.WriteSandboxStages(&b, base, container.Packages(e.Sandbox))
 	b.WriteString("FROM sandbox\n")
 	servers := workerServers(e)
-	mcpConfig, err := renderServers(&b, servers)
+	setup := workerSetup(e)
+	workerJSON, err := renderConfig(&b, servers, setup)
 	if err != nil {
 		return nil, err
 	}
@@ -483,8 +495,8 @@ func renderWorker(e *provider.Environment, s settings) (*worker, error) {
 		"go.mod":     workerGoMod,
 		"go.sum":     workerGoSum,
 	}
-	if len(servers) > 0 {
-		files["mcp.json"] = mcpConfig
+	if len(servers) > 0 || len(setup) > 0 {
+		files["worker.json"] = workerJSON
 	}
 	dg, err := digest.Of(files)
 	if err != nil {
@@ -563,10 +575,38 @@ func (p *Provider) environmentConfig(e *provider.Environment) (map[string]any, e
 		}
 		cfg["worker"].(map[string]any)["mcpServers"] = mcp
 	}
+	if steps := workerSetup(e); len(steps) > 0 {
+		cfg["worker"].(map[string]any)["setup"] = setupConfig(steps)
+	}
 	if w.base != nil {
 		cfg["worker"].(map[string]any)["sandboxImage"] = w.base.Tag
 	}
 	return cfg, nil
+}
+
+// setupConfig is how plan shows setup steps: each step's script, its plain
+// values, and only the names of the secrets it uses.
+func setupConfig(steps []process.Step) []any {
+	out := make([]any, len(steps))
+	for i, st := range steps {
+		m := map[string]any{"name": st.Name, "run": st.Run}
+		if len(st.Env) > 0 {
+			env := map[string]any{}
+			for k, v := range st.Env {
+				env[k] = v
+			}
+			m["env"] = env
+		}
+		if len(st.SecretEnv) > 0 {
+			sec := map[string]any{}
+			for k, v := range st.SecretEnv {
+				sec[k] = v
+			}
+			m["secretEnv"] = sec
+		}
+		out[i] = m
+	}
+	return out
 }
 
 // cloudConfig is the cloud request's config, or nil on self-hosted. Every

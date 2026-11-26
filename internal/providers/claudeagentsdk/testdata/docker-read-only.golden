@@ -252,9 +252,9 @@ You review pull requests.
 
 Never push.
 === image
-solaria/docker-read-only/reviewer:76fc5bcf7e71 for linux/amd64
+solaria/docker-read-only/reviewer:725c3bd9c184 for linux/amd64
 === run
-docker run --rm -i --platform linux/amd64 --memory 8g --volume $ROOT/product:/workspace:ro --env DOCS_TOKEN --env GITHUB_TOKEN --env ANTHROPIC_API_KEY solaria/docker-read-only/reviewer:76fc5bcf7e71
+docker run --rm -i --platform linux/amd64 --memory 8g --volume $ROOT/product:/workspace:ro --env DOCS_TOKEN --env GITHUB_TOKEN --env ANTHROPIC_API_KEY solaria/docker-read-only/reviewer:725c3bd9c184
 === invocation
 {
   "argv": [
@@ -274,7 +274,7 @@ docker run --rm -i --platform linux/amd64 --memory 8g --volume $ROOT/product:/wo
     "GITHUB_TOKEN",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/docker-read-only/reviewer:76fc5bcf7e71"
+    "solaria/docker-read-only/reviewer:725c3bd9c184"
   ],
   "workspace": "path",
   "workspacePath": "$ROOT/product",

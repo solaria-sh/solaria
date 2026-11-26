@@ -66,25 +66,9 @@ type AgentSpec struct {
 	// The folder the agent works on, and whether it may change it. Each
 	// target says which folder, in spec.inputs.workspace.
 	Workspace *WorkspaceSpec `json:"workspace,omitempty"`
-	// Git repositories the agent works on. Each target binds every
-	// name to a URL in spec.inputs.repositories, and the repository is
-	// cloned into repositories/<name> in the workspace before a run.
-	Repositories []RepositoryNeed `json:"repositories,omitempty"`
 	// Fields passed unchanged to one provider, keyed by provider name. Using
 	// them makes the agent less portable, and validate reports it.
 	Providers map[string]map[string]any `json:"providers,omitempty"`
-}
-
-// RepositoryNeed is a repository an agent works on, and what it may do to
-// its copy.
-type RepositoryNeed struct {
-	// Name the target binds the repository under, and its folder in
-	// the workspace: repositories/<name>.
-	Name string `json:"name" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$,maxLength=63"`
-	// read-only or read-write: whether the agent may change its clone. A
-	// placement that can't keep a clone read-only fails plan rather than
-	// ignore it.
-	Access Access `json:"access" jsonschema:"required"`
 }
 
 // WorkspaceSpec is what an agent may do to its workspace.
@@ -366,32 +350,17 @@ type LabelSelector struct {
 type InputsSpec struct {
 	// The folder agents work on.
 	Workspace *WorkspaceInput `json:"workspace,omitempty"`
-	// Where each repository the agents declare comes from, by name.
-	Repositories map[string]RepositoryInput `json:"repositories,omitempty"`
+	// Values for the variables of the setup steps in the Environments this
+	// target uses.
+	Setup *SetupInput `json:"setup,omitempty"`
 }
 
-// RepositoryInput says where a repository comes from.
-type RepositoryInput struct {
-	// HTTPS URL of the git repository, without a user name or password in
-	// it: the credential authenticates the clone.
-	URL string `json:"url" jsonschema:"required,minLength=1"`
-	// Branch or tag to check out. When omitted, the remote's default branch.
-	Ref string `json:"ref,omitempty"`
-	// Number of commits to clone, for a shallow clone. When omitted, the
-	// whole history.
-	Depth int `json:"depth,omitempty" jsonschema:"minimum=1"`
-	// The Vault credential that authenticates the clone. It must be for the
-	// URL's host (for.gitHost), and in a vault each agent using the
-	// repository lists. Omit it for a public repository.
-	Credential *CredentialRef `json:"credential,omitempty"`
-}
-
-// CredentialRef names one credential of a Vault.
-type CredentialRef struct {
-	// Name of a Vault resource.
-	Vault string `json:"vault" jsonschema:"required,minLength=1"`
-	// Name of a credential in that vault.
-	Name string `json:"name" jsonschema:"required,minLength=1"`
+// SetupInput sets the variables of setup steps for one target.
+type SetupInput struct {
+	// Variables to set, each a plain value or a secret. Each one replaces
+	// the variable of that name in every setup step of every Environment
+	// this target uses, and some step must declare it.
+	Env []KeyValue `json:"env" jsonschema:"required,minItems=1"`
 }
 
 // WorkspaceInput says which folder is the workspace.
@@ -423,6 +392,41 @@ type SandboxSpec struct {
 	// write, and the network to the hosts the agents need. macOS and Linux
 	// only.
 	Isolation Isolation `json:"isolation,omitempty"`
+	// Steps that prepare the workspace before the agent starts, such as
+	// cloning a repository or installing its dependencies. They run in
+	// order, on every run, each with sh -e in the workspace, and a step
+	// that fails stops the run before the agent starts. Steps aren't
+	// undone after a run, so a step should cope with what it left in the
+	// workspace last time.
+	Setup []SetupStep `json:"setup,omitempty"`
+}
+
+// SetupStep is one step that prepares the workspace before a run.
+type SetupStep struct {
+	// Name of the step, unique in the Environment. Errors and plans name
+	// it.
+	Name string `json:"name" jsonschema:"required,pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$,maxLength=63"`
+	// The script the step runs with sh -e, in the workspace. Its output
+	// goes to the run's stderr, not to the agent.
+	Run string `json:"run" jsonschema:"required,minLength=1"`
+	// Variables the step gets, on top of the run's base environment (PATH,
+	// HOME and the like). It gets no other secret: neither the run's nor
+	// another step's.
+	Env []SetupVar `json:"env,omitempty"`
+}
+
+// SetupVar is a variable of a setup step: a plain value, a secret, or
+// neither, in which case every target that uses the Environment must set
+// it in spec.inputs.setup.env.
+type SetupVar struct {
+	// Name of the variable.
+	Name string `json:"name" jsonschema:"required,pattern=^[A-Za-z_][A-Za-z0-9_]*$"`
+	// Value, when it isn't secret. It's a default that a target can
+	// replace.
+	Value string `json:"value,omitempty"`
+	// Name of a secret in the target's secret source, in
+	// UPPER_SNAKE_CASE. Its value is never stored by Solaria.
+	SecretRef string `json:"secretRef,omitempty" jsonschema:"pattern=^[A-Z_][A-Z0-9_]*$"`
 }
 
 // Isolation is an OS-level sandbox around a run.
@@ -714,8 +718,8 @@ type Credential struct {
 	// Name of the secret that holds the value, in the target's secret
 	// source (a variable or a dotenv entry).
 	SecretRef string `json:"secretRef" jsonschema:"required,pattern=^[A-Z_][A-Z0-9_]*$"`
-	// What the credential unlocks: an MCP server, an environment variable
-	// of the run, or clones from a git host.
+	// What the credential unlocks: an MCP server, or an environment
+	// variable of the run.
 	For CredentialTarget `json:"for" jsonschema:"required"`
 }
 
@@ -726,10 +730,6 @@ type CredentialTarget struct {
 	MCPServer *ServerRef `json:"mcpServer,omitempty"`
 	// An environment variable the run gets, set to the secret's value.
 	Env string `json:"env,omitempty" jsonschema:"pattern=^[A-Z_][A-Z0-9_]*$"`
-	// A git host, such as dev.azure.com, that the secret, a token,
-	// authenticates clones from over HTTPS. The token is used to clone the
-	// repositories bound to it, and never reaches the run.
-	GitHost string `json:"gitHost,omitempty" jsonschema:"minLength=1"`
 }
 
 // ServerRef references an McpServer resource.

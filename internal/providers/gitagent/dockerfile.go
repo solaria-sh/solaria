@@ -29,6 +29,9 @@ type dockerfileData struct {
 	Base        string
 	Packages    *v1alpha1.PackagesSpec
 	Allow, Deny []string
+	// Setup means the build context has the setup script, which becomes
+	// the entrypoint in front of gitagent.
+	Setup bool
 }
 
 // dockerfile generates the image's Dockerfile. Stages that don't depend on
@@ -71,6 +74,10 @@ func dockerfile(d dockerfileData) []byte {
 	w("ENV HOME=/root\n")
 	w("WORKDIR /workspace\n")
 	entry := []string{"gitagent"}
+	if d.Setup {
+		w("COPY --chmod=755 %s %s\n", setupPath, setupBin)
+		entry = append([]string{setupBin}, entry...)
+	}
 	if len(d.Allow) > 0 {
 		entry = append(entry, "--allowed-tools", strings.Join(d.Allow, ","))
 	}

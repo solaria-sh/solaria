@@ -1,0 +1,152 @@
+# An Environment's setup steps prepare the workspace before the agent
+# starts, and each target sets the values that differ per stage (ADR 0022).
+cd project
+
+# Every variable a step requires must be set by the target, and every
+# value a target sets must be one some step declares.
+! exec solaria validate
+stdout '^bad.yaml:\d+:\d+: error: spec.setup\[1\].name: "build" is also spec.setup\[0\]$'
+stdout '^bad.yaml:\d+:\d+: error: spec.setup\[1\].env\[1\].name: CI is set twice in step build$'
+stdout '^bad.yaml:\d+:\d+: error: spec.inputs.setup.env: setup step clone of Environment "product" needs REPO_URL, and this target doesn''t set it$'
+stdout '^bad.yaml:\d+:\d+: error: spec.inputs.setup.env\[0\].name: no setup step in this target''s Environments declares REPO_UR$'
+stdout '^bad.yaml:\d+:\d+: error: spec.setup\[0\].env\[0\]: set value or secretRef, not both$'
+rm bad.yaml
+exec solaria validate
+
+# The step's secret is never in the plan, the state or the files apply
+# writes.
+env PRODUCT_TOKEN=tok-never-stored
+exec solaria plan -t local
+! stdout tok-never-stored
+exec solaria apply -t local --auto-approve
+! grep tok-never-stored .solaria/state/local.json
+! grep tok-never-stored .solaria/stub/local/builder.json
+
+# Nothing of Solaria's runs before a Managed Agents cloud session.
+! exec solaria plan -t ma-cloud
+stderr '^solaria.yaml: error: Environment "product" for Agent/builder on managed-agents/cloud: spec.setup can''t run here: no Solaria code runs before this host''s runs \(ADR 0022\)$'
+
+# On docker, setup runs inside the container, where a read-only workspace
+# is mounted read-only, so it couldn't prepare it.
+! exec solaria plan -t sdk-docker-read-only
+stderr '^solaria.yaml: error: Agent/builder on claude-agent-sdk/docker: workspace.access is read-only, and spec.setup runs inside this host''s sandbox, so it couldn''t prepare the workspace; use the process placement with spec.isolation: srt, or a read-write workspace \(ADR 0022\)$'
+
+# Documents from before ADR 0022 fail with the step that replaces them.
+cd ../old
+! exec solaria validate
+stdout '^solaria.yaml:7:3: error: spec.repositories was removed \(ADR 0022\); clone each repository in a setup step of the agent''s Environment, such as \{name: clone-product, run: ''git clone "\$REPO_URL" repositories/product'', env: \[\{name: REPO_URL\}\]\}, and set REPO_URL in each target''s spec.inputs.setup.env$'
+stdout '^solaria.yaml:\d+:\d+: error: spec.credentials\[0\].for.gitHost was removed \(ADR 0022\); give the token to the setup step that clones, as a secretRef in its env, and remove this credential$'
+stdout '^solaria.yaml:\d+:\d+: error: spec.inputs.repositories was removed \(ADR 0022\); set each repository''s URL in spec.inputs.setup.env, for the setup step of the Environment that clones it, and give that step its token as a secretRef$'
+
+-- project/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: builder}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-haiku-5-5"}
+  tools: {builtin: [read, edit]}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: product}
+spec:
+  setup:
+    - name: clone
+      run: >-
+        git -c http.extraHeader="Authorization: Bearer $GH_TOKEN"
+        clone --depth 1 "$REPO_URL" product
+      env:
+        - {name: REPO_URL}
+        - {name: GH_TOKEN, secretRef: GH_TOKEN}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: local}
+spec:
+  provider: stub
+  placement: file
+  environments: [{ref: product}]
+  inputs: &inputs
+    setup:
+      env:
+        - {name: REPO_URL, value: "https://dev.example.com/org/product.git"}
+        - {name: GH_TOKEN, secretRef: PRODUCT_TOKEN}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: ma-cloud}
+spec:
+  provider: managed-agents
+  placement: cloud
+  environments: [{ref: product}]
+  inputs: *inputs
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: sdk-docker-read-only}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  environments: [{ref: product}]
+  inputs: *inputs
+  overrides:
+    builder:
+      workspace: {access: read-only}
+-- project/bad.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: twice}
+spec:
+  setup:
+    - {name: build, run: make}
+    - {name: build, run: make test, env: [{name: CI, value: "1"}, {name: CI, value: "true"}]}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: bad}
+spec:
+  provider: stub
+  placement: file
+  environments: [{ref: product}, {ref: twice, agents: {selector: {matchLabels: {none: none}}}}]
+  inputs:
+    setup:
+      env:
+        - {name: REPO_UR, value: "https://dev.example.com/org/product.git"}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: both}
+spec:
+  setup:
+    - {name: s, run: "true", env: [{name: X, value: a, secretRef: X}]}
+-- project/role.md --
+You build the product.
+-- old/solaria.yaml --
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: builder}
+spec:
+  instructions: [role.md]
+  model: {preferred: "anthropic:claude-haiku-5-5"}
+  repositories:
+    - {name: product, access: read-write}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Vault
+metadata: {name: git}
+spec:
+  credentials:
+    - {name: azure, secretRef: AZURE_DEVOPS_TOKEN, for: {gitHost: dev.azure.com}}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: local}
+spec:
+  provider: stub
+  placement: file
+  inputs:
+    repositories:
+      product: {url: "https://dev.azure.com/example/factory/_git/product"}
+-- old/role.md --
+You build the product.

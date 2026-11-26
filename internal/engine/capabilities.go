@@ -2,11 +2,9 @@ package engine
 
 import (
 	"fmt"
-	"net/url"
 	"slices"
 	"strings"
 
-	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/diag"
 	"github.com/solaria-sh/solaria/internal/provider"
 	"github.com/solaria-sh/solaria/internal/resolve"
@@ -65,23 +63,12 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file, envFi
 			errorf("spec.inputs.workspace.path names a folder on this machine, and this host's runs don't work on one (ADR 0017)")
 		}
 	}
-	if len(d.Repositories) > 0 && d.ReadOnlyWorkspace() {
-		errorf("repositories are cloned into the workspace, which is read-only; keep the workspace read-write and make the repositories read-only instead (ADR 0017)")
-	}
-	for _, r := range a.Repositories() {
-		switch caps.Repositories {
-		case provider.RepositoriesClone:
-		case provider.RepositoriesGitHub:
-			if h := urlHost(r.URL); h != "github.com" {
-				errorf("repository %s is on %s, and this host only attaches GitHub repositories, which its sessions clone themselves (ADR 0017)", r.Name, h)
-				continue
-			}
-		default:
-			errorf("repository %s can't be cloned here: nothing runs before this host's runs to clone it (ADR 0017)", r.Name)
-			continue
-		}
-		if r.Access == v1alpha1.AccessReadOnly && !caps.ReadOnlyRepositories {
-			errorf("repository %s is read-only, and this host can't keep its clone from being written (ADR 0017)", r.Name)
+	if a.Sandbox != nil && len(a.Sandbox.Setup) > 0 {
+		switch {
+		case !caps.Setup:
+			envErrorf("spec.setup can't run here: no Solaria code runs before this host's runs (ADR 0022)")
+		case d.ReadOnlyWorkspace() && caps.LocalWorkspace && !caps.SetupBeforeSandbox:
+			errorf("workspace.access is read-only, and spec.setup runs inside this host's sandbox, so it couldn't prepare the workspace; use the process placement with spec.isolation: srt, or a read-write workspace (ADR 0022)")
 		}
 	}
 	if sb := a.Sandbox; sb != nil && sb.Isolation != "" && !slices.Contains(caps.Isolation, sb.Isolation) {
@@ -139,13 +126,4 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	slices.Sort(keys)
 	return keys
-}
-
-// urlHost is a URL's host name, lowercased, or "" when it doesn't parse.
-func urlHost(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return ""
-	}
-	return strings.ToLower(u.Hostname())
 }

@@ -32,17 +32,21 @@
     "no_proxy"
   ],
   "secrets": [],
-  "repositories": [
+  "setup": [
     {
-      "name": "product",
-      "url": "https://dev.azure.com/example/factory/_git/product",
-      "ref": "main",
-      "secretRef": "AZURE_DEVOPS_TOKEN"
+      "name": "clone",
+      "run": "git -c http.extraHeader=\"Authorization: Bearer $GH_TOKEN\" clone --depth 1 --branch \"$REF\" \"$REPO_URL\" product",
+      "env": {
+        "REF": "main",
+        "REPO_URL": "https://github.com/example/product.git"
+      },
+      "secretEnv": {
+        "GH_TOKEN": "GH_TOKEN"
+      }
     },
     {
-      "name": "spec",
-      "url": "https://github.com/example/spec.git",
-      "depth": 1
+      "name": "deps",
+      "run": "cd product && npm ci"
     }
   ],
   "set": {
@@ -53,8 +57,8 @@
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
     "NODE_USE_ENV_PROXY": "1",
     "SOLARIA_LOGICAL_ID": "Agent/builder",
-    "SOLARIA_RESOLVED_DIGEST": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9",
-    "SOLARIA_SPEC_DIGEST": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:07a5d4bd2ec3b91daf8b5a17b0397f9074ee41cd28bf6f46d271a32965ed8688",
+    "SOLARIA_SPEC_DIGEST": "sha256:07a5d4bd2ec3b91daf8b5a17b0397f9074ee41cd28bf6f46d271a32965ed8688",
     "SOLARIA_TARGET": "ci-srt"
   },
   "scratch": {
@@ -84,7 +88,7 @@
   "agent": {
     "logicalId": "Agent/builder",
     "target": "ci-srt",
-    "resolvedDigest": "sha256:d1f6fe92a91e8b049945ca29431a5911aea429893964092fabeefc02aec365f9"
+    "resolvedDigest": "sha256:07a5d4bd2ec3b91daf8b5a17b0397f9074ee41cd28bf6f46d271a32965ed8688"
   },
   "sdk": {
     "runtime": "node",
@@ -106,9 +110,7 @@
       "Edit",
       "Read"
     ],
-    "disallowedTools": [
-      "Edit(./repositories/spec/**)"
-    ],
+    "disallowedTools": [],
     "permissionMode": "dontAsk",
     "settingSources": [],
     "strictMcpConfig": true,
@@ -139,13 +141,11 @@
       "/project/.solaria/claude-agent-sdk/.cache",
       "."
     ],
-    "denyWrite": [
-      "repositories/spec"
-    ]
+    "denyWrite": []
   }
 }
 === system-prompt.md
 You build the product from its specification.
 === secrets
-AZURE_DEVOPS_TOKEN
+GH_TOKEN
 === diagnostics

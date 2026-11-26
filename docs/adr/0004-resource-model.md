@@ -51,7 +51,7 @@ Multiple documents may live in one file. Solaria discovers YAML files whose `api
   - `tools`: abstract `builtin` names, plus `mcp` references;
   - `skills`: paths to [Agent Skills](https://agentskills.io) folders;
   - `permissions` and `limits`;
-  - since Scoped access and hosting: `vaults` (ADR 0016), and the run inputs `workspace` and `repositories` (ADR 0017).
+  - since Scoped access and hosting: `vaults` (ADR 0016), and the run input `workspace` (ADR 0017). ADR 0022 removed the run input `repositories`.
 - **Environment:** where and how agents run: `provider`, `placement`, `sandbox` (ADR 0007), `secrets`, `telemetry`, `overrides.<agent>`, an optional label `selector`, and `inputs` that bind the agents' run inputs (ADR 0017).
 - **McpServer:** a reusable MCP server definition (ADR 0005).
 - **Vault:** credentials scoped to the agents that reference it (ADR 0016).
@@ -89,7 +89,7 @@ An Environment has its own `spec.providers.<name>` for **host settings**, such a
 - `tools.builtin` must be a subset of the agent's;
 - `tools.mcp[].allowTools` must be a subset of the agent's list for that server, or of the server's tools when the agent has no list;
 - `permissions.ask` may only add tools;
-- `workspace.access` and each repository's `access` may only go from `read-write` to `read-only` (ADR 0017).
+- `workspace.access` may only go from `read-write` to `read-only` (ADR 0017).
 
 An override that widens any of them fails `validate`, naming the file and the field. Narrowing changes the resolved definition, so it shows in `resolvedDigest`, and every provider renders the narrowed tools.
 

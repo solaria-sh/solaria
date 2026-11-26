@@ -1,0 +1,40 @@
+# The helper's Environment clones a private repository before gitagent
+# starts. Its token reaches only the clone step: the entrypoint unsets it
+# before it starts gitagent.
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: helper}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-haiku-5-5}
+  tools: {builtin: [read, write]}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: product}
+spec:
+  packages: {apt: [git]}
+  setup:
+    - name: clone
+      run: >-
+        git -c http.extraHeader="Authorization: Bearer $GH_TOKEN"
+        clone --depth 1 "$REPO_URL" product
+      env:
+        - {name: REPO_URL}
+        - {name: GH_TOKEN, secretRef: GH_TOKEN}
+    - name: note
+      run: echo "$NOTE" > note.txt
+      env: [{name: NOTE, value: "it's ready"}]
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: dev}
+spec:
+  provider: gitagent
+  placement: docker
+  environments: [{ref: product}]
+  inputs:
+    setup:
+      env:
+        - {name: REPO_URL, value: "https://github.com/example/product.git"}
+        - {name: GH_TOKEN, secretRef: PRODUCT_TOKEN}

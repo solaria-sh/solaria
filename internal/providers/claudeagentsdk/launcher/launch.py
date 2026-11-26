@@ -5,7 +5,7 @@
 #   venv/bin/python launch.py -p "<task>"
 #   echo "<task>" | venv/bin/python launch.py
 #
-# It clones the agent's repositories into the workspace, enters srt when the
+# It runs its Environment's setup steps in the workspace, enters srt when the
 # environment isolates runs with it, isolates the run (isolate.py), calls the
 # Claude Agent SDK with the options in options.json, and prints one JSON
 # object: the SDK's result plus the agent's logical ID, resolved digest and
@@ -26,9 +26,9 @@ import subprocess  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-from isolate import adopt, clone, isolate  # noqa: E402
+from isolate import SetupError, adopt, isolate, setup  # noqa: E402
 
-# INSIDE_SRT marks the launcher srt starts, after the clones.
+# INSIDE_SRT marks the launcher srt starts, after setup.
 INSIDE_SRT = "SOLARIA_INSIDE_SRT"
 
 # The SDK's result fields a caller gets, by their names in the SDK.
@@ -151,8 +151,8 @@ def workspace(bundle):
 
 def enter_srt(bundle):
     """Run this launcher again inside srt, with the same arguments, stdin
-    and stdout, and return its exit code. The clones are done by then, so
-    srt's settings can keep a read-only one from being written."""
+    and stdout, and return its exit code. Setup is done by then, so srt's
+    settings can keep a workspace it prepared from being written."""
     argv = ["srt", "--settings", os.path.join(HERE, bundle["srt"]), "--",
             sys.executable, os.path.abspath(__file__), *sys.argv[1:]]
     try:
@@ -200,7 +200,9 @@ def main():
         if os.environ.get(INSIDE_SRT) != "1":
             check_args(sys.argv[1:])
             try:
-                clone(read_json("isolation.json"), workspace(bundle))
+                setup(read_json("isolation.json"), workspace(bundle))
+            except SetupError:
+                raise
             except (RuntimeError, ValueError, OSError) as err:
                 raise LaunchError(str(err)) from None
             if bundle.get("srt"):
@@ -246,6 +248,9 @@ def main():
                 fields[k] = v
         emit(fields)
         return 0 if fields.get("subtype") == "success" and not fields.get("is_error") else 1
+    except SetupError as err:
+        emit({"subtype": "error_setup", "is_error": True, "errors": [str(err)]})
+        return 2
     except LaunchError as err:
         emit({"subtype": "error_launch", "is_error": True, "errors": [str(err)]})
         return 2

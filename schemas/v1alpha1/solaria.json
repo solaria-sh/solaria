@@ -136,13 +136,6 @@
           "$ref": "#/$defs/WorkspaceSpec",
           "description": "The folder the agent works on, and whether it may change it. Each target says which folder, in spec.inputs.workspace."
         },
-        "repositories": {
-          "items": {
-            "$ref": "#/$defs/RepositoryNeed"
-          },
-          "type": "array",
-          "description": "Git repositories the agent works on. Each target binds every name to a URL in spec.inputs.repositories, and the repository is cloned into repositories/\u003cname\u003e in the workspace before a run."
-        },
         "providers": {
           "additionalProperties": {
             "type": "object"
@@ -207,7 +200,7 @@
         },
         "for": {
           "$ref": "#/$defs/CredentialTarget",
-          "description": "What the credential unlocks: an MCP server, an environment variable of the run, or clones from a git host."
+          "description": "What the credential unlocks: an MCP server, or an environment variable of the run."
         }
       },
       "additionalProperties": false,
@@ -218,27 +211,6 @@
         "for"
       ],
       "description": "One secret and what it unlocks."
-    },
-    "CredentialRef": {
-      "properties": {
-        "vault": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Name of a Vault resource."
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Name of a credential in that vault."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "vault",
-        "name"
-      ],
-      "description": "Names one credential of a Vault."
     },
     "CredentialTarget": {
       "oneOf": [
@@ -251,11 +223,6 @@
           "required": [
             "env"
           ]
-        },
-        {
-          "required": [
-            "gitHost"
-          ]
         }
       ],
       "properties": {
@@ -267,12 +234,6 @@
           "type": "string",
           "pattern": "^[A-Z_][A-Z0-9_]*$",
           "description": "An environment variable the run gets, set to the secret's value."
-        },
-        "gitHost": {
-          "type": "string",
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([-A-Za-z0-9]*[A-Za-z0-9])?)*$",
-          "description": "A git host, such as dev.azure.com, that the secret, a token, authenticates clones from over HTTPS. The token is used to clone the repositories bound to it, and never reaches the run."
         }
       },
       "additionalProperties": false,
@@ -336,15 +297,9 @@
           "$ref": "#/$defs/WorkspaceInput",
           "description": "The folder agents work on."
         },
-        "repositories": {
-          "additionalProperties": {
-            "$ref": "#/$defs/RepositoryInput"
-          },
-          "propertyNames": {
-            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-          },
-          "type": "object",
-          "description": "Where each repository the agents declare comes from, by name."
+        "setup": {
+          "$ref": "#/$defs/SetupInput",
+          "description": "Values for the variables of the setup steps in the Environments this target uses."
         }
       },
       "additionalProperties": false,
@@ -931,59 +886,6 @@
       "type": "object",
       "description": "Narrows how the agent may use its tools."
     },
-    "RepositoryInput": {
-      "properties": {
-        "url": {
-          "type": "string",
-          "minLength": 1,
-          "description": "HTTPS URL of the git repository, without a user name or password in it: the credential authenticates the clone."
-        },
-        "ref": {
-          "type": "string",
-          "description": "Branch or tag to check out. When omitted, the remote's default branch."
-        },
-        "depth": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of commits to clone, for a shallow clone. When omitted, the whole history."
-        },
-        "credential": {
-          "$ref": "#/$defs/CredentialRef",
-          "description": "The Vault credential that authenticates the clone. It must be for the URL's host (for.gitHost), and in a vault each agent using the repository lists. Omit it for a public repository."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "url"
-      ],
-      "description": "Says where a repository comes from."
-    },
-    "RepositoryNeed": {
-      "properties": {
-        "name": {
-          "type": "string",
-          "maxLength": 63,
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "description": "Name the target binds the repository under, and its folder in the workspace: repositories/\u003cname\u003e."
-        },
-        "access": {
-          "type": "string",
-          "enum": [
-            "read-write",
-            "read-only"
-          ],
-          "description": "read-only or read-write: whether the agent may change its clone. A placement that can't keep a clone read-only fails plan rather than ignore it."
-        }
-      },
-      "additionalProperties": false,
-      "type": "object",
-      "required": [
-        "name",
-        "access"
-      ],
-      "description": "A repository an agent works on, and what it may do to its copy."
-    },
     "ResourcesSpec": {
       "properties": {
         "memory": {
@@ -1026,6 +928,13 @@
             "srt"
           ],
           "description": "Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only."
+        },
+        "setup": {
+          "items": {
+            "$ref": "#/$defs/SetupStep"
+          },
+          "type": "array",
+          "description": "Steps that prepare the workspace before the agent starts, such as cloning a repository or installing its dependencies. They run in order, on every run, each with sh -e in the workspace, and a step that fails stops the run before the agent starts. Steps aren't undone after a run, so a step should cope with what it left in the workspace last time."
         }
       },
       "additionalProperties": false,
@@ -1069,6 +978,83 @@
         "ref"
       ],
       "description": "References an McpServer resource."
+    },
+    "SetupInput": {
+      "properties": {
+        "env": {
+          "items": {
+            "$ref": "#/$defs/KeyValue"
+          },
+          "type": "array",
+          "minItems": 1,
+          "description": "Variables to set, each a plain value or a secret. Each one replaces the variable of that name in every setup step of every Environment this target uses, and some step must declare it."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "env"
+      ],
+      "description": "Sets the variables of setup steps for one target."
+    },
+    "SetupStep": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Name of the step, unique in the Environment. Errors and plans name it."
+        },
+        "run": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The script the step runs with sh -e, in the workspace. Its output goes to the run's stderr, not to the agent."
+        },
+        "env": {
+          "items": {
+            "$ref": "#/$defs/SetupVar"
+          },
+          "type": "array",
+          "description": "Variables the step gets, on top of the run's base environment (PATH, HOME and the like). It gets no other secret: neither the run's nor another step's."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "run"
+      ],
+      "description": "One step that prepares the workspace before a run."
+    },
+    "SetupVar": {
+      "not": {
+        "required": [
+          "value",
+          "secretRef"
+        ]
+      },
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Name of the variable."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value, when it isn't secret. It's a default that a target can replace."
+        },
+        "secretRef": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "A variable of a setup step: a plain value, a secret, or neither, in which case every target that uses the Environment must set it in spec.inputs.setup.env."
     },
     "StateSpec": {
       "properties": {

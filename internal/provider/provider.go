@@ -55,12 +55,6 @@ type Options struct {
 // Factory creates a provider.
 type Factory func(Options) (Provider, error)
 
-// How a placement gets an agent's repositories (Capabilities.Repositories).
-const (
-	RepositoriesClone  = "clone"
-	RepositoriesGitHub = "github"
-)
-
 // Capabilities describe what a host accepts.
 type Capabilities struct {
 	// ModelProviders lists the model providers the host can run, such as
@@ -76,14 +70,14 @@ type Capabilities struct {
 	// them, so the placement can take spec.inputs.workspace.path and keep a
 	// read-only workspace from being written (ADR 0017).
 	LocalWorkspace bool
-	// Repositories says how the placement gets an agent's repositories (ADR
-	// 0017): RepositoriesClone when its launcher clones them from any git
-	// host before a run, RepositoriesGitHub when its sessions attach GitHub
-	// repositories themselves, or nothing.
-	Repositories string
-	// ReadOnlyRepositories means the placement can keep a clone from being
-	// written.
-	ReadOnlyRepositories bool
+	// Setup means the placement runs an Environment's setup steps before
+	// each run (ADR 0022). When false, plan fails for an agent whose
+	// Environment has any.
+	Setup bool
+	// SetupBeforeSandbox means setup runs before the run's sandbox starts,
+	// so it can prepare a workspace the run may only read. When false, a
+	// read-only workspace with setup fails plan.
+	SetupBeforeSandbox bool
 	// Isolation lists the sandbox.isolation values the placement accepts,
 	// such as srt on the process placement (ADR 0017).
 	Isolation []v1alpha1.Isolation

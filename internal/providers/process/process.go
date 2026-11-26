@@ -56,10 +56,10 @@ type Isolation struct {
 	SecretEnv map[string]string `json:"secretEnv,omitempty"`
 	// Dotenv is the absolute path of the target's dotenv file.
 	Dotenv string `json:"dotenv,omitempty"`
-	// Repositories are cloned into repositories/<name> in the workspace
-	// before the run starts (ADR 0017). Their tokens are read like
-	// Secrets, and only git sees them.
-	Repositories []Clone `json:"repositories,omitempty"`
+	// Setup lists the Environment's setup steps, which the launcher runs in
+	// order in the workspace before the run starts (ADR 0022). A step's
+	// secrets are read like Secrets, and only that step sees them.
+	Setup []Step `json:"setup,omitempty"`
 	// Set lists variables set to fixed values.
 	Set map[string]string `json:"set"`
 	// Scratch maps variables to folders under the run's scratch directory,
@@ -70,15 +70,39 @@ type Isolation struct {
 	Cache map[string]string `json:"cache"`
 }
 
-// Clone is a repository the launcher clones before a run.
-type Clone struct {
-	Name  string `json:"name"`
-	URL   string `json:"url"`
-	Ref   string `json:"ref,omitempty"`
-	Depth int    `json:"depth,omitempty"`
-	// SecretRef names the secret holding the token that authenticates the
-	// clone; empty for a public repository.
-	SecretRef string `json:"secretRef,omitempty"`
+// Step is a setup step the launcher runs before a run.
+type Step struct {
+	Name string `json:"name"`
+	// Run is the script, run with sh -e in the workspace.
+	Run string `json:"run"`
+	// Env sets the step's plain variables.
+	Env map[string]string `json:"env,omitempty"`
+	// SecretEnv maps the step's variables to the secrets that hold their
+	// values.
+	SecretEnv map[string]string `json:"secretEnv,omitempty"`
+}
+
+// Steps renders an agent's setup steps for its launcher.
+func Steps(a *resolve.Agent) []Step {
+	var out []Step
+	for _, st := range a.Setup() {
+		step := Step{Name: st.Name, Run: st.Run}
+		for _, kv := range st.Env {
+			if kv.SecretRef != "" {
+				if step.SecretEnv == nil {
+					step.SecretEnv = map[string]string{}
+				}
+				step.SecretEnv[kv.Name] = kv.SecretRef
+				continue
+			}
+			if step.Env == nil {
+				step.Env = map[string]string{}
+			}
+			step.Env[kv.Name] = kv.Value
+		}
+		out = append(out, step)
+	}
+	return out
 }
 
 // Needs is what a provider adds to the base isolation.
@@ -150,9 +174,7 @@ func For(a *resolve.Agent, needs Needs) Isolation {
 		iso.SecretEnv[v] = secret
 	}
 	slices.Sort(iso.Secrets)
-	for _, r := range a.Repositories() {
-		iso.Repositories = append(iso.Repositories, Clone{Name: r.Name, URL: r.URL, Ref: r.Ref, Depth: r.Depth, SecretRef: r.SecretRef})
-	}
+	iso.Setup = Steps(a)
 	if s := a.Env.Secrets; s != nil && s.Source == v1alpha1.SecretsDotenv {
 		p := s.Path
 		if p == "" {
@@ -220,16 +242,9 @@ func Validate(a *resolve.Agent, m Machine) diag.List {
 	if a.Definition.ReadOnlyWorkspace() && !Isolated(a) {
 		diags = append(diags, diag.Errorf("", diag.Pos{}, "workspace.access is read-only, and a process run can write anywhere its user can; set spec.isolation: srt in its Environment or use the docker placement to keep the workspace read-only"))
 	}
-	if !Isolated(a) {
-		for _, r := range a.Repositories() {
-			if r.Access == v1alpha1.AccessReadOnly {
-				diags = append(diags, diag.Errorf("", diag.Pos{}, "repository %s is read-only, and a process run can write anywhere its user can; set spec.isolation: srt in its Environment to keep its clone read-only", r.Name))
-			}
-		}
-	}
-	if len(a.Definition.Repositories) > 0 && m.LookPath != nil {
-		if _, err := m.LookPath("git"); err != nil {
-			diags = append(diags, diag.Errorf("", diag.Pos{}, "repositories are cloned with git, which isn't on PATH"))
+	if sb != nil && len(sb.Setup) > 0 && m.LookPath != nil {
+		if _, err := m.LookPath("sh"); err != nil {
+			diags = append(diags, diag.Errorf("", diag.Pos{}, "its Environment's spec.setup steps run with sh, which isn't on PATH"))
 		}
 	}
 	if sb != nil && sb.Resources != nil && (sb.Resources.Memory != "" || sb.Resources.Disk != "") {

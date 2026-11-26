@@ -185,9 +185,16 @@ type preludeRuntime struct {
 const nodeHarness = `import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 const [preludePath, mode, input, cacheDir] = process.argv.slice(2);
-const { isolate, adopt, parseDotenv } = await import(pathToFileURL(preludePath).href);
+const { isolate, adopt, parseDotenv, setup, SetupError } = await import(pathToFileURL(preludePath).href);
 if (mode === "dotenv") {
   console.log(JSON.stringify(parseDotenv(fs.readFileSync(input, "utf8"))));
+} else if (mode === "setup") {
+  try {
+    setup(JSON.parse(fs.readFileSync(input, "utf8")), cacheDir);
+    console.log(JSON.stringify({ ok: true }));
+  } catch (err) {
+    console.log(JSON.stringify({ error: err.message, setup: err instanceof SetupError }));
+  }
 } else {
   try {
     const { env, root, cleanup } = isolate(JSON.parse(fs.readFileSync(input, "utf8")), { cacheDir });
@@ -209,6 +216,13 @@ import isolate as prelude
 if mode == "dotenv":
     with open(input_path, encoding="utf-8") as f:
         print(json.dumps(prelude.parse_dotenv(f.read())))
+elif mode == "setup":
+    try:
+        with open(input_path, encoding="utf-8") as f:
+            prelude.setup(json.load(f), sys.argv[4])
+        print(json.dumps({"ok": True}))
+    except Exception as err:
+        print(json.dumps({"error": str(err), "setup": isinstance(err, prelude.SetupError)}))
 else:
     try:
         with open(input_path, encoding="utf-8") as f:
@@ -463,6 +477,85 @@ func TestPreludeRenamesVaultSecret(t *testing.T) {
 			res := r.run(t, caller, "isolate", specPath, cache)
 			if want := "secrets not set in " + iso.Dotenv + ": GITHUB_PAT"; res["error"] != want {
 				t.Errorf("got %v, want error %q", res, want)
+			}
+		})
+	}
+}
+
+// TestPreludeSetup runs setup steps in a workspace: in order, each with
+// its own variables and secrets, never the run's secrets or the API key,
+// and a failing step stops setup with a SetupError (ADR 0022).
+func TestPreludeSetup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("setup steps run with sh")
+	}
+	for _, r := range runtimes(t) {
+		t.Run(r.name, func(t *testing.T) {
+			work := t.TempDir()
+			ws := filepath.Join(work, "workspace")
+			if err := os.Mkdir(ws, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			iso := Isolation{
+				Pass:    []string{"LANG"},
+				Secrets: []string{"RUN_SECRET"},
+				Setup: []Step{
+					{Name: "first", Run: `echo one >> order; env > first.env; echo noise`, Env: map[string]string{"GREETING": "hi"}, SecretEnv: map[string]string{"TOKEN": "STEP_SECRET"}},
+					{Name: "second", Run: `echo two >> order; env > second.env`},
+				},
+			}
+			spec := filepath.Join(work, "isolation.json")
+			if err := os.WriteFile(spec, iso.JSON(), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			caller := []string{"PATH=" + os.Getenv("PATH"), "LANG=C", "STEP_SECRET=step-value", "RUN_SECRET=run-value", "ANTHROPIC_API_KEY=api-key"}
+			if res := r.run(t, caller, "setup", spec, ws); res["ok"] != true {
+				t.Fatalf("setup: %v", res)
+			}
+			read := func(name string) string {
+				b, err := os.ReadFile(filepath.Join(ws, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				return string(b)
+			}
+			if got := read("order"); got != "one\ntwo\n" {
+				t.Errorf("steps ran as %q, want one, then two", got)
+			}
+			first, second := read("first.env"), read("second.env")
+			for _, want := range []string{"GREETING=hi", "TOKEN=step-value", "LANG=C"} {
+				if !strings.Contains(first, want) {
+					t.Errorf("the first step lacks %s:\n%s", want, first)
+				}
+			}
+			for _, leak := range []string{"run-value", "api-key", "STEP_SECRET"} {
+				if strings.Contains(first, leak) || strings.Contains(second, leak) {
+					t.Errorf("a step sees %s", leak)
+				}
+			}
+			if strings.Contains(second, "step-value") || strings.Contains(second, "GREETING") {
+				t.Errorf("the second step sees the first's variables:\n%s", second)
+			}
+
+			iso.Setup = []Step{{Name: "broken", Run: "exit 3"}, {Name: "after", Run: "touch after"}}
+			if err := os.WriteFile(spec, iso.JSON(), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			res := r.run(t, caller, "setup", spec, ws)
+			if res["error"] != "setup step broken exited with 3" || res["setup"] != true {
+				t.Errorf("a failing step gave %v", res)
+			}
+			if _, err := os.Stat(filepath.Join(ws, "after")); err == nil {
+				t.Error("a step ran after one failed")
+			}
+
+			iso.Setup = []Step{{Name: "needs", Run: "true", SecretEnv: map[string]string{"TOKEN": "MISSING"}}}
+			if err := os.WriteFile(spec, iso.JSON(), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			res = r.run(t, caller, "setup", spec, ws)
+			if res["error"] != "secret not set in the environment variables: MISSING, for setup step needs" || res["setup"] != false {
+				t.Errorf("a missing secret gave %v", res)
 			}
 		})
 	}

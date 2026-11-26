@@ -8,7 +8,7 @@ decision-makers: Renan Tarouco da Fonseca
 
 > [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`.
 
-> [ADR 0022](0022-environment-setup-steps.md) proposes replacing `repositories`, their `inputs.repositories` bindings and the `gitHost` credential target with an Environment's `spec.setup` steps, since cloning a repository is one workflow's preparation, not a Solaria primitive. If it's accepted, the parts below about repositories no longer hold. The workspace, its access and the srt isolation of `process` stay as described.
+> [ADR 0022](0022-environment-setup-steps.md) replaced `repositories`, their `inputs.repositories` bindings and the `gitHost` credential target with an Environment's `spec.setup` steps, since cloning a repository is one workflow's preparation, not a Solaria primitive. The parts below about repositories no longer hold. The workspace, its access and the srt isolation of `process` stay as described.
 
 ## Context and problem statement
 

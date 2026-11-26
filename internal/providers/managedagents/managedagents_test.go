@@ -411,7 +411,7 @@ type fakeDocker struct {
 	containers map[string]*container.Container
 	// listed is what list-tools prints, by server.
 	listed map[string][]mcpTool
-	// files, when set, adds the Dockerfile and mcp.json of each build to
+	// files, when set, adds the Dockerfile and worker.json of each build to
 	// the transcript.
 	files bool
 }
@@ -421,7 +421,7 @@ func (d *fakeDocker) Build(_ context.Context, req container.BuildRequest, _ io.W
 	if !d.files {
 		return nil
 	}
-	for _, name := range []string{req.Dockerfile, filepath.Join(req.Context, "mcp.json")} {
+	for _, name := range []string{req.Dockerfile, filepath.Join(req.Context, "worker.json")} {
 		b, err := os.ReadFile(name)
 		if err != nil {
 			return err

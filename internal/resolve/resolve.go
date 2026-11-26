@@ -87,53 +87,53 @@ func InputPath(envDir, path string) string {
 	return filepath.Clean(p)
 }
 
-// BoundRepository is a repository an agent works on, with where the
-// target says it comes from (ADR 0017).
-type BoundRepository struct {
-	Name   string
-	Access v1alpha1.Access
-	URL    string
-	Ref    string
-	Depth  int
-	// SecretRef is the secret holding the token that authenticates the
-	// clone, from the bound Vault credential; "" for a public repository.
-	SecretRef string
+// SetupStep is a setup step of the agent's Environment, with the target's
+// values applied (ADR 0022).
+type SetupStep struct {
+	Name string
+	Run  string
+	// Env is the step's variables, in the order the step declares them,
+	// each with a Value or a SecretRef. A variable the step requires and
+	// the target doesn't set has neither: validate reports it.
+	Env []v1alpha1.KeyValue
 }
 
-// Repositories lists the agent's repositories, sorted by name, with their
-// bindings. A repository the target doesn't bind is left out:
-// validate reports it.
-func (a *Agent) Repositories() []BoundRepository {
-	var out []BoundRepository
-	for _, r := range a.Definition.Repositories {
-		var in v1alpha1.RepositoryInput
-		var ok bool
-		if a.Env.Inputs != nil {
-			in, ok = a.Env.Inputs.Repositories[r.Name]
+// Setup lists the setup steps of the agent's Environment, in order, with
+// the target's spec.inputs.setup.env replacing the steps' own values.
+func (a *Agent) Setup() []SetupStep {
+	if a.Sandbox == nil || len(a.Sandbox.Setup) == 0 {
+		return nil
+	}
+	values := map[string]v1alpha1.KeyValue{}
+	if a.Env != nil && a.Env.Inputs != nil && a.Env.Inputs.Setup != nil {
+		for _, kv := range a.Env.Inputs.Setup.Env {
+			values[kv.Name] = kv
 		}
-		if !ok {
-			continue
-		}
-		repo := BoundRepository{Name: r.Name, Access: r.Access, URL: in.URL, Ref: in.Ref, Depth: in.Depth}
-		if c := in.Credential; c != nil {
-			for _, cr := range a.Definition.Vaults[c.Vault].Credentials {
-				if cr.Name == c.Name {
-					repo.SecretRef = cr.SecretRef
-				}
+	}
+	out := make([]SetupStep, 0, len(a.Sandbox.Setup))
+	for _, st := range a.Sandbox.Setup {
+		step := SetupStep{Name: st.Name, Run: st.Run}
+		for _, v := range st.Env {
+			kv := v1alpha1.KeyValue(v)
+			if t, ok := values[v.Name]; ok {
+				kv = t
 			}
+			step.Env = append(step.Env, kv)
 		}
-		out = append(out, repo)
+		out = append(out, step)
 	}
 	return out
 }
 
-// CloneSecretRefs lists the secrets that authenticate the agent's clones,
-// sorted. The clone uses them before the run, which never gets them.
-func (a *Agent) CloneSecretRefs() []string {
+// SetupSecretRefs lists the secrets the agent's setup steps use, sorted.
+// Only the step that names one gets it, and the run never does.
+func (a *Agent) SetupSecretRefs() []string {
 	var out []string
-	for _, r := range a.Repositories() {
-		if r.SecretRef != "" {
-			out = append(out, r.SecretRef)
+	for _, st := range a.Setup() {
+		for _, kv := range st.Env {
+			if kv.SecretRef != "" {
+				out = append(out, kv.SecretRef)
+			}
 		}
 	}
 	slices.Sort(out)
@@ -169,9 +169,6 @@ func (a *Agent) SecretVars() map[string]string {
 	}
 	for _, v := range a.Definition.Vaults {
 		for _, c := range v.Credentials {
-			if c.GitHost != "" {
-				continue // it authenticates clones, before the run
-			}
 			name := c.SecretRef
 			if c.Env != "" {
 				name = c.Env
@@ -441,7 +438,6 @@ func definition(set *config.Set, r *config.Resource) (Definition, map[string]str
 		d.Output = &Output{Schema: schema}
 	}
 	d.Workspace = workspace(s.Workspace)
-	d.Repositories = repositories(s.Repositories)
 	for name, fields := range s.Providers {
 		d.Providers[name] = mergePatch(nil, fields).(map[string]any)
 	}
@@ -510,7 +506,7 @@ func override(d Definition, o v1alpha1.AgentOverride) (Definition, error) {
 func vault(spec v1alpha1.VaultSpec) Vault {
 	v := Vault{Credentials: make([]Credential, 0, len(spec.Credentials))}
 	for _, c := range spec.Credentials {
-		cr := Credential{Name: c.Name, SecretRef: c.SecretRef, Env: c.For.Env, GitHost: c.For.GitHost}
+		cr := Credential{Name: c.Name, SecretRef: c.SecretRef, Env: c.For.Env}
 		if c.For.MCPServer != nil {
 			cr.MCPServer = c.For.MCPServer.Ref
 		}

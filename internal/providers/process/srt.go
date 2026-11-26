@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -74,8 +73,8 @@ type SRTFilesystem struct {
 
 // SRTFor builds the srt settings of an agent's runs. Writes go to srt's
 // own temp folder, which holds the run's scratch directory, to cacheDir,
-// which must be absolute, and to the workspace unless it's read-only, but
-// never to a read-only repository's clone. The network is limited to
+// which must be absolute, and to the workspace unless it's read-only. The
+// network is limited to
 // modelHosts, the agent's remote MCP servers, the registries its stdio
 // MCP packages come from, the telemetry endpoint, and sandbox.network.
 func SRTFor(a *resolve.Agent, cacheDir string, modelHosts []string) SRTSettings {
@@ -89,14 +88,8 @@ func SRTFor(a *resolve.Agent, cacheDir string, modelHosts []string) SRTSettings 
 	if !a.Definition.ReadOnlyWorkspace() {
 		writable = append(writable, ws)
 	}
-	// The launcher clones before it starts srt, so a read-only clone
-	// already exists when srt denies writing it.
-	unwritable := []string{}
-	for _, r := range a.Definition.Repositories {
-		if r.Access == v1alpha1.AccessReadOnly {
-			unwritable = append(unwritable, filepath.ToSlash(filepath.Join(ws, "repositories", r.Name)))
-		}
-	}
+	// The launcher runs setup before it starts srt, so setup can still
+	// write a workspace that's read-only to the run.
 	return SRTSettings{
 		Network: SRTNetwork{
 			AllowedDomains:    hosts,
@@ -106,7 +99,7 @@ func SRTFor(a *resolve.Agent, cacheDir string, modelHosts []string) SRTSettings 
 		Filesystem: SRTFilesystem{
 			DenyRead:   []string{},
 			AllowWrite: writable,
-			DenyWrite:  unwritable,
+			DenyWrite:  []string{},
 		},
 	}
 }

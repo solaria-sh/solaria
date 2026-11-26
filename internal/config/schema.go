@@ -66,6 +66,7 @@ var printer = message.NewPrinter(language.English)
 var messages = map[string]string{
 	"/$defs/KeyValue/oneOf":      "set exactly one of value and secretRef",
 	"/$defs/McpServerSpec/anyOf": "set packages, remotes, or both",
+	"/$defs/SetupVar/not":        "set value or secretRef, not both",
 	"/$defs/OutputSchema/oneOf":  "must be a path to a JSON or YAML file, or a JSON Schema object",
 }
 
@@ -84,14 +85,19 @@ var patterns = map[string]string{
 	"/$defs/NetworkSpec/properties/allow/items/pattern":      "is not a host name, such as example.com or *.example.com",
 	"/$defs/TargetSpec/properties/provider/pattern":          "is not a valid provider name",
 	"/$defs/TargetSpec/properties/placement/pattern":         "is not a valid placement name",
-	"/$defs/RepositoryNeed/properties/name/pattern":          "is not a valid name: use lowercase letters, digits and hyphens, starting and ending with a letter or digit",
-	"/$defs/CredentialTarget/properties/gitHost/pattern":     "is not a host name, such as dev.azure.com",
+	"/$defs/SetupStep/properties/name/pattern":               "is not a valid name: use lowercase letters, digits and hyphens, starting and ending with a letter or digit",
+	"/$defs/SetupVar/properties/name/pattern":                "is not a variable name: use letters, digits and underscores, not starting with a digit",
+	"/$defs/SetupVar/properties/secretRef/pattern":           "is not a secret name: use UPPER_SNAKE_CASE",
 	"/$defs/AzureBlobState/properties/account/pattern":       "is not a storage account name: use 3 to 24 lowercase letters and digits",
 	"/$defs/AzureBlobState/properties/container/pattern":     "is not a container name: use 3 to 63 lowercase letters, digits and single hyphens, starting and ending with a letter or digit",
 	"/$defs/AzureBlobState/properties/prefix/pattern":        "is not a folder such as solaria/reviewers: use letters, digits, '.', '_' and '-', with no leading '/' and no '.' or '..' folders",
 }
 
 func keywordLocation(e *jsonschema.ValidationError) string {
+	if _, ok := e.ErrorKind.(*kind.Not); ok {
+		// The validator gives not an empty keyword path.
+		return e.SchemaURL + "/not"
+	}
 	return e.SchemaURL + "/" + strings.Join(e.ErrorKind.KeywordPath(), "/")
 }
 

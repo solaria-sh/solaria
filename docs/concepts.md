@@ -27,10 +27,10 @@ A Solaria project is a folder of YAML files. Each document in them is a resource
 
 There are five kinds:
 
-- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, whether it may change its [workspace](#the-workspace), the [repositories](#repositories) it works on, and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
+- **Agent**: what the agent is, independently of any host. Its instructions (Markdown files), model, built-in tools, MCP servers, [Agent Skills](https://agentskills.io), permissions and limits, whether it may change its [workspace](#the-workspace), and optionally the JSON its answer must match (see [Structured answers](#structured-answers)).
 - **McpServer**: an MCP server, in the shape of the [MCP Registry's `server.json`](https://github.com/modelcontextprotocol/registry): `packages` that run locally over stdio (npm, PyPI), `remotes` reached over HTTP, or both. Agents refer to servers by name with `ref:`, and can narrow them with `allowTools`.
-- **Target**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: which Environments its agents get, the folder their runs work on and where their repositories come from, the secret source, telemetry, per-agent overrides and host settings.
-- **Environment**: a sandbox, declared once and reused: the packages, network, resources and isolation the agent's tools run with. Targets give Environments to their agents. See [The sandbox](#the-sandbox).
+- **Target**: where agents run. It names a provider and a placement, and holds everything about the place rather than the agent: which Environments its agents get, the folder their runs work on, the values of their Environments' [setup steps](#setup-steps), the secret source, telemetry, per-agent overrides and host settings.
+- **Environment**: a sandbox, declared once and reused: the packages, network, resources and isolation the agent's tools run with, and the steps that prepare the workspace before a run. Targets give Environments to their agents. See [The sandbox](#the-sandbox).
 - **Vault**: credentials an agent may use, each naming a secret and what it unlocks. Agents list the vaults they use in `spec.vaults`. See [Credentials and vaults](#credentials-and-vaults).
 
 CI/CD tools call a target an environment, as in dev, staging and prod. Solaria says target, and keeps "environment" for the sandbox, which is what hosts mean by it: a Managed Agents environment is the sandbox template a session starts in ([ADR 0020](adr/0020-targets-and-environments.md)).
@@ -151,49 +151,6 @@ Access is part of the agent, so a read-only workspace is in both digests; read-w
 
 The folder belongs to the target, like the Environment, so binding it changes no digest. `validate` checks that it exists. A Managed Agents run doesn't work on a folder on your machine, so a bound folder fails plan there. `status -a` shows the workspace and whether it's read-only.
 
-### Repositories
-
-An agent lists the git repositories it works on, each with the access it needs, and each target says where they come from. Before a run, every repository is cloned into `repositories/<name>` in the workspace:
-
-```yaml
-kind: Agent
-spec:
-  repositories:
-    - {name: product, access: read-write}
-    - {name: spec, access: read-only}
-  vaults: [{ref: git}]
----
-kind: Vault
-metadata: {name: git}
-spec:
-  credentials:
-    - {name: azure, secretRef: AZURE_DEVOPS_TOKEN, for: {gitHost: dev.azure.com}}
----
-kind: Target
-spec:
-  inputs:
-    repositories:
-      product:
-        url: https://dev.azure.com/example/factory/_git/product
-        ref: main                                  # a branch or tag; the default branch when omitted
-        credential: {vault: git, name: azure}
-      spec:
-        url: https://github.com/example/spec.git   # public, so no credential
-        depth: 1                                   # a shallow clone
-```
-
-Names and access are in both digests; where a repository comes from isn't. `validate` fails on a repository the target doesn't bind, a URL that isn't `https://` or has a user name or password in it, and a credential that isn't for the URL's host (`for: {gitHost: …}`) or isn't in one of the agent's vaults. The token authenticates the clone and nothing else: git gets it as an HTTP header for that host, and the run never sees it. An agent that should push gets a credential of its own, with `for: {env: …}`.
-
-A read-only repository is kept unwritable like a read-only workspace, where the placement can: srt on `process` denies writes to its clone. A `docker` run is root in its container and a Managed Agents session owns its clone, so a read-only repository fails plan on both. Where each host gets repositories:
-
-| Placement | Repositories |
-|---|---|
-| claude-agent-sdk `process` and `docker` | The launcher clones each one, from any git host, before the run. A clone that's already in the workspace fails the run rather than be overwritten. |
-| managed-agents `cloud` | GitHub repositories only: `status -a` shows each as a `github_repository` resource to attach when starting a session. Other hosts fail plan. |
-| managed-agents `self-hosted`, gitagent | Nothing clones before the run, so repositories fail plan. |
-
-Repositories are cloned into the workspace, so a workspace with repositories must be read-write. `status -a` lists each repository, where it comes from and where the run finds it.
-
 ## Providers and placements
 
 A **provider** is the code that talks to one kind of host. A **placement** is where that host keeps the agent's sandbox. "Local" isn't special: it's a target like any other.
@@ -230,6 +187,7 @@ An **Environment** describes the machine the agent's tools run on, in a form eve
 - `resources`: memory and disk.
 - `image`: a container image, or a Dockerfile, to start from instead of the Solaria sandbox base. Only container placements take it.
 - `isolation`: `srt` wraps each run on the `process` placement in Anthropic's [sandbox-runtime](https://github.com/anthropics/sandbox-runtime), so a local process gets a boundary too. Containers have their own, so they refuse it.
+- `setup`: steps that prepare the workspace before each run, such as cloning a repository. See [Setup steps](#setup-steps).
 
 A target gives Environments to its agents in `spec.environments`. Each entry names an Environment in `ref` and, like the target's own `spec.agents`, selects agents with `agents`. The entry without `agents` is the default, for every agent no other entry selects; a target has at most one. A single entry is the default even when it has `agents`:
 
@@ -252,6 +210,53 @@ Environments are shared. Several targets can reference the same one, so the sand
 Hosts that keep the sandbox as an object of their own, such as Managed Agents environments, get one per Environment the target's agents use, with the logical ID `Environment/<name>` (ADR 0012). Plan shows them before the agents, and deletes an Environment's object once no agent in the target uses it. Launchers and images build the sandbox into each agent instead, so their Environments have no object of their own.
 
 Container placements build images on the **Solaria sandbox base**, which follows the Managed Agents cloud sandbox: Ubuntu 24.04 with Node, Python, Go, Rust, Java, Ruby and PHP. An agent that works in a local container finds the same tools in the cloud. Docker can't enforce network host lists or disk limits, so plan warns about them.
+
+### Setup steps
+
+Preparing a workspace is usually deterministic: clone a repository, install its dependencies, fetch a dataset. An Environment's `setup` does it before the agent's first turn, so the agent doesn't spend tokens on it. Each step has a `name` and a `run` script, which runs with `sh -e` in the workspace, in order, on every run ([ADR 0022](adr/0022-environment-setup-steps.md)):
+
+```yaml
+kind: Environment
+metadata: {name: product}
+spec:
+  packages: {apt: [git]}
+  setup:
+    - name: clone
+      run: >-
+        [ -d product ] ||
+        git -c http.extraHeader="Authorization: Bearer $GH_TOKEN"
+        clone --depth 1 --branch "$REF" "$REPO_URL" product
+      env:
+        - {name: REPO_URL}                       # every target must set it
+        - {name: REF, value: main}               # a default
+        - {name: GH_TOKEN, secretRef: GH_TOKEN}
+    - name: deps
+      run: cd product && npm ci
+---
+kind: Target
+spec:
+  environments: [{ref: product}]
+  inputs:
+    setup:
+      env:
+        - {name: REPO_URL, value: https://dev.example.com/org/product.git}
+        - {name: GH_TOKEN, secretRef: PRODUCT_TOKEN}
+```
+
+- **Variables.** A step's `env` entry takes a `value`, a `secretRef`, or neither, in which case every target that uses the Environment must set it. A target's `spec.inputs.setup.env` replaces the variable of that name in every step of every Environment it uses. `validate` fails on a required variable a target doesn't set, and on a target value no step declares.
+- **What a step sees.** A step gets `PATH`, `HOME` and its own variables, and from the claude-agent-sdk launcher also the locale and proxy variables a run may see. It never gets the run's secrets or another step's, and the run never gets a step's: a step's secret is read from the target's secret source for that step only. State, plans and the files apply writes name a secret, never its value. Keep a token out of the URL you clone, since git saves the URL in the clone's `.git/config`, which the agent can read.
+- **Output and failure.** A step's output goes to the run's stderr, not to the agent. A step that fails stops the run before the agent starts: the claude-agent-sdk launcher prints a result with `subtype: error_setup` and exits 2.
+- **The workspace isn't emptied.** Steps run in the workspace as it is, so a step that runs again must cope with what it left last time, as `[ -d product ] ||` does above.
+- **Trust.** A step is a script someone reviewed, like a package list. It runs as the run's user, and on `process` with srt it runs before srt starts, outside its limits.
+
+Setup doesn't change an agent's digests: like the rest of the Environment, it's where the agent runs, not what it is. The bundle, image or worker that carries the steps changes, so plan shows an update.
+
+| Placement | Setup |
+|---|---|
+| claude-agent-sdk `process` | The launcher runs it before the run, and before srt starts, so it can prepare a workspace that's read-only to the agent. |
+| claude-agent-sdk `docker`, gitagent | It runs inside the container before the agent starts. The workspace is mounted read-only when the agent's is, so a read-only workspace with setup fails plan. |
+| managed-agents `self-hosted` | The worker runs it at the start of each session, before it serves the session's tools. Sessions share the worker's workdir. When a step fails, every tool call of that session returns the failure. |
+| managed-agents `cloud` | Nothing of Solaria's runs before a session, so setup fails plan. |
 
 ## Identity
 
@@ -490,7 +495,6 @@ Scripts should read `solaria status -o json` rather than the state file, whose f
 | `locked` | `solaria.lock` pins the target; each agent's `lockedDigest` is its pinned `resolvedDigest` |
 | `environments` | On the target: the objects its provider keeps for Environments: `id`, `provider`, `placement`, `hostId`, `version`, `digest`, `appliedAt`, and `usedBy`, the agents the configuration gives each. On an agent: `environment`, the Environment's `name` and the `hostId` to start sessions in, when its provider keeps one. |
 | `vaults` | On the target: host vaults, when its provider keeps them, with the same fields as `environments`, `usedBy` being the agents whose sessions attach each. On an agent: the vaults to attach when starting a session, as `name` and `hostId`. |
-| `repositories` | The agent's [repositories](#repositories), read from the configuration: `name`, `access`, `url`, `ref`, `depth`, `secret` (the secret that authenticates the clone), and `path`, where the run finds it, relative to the workspace. On Managed Agents, `attach` is `github_repository` and `path` is the mount path to attach it at. |
 | `runtime` | What runs the agent loop, at the version applied: `gitagent@<commit>`, `@anthropic-ai/claude-agent-sdk@<version>` or `claude-agent-sdk@<version>`, or `agent_toolset_20260401` on Managed Agents, whose runtime can't be pinned. Results depend on the harness as well as the model, so compare it before comparing runs. Absent for agents applied before Solaria recorded it. |
 | `annotations` | The agent's `metadata.annotations`, read from the configuration rather than state, since they're never applied. Absent for an agent the configuration no longer has. |
 | `configuration` | `upToDate`, `changed`, `overridesChanged` (only the target's overrides), `removed` (from the configuration), `notApplied`, or `noLongerSelected` (pinned in `solaria.lock`, neither applied nor selected). An agent that isn't applied has only `logicalId`, `annotations`, `configuration` and `lockedDigest`. |

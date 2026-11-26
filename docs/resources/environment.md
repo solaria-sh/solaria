@@ -33,3 +33,10 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.resources.disk` | string |  | Disk cap, such as 10Gi. Matches `^[0-9]+(Ki\|Mi\|Gi\|Ti)?$`. |
 | `spec.image` | string |  | Replaces the generated sandbox image: a container image reference, or a path to a Dockerfile relative to this file. Only container placements accept it. |
 | `spec.isolation` | `srt` |  | Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only. |
+| `spec.setup` | list of objects |  | Steps that prepare the workspace before the agent starts, such as cloning a repository or installing its dependencies. They run in order, on every run, each with sh -e in the workspace, and a step that fails stops the run before the agent starts. Steps aren't undone after a run, so a step should cope with what it left in the workspace last time. |
+| `spec.setup[].name` | string | yes | Name of the step, unique in the Environment. Errors and plans name it. Matches `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`. |
+| `spec.setup[].run` | string | yes | The script the step runs with sh -e, in the workspace. Its output goes to the run's stderr, not to the agent. |
+| `spec.setup[].env` | list of objects |  | Variables the step gets, on top of the run's base environment (PATH, HOME and the like). It gets no other secret: neither the run's nor another step's. |
+| `spec.setup[].env[].name` | string | yes | Name of the variable. Matches `^[A-Za-z_][A-Za-z0-9_]*$`. |
+| `spec.setup[].env[].value` | string |  | Value, when it isn't secret. It's a default that a target can replace. |
+| `spec.setup[].env[].secretRef` | string |  | Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |

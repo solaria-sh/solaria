@@ -190,16 +190,6 @@ func extend(s *jsonschema.Schema, kind string) {
 			p.PropertyNames = &jsonschema.Schema{Pattern: namePattern}
 		}
 	}
-	if d := s.Definitions["InputsSpec"]; d != nil {
-		if p, ok := d.Properties.Get("repositories"); ok {
-			p.PropertyNames = &jsonschema.Schema{Pattern: namePattern}
-		}
-	}
-	if d := s.Definitions["CredentialTarget"]; d != nil {
-		if p, ok := d.Properties.Get("gitHost"); ok {
-			p.Pattern = hostPattern
-		}
-	}
 	if d := s.Definitions["NetworkSpec"]; d != nil {
 		if p, ok := d.Properties.Get("allow"); ok {
 			p.Items = &jsonschema.Schema{Type: "string", Pattern: `^(\*\.)?` + hostPattern[1:]}
@@ -209,10 +199,13 @@ func extend(s *jsonschema.Schema, kind string) {
 		d.AnyOf = []*jsonschema.Schema{{Required: []string{"packages"}}, {Required: []string{"remotes"}}}
 	}
 	if d := s.Definitions["CredentialTarget"]; d != nil {
-		d.OneOf = []*jsonschema.Schema{{Required: []string{"mcpServer"}}, {Required: []string{"env"}}, {Required: []string{"gitHost"}}}
+		d.OneOf = []*jsonschema.Schema{{Required: []string{"mcpServer"}}, {Required: []string{"env"}}}
 	}
 	if d := s.Definitions["KeyValue"]; d != nil {
 		d.OneOf = []*jsonschema.Schema{{Required: []string{"value"}}, {Required: []string{"secretRef"}}}
+	}
+	if d := s.Definitions["SetupVar"]; d != nil {
+		d.Not = &jsonschema.Schema{Required: []string{"value", "secretRef"}}
 	}
 	// OutputSchema decodes from a string or an object, which reflection
 	// can't see.

@@ -1,0 +1,65 @@
+# The builder works on a private product repository, which its
+# Environment's setup steps clone before the run, with a token only the
+# clone step sees, and then install its dependencies.
+apiVersion: solaria.sh/v1alpha1
+kind: Agent
+metadata: {name: builder}
+spec:
+  instructions: [role.md]
+  model: {preferred: anthropic:claude-sonnet-5-5}
+  tools: {builtin: [read, edit, shell]}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-srt}
+spec:
+  isolation: srt
+  setup:
+    - name: clone
+      run: >-
+        git -c http.extraHeader="Authorization: Bearer $GH_TOKEN"
+        clone --depth 1 --branch "$REF" "$REPO_URL" product
+      env:
+        - {name: REPO_URL}
+        - {name: REF, value: main}
+        - {name: GH_TOKEN, secretRef: GH_TOKEN}
+    - name: deps
+      run: cd product && npm ci
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: ci-srt}
+spec:
+  provider: claude-agent-sdk
+  placement: process
+  environments: [{ref: ci-srt}]
+  inputs:
+    setup:
+      env:
+        - {name: REPO_URL, value: "https://github.com/example/product.git"}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Environment
+metadata: {name: ci-docker}
+spec:
+  setup:
+    - name: clone
+      run: >-
+        git -c http.extraHeader="Authorization: Bearer $GH_TOKEN"
+        clone --depth 1 "$REPO_URL" product
+      env:
+        - {name: REPO_URL}
+        - {name: GH_TOKEN, secretRef: GH_TOKEN}
+---
+apiVersion: solaria.sh/v1alpha1
+kind: Target
+metadata: {name: ci-docker}
+spec:
+  provider: claude-agent-sdk
+  placement: docker
+  environments: [{ref: ci-docker}]
+  inputs:
+    setup:
+      env:
+        - {name: REPO_URL, value: "https://github.com/example/product.git"}
+        - {name: GH_TOKEN, secretRef: PRODUCT_TOKEN}
