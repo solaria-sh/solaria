@@ -16,7 +16,7 @@ GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$
 GOVULNCHECK   := go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
 GORELEASER    ?= go run github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 
-.PHONY: all build test lint fmt vuln tidy-check schema check-schema check release-check release-snapshot site site-serve site-test clean
+.PHONY: all build test lint fmt vuln tidy-check schema check-schema worker-mod check release-check release-snapshot site site-serve site-test clean
 
 all: check build
 
@@ -43,6 +43,22 @@ schema: ## Regenerate schemas/ and docs/resources/ from internal/api
 
 check-schema: schema ## Fail if schemas/ is out of date
 	git diff --exit-code -- schemas/ docs/resources/
+
+# The managed-agents worker is its own module, embedded as go.mod.txt and
+# go.sum.txt, and pins the same SDKs as Solaria. worker-mod regenerates it
+# in bin/worker-mod, which make clean deletes.
+WORKER         := internal/providers/managedagents/worker
+WORKER_MODULES := github.com/anthropics/anthropic-sdk-go/v2 github.com/modelcontextprotocol/go-sdk
+
+worker-mod: ## Regenerate the managed-agents worker's go.mod.txt and go.sum.txt at Solaria's SDK versions
+	@mkdir -p bin/worker-mod
+	@cp $(WORKER)/main.go bin/worker-mod/main.go
+	@cp $(WORKER)/go.mod.txt bin/worker-mod/go.mod
+	@cp $(WORKER)/go.sum.txt bin/worker-mod/go.sum
+	cd bin/worker-mod && go get $$(cd $(CURDIR) && go list -m -f '{{.Path}}@{{.Version}}' $(WORKER_MODULES)) && go mod tidy
+	@cp bin/worker-mod/go.mod $(WORKER)/go.mod.txt
+	@cp bin/worker-mod/go.sum $(WORKER)/go.sum.txt
+	@echo "Now run go test ./internal/providers/managedagents -update: the worker image tag in the golden files follows these files."
 
 check: tidy-check lint test vuln ## Everything CI runs (tests include the schema drift check)
 

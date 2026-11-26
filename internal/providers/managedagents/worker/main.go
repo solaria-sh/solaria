@@ -16,15 +16,9 @@
 // tools as JSON, which apply declares on the agents.
 //
 // The image builds it as module solaria-worker, from go.mod.txt and
-// go.sum.txt. After changing the SDK version in Solaria's go.mod, regenerate
-// them in an empty folder holding a copy of this file:
-//
-//	go mod init solaria-worker
-//	go get github.com/anthropics/anthropic-sdk-go/v2@<version>
-//	go get github.com/modelcontextprotocol/go-sdk@<Solaria's version>
-//	go mod tidy
-//
-// and copy go.mod and go.sum back here as go.mod.txt and go.sum.txt.
+// go.sum.txt, which pin the same anthropic-sdk-go and MCP go-sdk versions
+// as Solaria's go.mod. After either changes there, or after this file
+// imports a new module, run "make worker-mod" to regenerate them.
 package main
 
 import (
