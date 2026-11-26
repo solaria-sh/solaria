@@ -114,6 +114,7 @@ The launcher prints one JSON object on stdout: the SDK's result plus the agent's
 | 1 | `error_max_tokens` | The run used more tokens than `limits.maxTokens` and was aborted. |
 | 1 | `error_max_structured_output_retries` | The agent has `output.schema` and gave no answer that matched it. |
 | 2 | `error_launch` | The run couldn't start: no task, a missing secret, binary or API key, or the SDK isn't installed. |
+| 2 | `error_setup` | A [setup step](#setup) failed, so the run didn't start. |
 
 `errors` says what went wrong.
 
@@ -152,15 +153,17 @@ The [workspace](../concepts.md#the-workspace) is the launcher's working director
 
 A read-only workspace is mounted `:ro` on `docker`, and left unwritable by srt on `process`; plain `process` can't keep it from being written, so plan fails there. Either way the launcher adds `Edit(./**)` to `disallowedTools`, which denies the SDK's file-editing tools inside the workspace.
 
-### Repositories
+### Setup
 
-Before the run, the launcher clones each of the agent's [repositories](../concepts.md#repositories) into `repositories/<name>` in the workspace, from any git host. A clone that's already there fails the run rather than be overwritten, so start each run in a fresh workspace, or remove the clones first.
+Before the run, the launcher runs the [setup steps](../concepts.md#setup-steps) of the agent's Environment, in order, each with `sh -e` in the workspace. It's the same on `process` and `docker`, where the steps run inside the container.
 
-- **git** gets a scratch `HOME` and no system configuration, so your credential helpers and settings don't apply. A repository's token reaches it only as an `Authorization: Basic` header for the URL's host (user name `x-access-token`, which GitHub, GitLab and Azure DevOps accept with a token), through git's target: never in its arguments, the URL, its output or the run's environment. The clone happens before srt starts, so the network limits don't apply to it.
-- **The token** is one more secret the command reads: `--env` or the dotenv file passes it to a `docker` run, and the invocation's `env` names it.
-- **Read-only** repositories need srt on `process`, which denies writes to their clones; the launcher also adds `Edit(./repositories/<name>/**)` to `disallowedTools`. A `docker` run is root in its container and can write any clone, so a read-only repository fails plan there, as on plain `process`.
+- **What a step sees.** A step gets a scratch `HOME` shared by the steps, `PATH`, the variables the run may take from the caller (locale, proxies, certificates), and its own variables. It never gets the API key, the run's secrets or another step's.
+- **Secrets.** A step's secret is one more secret the command reads: `--env` or the dotenv file passes it to a `docker` run, and the invocation's `env` names it. The launcher builds the run's environment after setup, from its allowlist, so the run never sees it.
+- **Output.** A step's output goes to stderr, so stdout keeps only the result.
+- **Failure.** A step that exits non-zero stops the run before the SDK starts: the launcher prints `error_setup`, naming the step and its exit code, and exits 2.
+- **srt.** On `process` with `isolation: srt`, setup runs before srt starts, outside its limits, so it can prepare a workspace the run may only read. On `docker` a read-only workspace is mounted `:ro`, so setup couldn't write it, and plan fails.
 
-**Needs:** git 2.31 or later. `plan` checks that it's on `PATH` on `process`; the Solaria sandbox base has it, and an Environment's `spec.image` must too.
+**Needs:** `sh`, which `plan` checks on `process`, and whatever the steps run, such as git. The Solaria sandbox base has git, and an Environment's `spec.image` must have what its steps use.
 
 ## Sandbox
 
@@ -189,9 +192,9 @@ spec:
   network: {allow: [tracker.example.com]}
 ```
 
-Apply writes `srt-settings.json` into the bundle. The recorded command stays the launcher's: it [clones the agent's repositories](#repositories), then runs itself again inside srt, as `srt --settings <bundle>/srt-settings.json -- node <bundle>/launch.mjs` (or the same around `launch.py`), so srt can deny writes to a read-only clone that's already there:
+Apply writes `srt-settings.json` into the bundle. The recorded command stays the launcher's: it [runs setup](#setup), then runs itself again inside srt, as `srt --settings <bundle>/srt-settings.json -- node <bundle>/launch.mjs` (or the same around `launch.py`), so setup can prepare a workspace that srt then keeps the run from writing:
 
-- **Writes** go only to srt's temp folder, which holds the run's scratch `HOME` and temp folders (Claude Code's own temp folder, `CLAUDE_CODE_TMPDIR`, moves there too), the provider's package cache in `.solaria/claude-agent-sdk/.cache`, and the workspace, unless the agent's is read-only, but never a read-only repository's clone. The bundle, the rest of your home folder and everything else are read-only.
+- **Writes** go only to srt's temp folder, which holds the run's scratch `HOME` and temp folders (Claude Code's own temp folder, `CLAUDE_CODE_TMPDIR`, moves there too), the provider's package cache in `.solaria/claude-agent-sdk/.cache`, and the workspace, unless the agent's is read-only. The bundle, the rest of your home folder and everything else are read-only.
 - **The network** is limited to the hosts the agent needs: Anthropic's API, its remote MCP servers, the registries its stdio MCP packages download from, the telemetry endpoint, the Environment's `spec.network.allow`, and the package managers' registries with `packageManagers: true`. A telemetry endpoint on `localhost` stays reachable. `mode: unrestricted` fails plan, since srt has no way to allow every host.
 - The SDK's own `sandbox` option stays off, since sandboxes don't nest.
 

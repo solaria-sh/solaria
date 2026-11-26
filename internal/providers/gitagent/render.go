@@ -109,6 +109,10 @@ func (r *renderer) render() error {
 	if err != nil {
 		return err
 	}
+	script := setupScript(a)
+	if script != nil {
+		b.Files[setupPath] = script
+	}
 	allow, deny := r.tools()
 	b.Files[dockerfilePath] = dockerfile(dockerfileData{
 		LogicalID: a.ID(),
@@ -118,6 +122,7 @@ func (r *renderer) render() error {
 		Packages:  container.Packages(a.Sandbox),
 		Allow:     allow,
 		Deny:      deny,
+		Setup:     script != nil,
 	})
 
 	b.Invocation = r.invocation()
@@ -418,7 +423,7 @@ func (r *renderer) invocation() *state.Invocation {
 	parts := []string{"docker", "run", "--rm", "--platform", r.b.Platform, "--memory", container.Memory(a.Sandbox)}
 	parts = append(parts, "--volume", container.WorkspaceVolume(a))
 
-	secrets := a.SecretRefs()
+	secrets := slices.Compact(slices.Sorted(slices.Values(append(a.SecretRefs(), a.SetupSecretRefs()...))))
 	vars := a.SecretVars()
 	for _, v := range slices.Sorted(maps.Keys(vars)) {
 		if secret := vars[v]; v != secret {

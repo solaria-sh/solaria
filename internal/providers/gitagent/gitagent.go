@@ -101,6 +101,8 @@ func (p *Provider) Capabilities(string) provider.Capabilities {
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   true,
 		LocalWorkspace: true,
+		// The image's entrypoint runs setup before gitagent (setup.go).
+		Setup: true,
 		// gitagent.yaml has max_turns and timeout_s, and no token or cost cap.
 		Limits:  map[string]provider.Enforcement{"maxTurns": provider.EnforcedNative, "timeout": provider.EnforcedNative},
 		Destroy: provider.DestroyDelete,

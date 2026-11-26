@@ -3,12 +3,15 @@ package gitagent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -68,6 +71,7 @@ func TestRenderGolden(t *testing.T) {
 	for _, tc := range []struct{ fixture, env string }{
 		{"full", "local-gitagent"},
 		{"open", "dev"},
+		{"setup", "dev"},
 	} {
 		t.Run(tc.fixture, func(t *testing.T) {
 			dir, err := filepath.Abs(filepath.Join("testdata", tc.fixture))
@@ -93,6 +97,66 @@ func TestRenderGolden(t *testing.T) {
 				t.Errorf("render differs from %s (go test -update rewrites it):\n%s", path, got)
 			}
 		})
+	}
+}
+
+// TestSetupScript runs the entrypoint the setup fixture renders: each step
+// gets its own variables, and the command it execs, gitagent in the image,
+// doesn't get the steps' secrets (ADR 0022).
+func TestSetupScript(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the entrypoint runs with sh in a Linux container")
+	}
+	a := load(t, filepath.Join("testdata", "setup"), "dev")
+	if !slices.Contains(a.SetupSecretRefs(), "PRODUCT_TOKEN") {
+		t.Fatalf("SetupSecretRefs() = %v", a.SetupSecretRefs())
+	}
+	// Replace the clone, which needs the network, with a step that records
+	// what it was given.
+	a.Sandbox.Setup[0].Run = `echo "$REPO_URL $GH_TOKEN" > clone.txt; env > clone.env`
+	dir := t.TempDir()
+	script := filepath.Join(dir, "setup.sh")
+	if err := os.WriteFile(script, setupScript(a), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	run := func(extra ...string) (string, error) {
+		cmd := exec.Command("sh", append([]string{script}, extra...)...)
+		cmd.Dir = dir
+		cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + dir, "PRODUCT_TOKEN=tok", "ANTHROPIC_API_KEY=api-key"}
+		out, err := cmd.Output()
+		return string(out), err
+	}
+	out, err := run("env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "tok") || !strings.Contains(out, "ANTHROPIC_API_KEY=api-key") {
+		t.Errorf("gitagent's environment: want the API key and no step secret:\n%s", out)
+	}
+	read := func(name string) string {
+		b, _ := os.ReadFile(filepath.Join(dir, name))
+		return string(b)
+	}
+	if got := read("clone.txt"); got != "https://github.com/example/product.git tok\n" {
+		t.Errorf("the clone step got %q", got)
+	}
+	if env := read("clone.env"); strings.Contains(env, "api-key") {
+		t.Errorf("a step sees the API key:\n%s", env)
+	}
+	if got := read("note.txt"); got != "it's ready\n" {
+		t.Errorf("the note step wrote %q", got)
+	}
+
+	a.Sandbox.Setup[1].Run = "exit 3"
+	if err := os.WriteFile(script, setupScript(a), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var exit *exec.ExitError
+	if _, err := run("touch", "ran"); !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(exit.Stderr), "solaria: setup step note exited with 3") {
+		t.Errorf("a failing step gave %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "ran")); err == nil {
+		t.Error("gitagent started after a step failed")
 	}
 }
 

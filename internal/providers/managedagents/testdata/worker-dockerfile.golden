@@ -35,4 +35,4 @@ RUN mkdir -p /workspace /mnt/memory
 WORKDIR /workspace
 ENTRYPOINT ["solaria-worker"]
 === image
-solaria/ma-self-hosted/worker:bfd0612f92a2
+solaria/ma-self-hosted/worker:5a0f1bed32d7

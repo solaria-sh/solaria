@@ -8,12 +8,10 @@ package validate
 
 import (
 	"bytes"
-	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -134,15 +132,6 @@ func agent(set *config.Set, r *config.Resource) diag.List {
 	}
 
 	diags = append(diags, vaultRefs(set, r, mcp)...)
-
-	repoNames := map[string]int{}
-	for i, need := range spec.Repositories {
-		if prev, dup := repoNames[need.Name]; dup {
-			errorf(r.Pos("spec", "repositories", strconv.Itoa(i), "name"), "spec.repositories[%d].name: %q is also spec.repositories[%d]", i, need.Name, prev)
-			continue
-		}
-		repoNames[need.Name] = i
-	}
 
 	if perm := spec.Permissions; perm != nil {
 		for i, tool := range perm.Ask {
@@ -377,7 +366,7 @@ func target(set *config.Set, r *config.Resource) diag.List {
 			errorf(r.Pos("spec", "inputs", "workspace", "path"), "spec.inputs.workspace.path: %v", err)
 		}
 	}
-	diags = append(diags, repositoryInputs(set, r, selected)...)
+	diags = append(diags, setupInputs(set, r, selected)...)
 	if s := spec.Secrets; s != nil && s.Source == v1alpha1.SecretsEnv && s.Path != "" {
 		errorf(r.Pos("spec", "secrets", "path"), "spec.secrets.path only applies when source is dotenv")
 	}
@@ -455,6 +444,21 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 			warnf(r.Pos("spec", "network", "packageManagers"), "spec.network.packageManagers is ignored when mode is unrestricted")
 		}
 	}
+	steps := map[string]int{}
+	for i, st := range sb.Setup {
+		if prev, dup := steps[st.Name]; dup {
+			errorf(r.Pos("spec", "setup", strconv.Itoa(i), "name"), "spec.setup[%d].name: %q is also spec.setup[%d]", i, st.Name, prev)
+		} else {
+			steps[st.Name] = i
+		}
+		vars := map[string]bool{}
+		for j, v := range st.Env {
+			if vars[v.Name] {
+				errorf(r.Pos("spec", "setup", strconv.Itoa(i), "env", strconv.Itoa(j), "name"), "spec.setup[%d].env[%d].name: %s is set twice in step %s", i, j, v.Name, st.Name)
+			}
+			vars[v.Name] = true
+		}
+	}
 	if v1alpha1.IsDockerfilePath(sb.Image) {
 		if err := regularFile(r.Dir(), sb.Image); err != nil {
 			errorf(r.Pos("spec", "image"), "spec.image: %v", err)
@@ -471,123 +475,67 @@ func environment(set *config.Set, r *config.Resource) diag.List {
 
 // passthrough warns about provider-specific fields: they are allowed, but
 // make the resource less portable, and ADR 0004 says that must be visible.
-// repositoryInputs checks where a target's repositories come from,
-// and that each repository its agents declare is bound, with a credential
-// they may use (ADR 0017).
-func repositoryInputs(set *config.Set, r *config.Resource, selected map[string]bool) diag.List {
+// setupInputs checks a target's spec.inputs.setup.env against the setup
+// steps of the Environments its agents get (ADR 0022): every variable a
+// step requires is set, and every value set is one some step declares.
+func setupInputs(set *config.Set, r *config.Resource, selected map[string]bool) diag.List {
 	var diags diag.List
+	spec := r.Target().Spec
 	errorf := func(p diag.Pos, format string, args ...any) {
 		diags = append(diags, diag.Errorf(r.File, p, format, args...))
 	}
-	var bound map[string]v1alpha1.RepositoryInput
-	if in := r.Target().Spec.Inputs; in != nil {
-		bound = in.Repositories
+	var values []v1alpha1.KeyValue
+	if in := spec.Inputs; in != nil && in.Setup != nil {
+		values = in.Setup.Env
 	}
-	used := map[string]bool{}
+	given := map[string]bool{}
+	for i, kv := range values {
+		if given[kv.Name] {
+			errorf(r.Pos("spec", "inputs", "setup", "env", strconv.Itoa(i), "name"), "spec.inputs.setup.env[%d].name: %s is set twice", i, kv.Name)
+		}
+		given[kv.Name] = true
+	}
+
+	// The Environments this target's agents get, each once.
+	var used []string
 	for _, name := range sortedKeys(selected) {
 		a := set.Lookup(v1alpha1.KindAgent, name)
 		if a == nil {
 			continue
 		}
-		spec := a.Agent().Spec
-		for _, need := range spec.Repositories {
-			used[need.Name] = true
-			in, ok := bound[need.Name]
-			if !ok {
-				errorf(r.Pos("spec", "inputs", "repositories"), "spec.inputs.repositories: Agent %q needs repository %q, and this target doesn't bind it", name, need.Name)
-				continue
-			}
-			c := in.Credential
-			if c == nil || slices.ContainsFunc(spec.Vaults, func(v v1alpha1.VaultRef) bool { return v.Ref == c.Vault }) {
-				continue
-			}
-			errorf(r.Pos("spec", "inputs", "repositories", need.Name, "credential", "vault"), "spec.inputs.repositories.%s.credential: Agent %q uses this repository, so it must list Vault %q in spec.vaults", need.Name, name, c.Vault)
+		i, err := resolve.EnvironmentFor(&spec, a.Agent())
+		if err != nil || i < 0 {
+			continue // environments reports a bad assignment
+		}
+		if ref := spec.Environments[i].Ref; !slices.Contains(used, ref) {
+			used = append(used, ref)
 		}
 	}
-	for _, name := range sortedKeys(bound) {
-		in := bound[name]
-		at := func(path ...string) diag.Pos {
-			return r.Pos(append([]string{"spec", "inputs", "repositories", name}, path...)...)
+	slices.Sort(used)
+
+	declared := map[string]bool{}
+	for _, ref := range used {
+		e := set.Lookup(v1alpha1.KindEnvironment, ref)
+		if e == nil {
+			continue
 		}
-		field := "spec.inputs.repositories." + name
-		host, err := repositoryHost(in.URL)
-		if err != nil {
-			errorf(at("url"), "%s.url: %v", field, err)
-		}
-		if !validRef(in.Ref) {
-			errorf(at("ref"), "%s.ref: %q is not a branch or tag name", field, in.Ref)
-		}
-		if c := in.Credential; c != nil {
-			if msg := gitCredential(set, c, host); msg != "" {
-				errorf(at("credential"), "%s.credential: %s", field, msg)
+		for _, st := range e.Environment().Spec.Setup {
+			for _, v := range st.Env {
+				declared[v.Name] = true
+				if v.Value == "" && v.SecretRef == "" && !given[v.Name] {
+					errorf(r.Pos("spec", "environments"),
+						"spec.inputs.setup.env: setup step %s of Environment %q needs %s, and this target doesn't set it", st.Name, ref, v.Name)
+				}
 			}
 		}
-		if !used[name] {
-			diags = append(diags, diag.Warnf(r.File, r.KeyPos("spec", "inputs", "repositories", name), "%s: no agent in this target declares repository %q", field, name))
+	}
+	for i, kv := range values {
+		if !declared[kv.Name] {
+			errorf(r.Pos("spec", "inputs", "setup", "env", strconv.Itoa(i), "name"),
+				"spec.inputs.setup.env[%d].name: no setup step in this target's Environments declares %s", i, kv.Name)
 		}
 	}
 	return diags
-}
-
-// repositoryHost checks a repository's URL and returns its host. Clones go
-// over HTTPS, and a credential in the URL would reach logs and state.
-func repositoryHost(raw string) (string, error) {
-	u, err := url.Parse(raw)
-	switch {
-	case err != nil:
-		return "", fmt.Errorf("%q is not a URL", raw)
-	case u.Scheme != "https":
-		return "", fmt.Errorf("%q is not an https:// URL; clones go over HTTPS", raw)
-	case u.User != nil:
-		return "", fmt.Errorf("%q has a user name or password in it; leave it out, the credential authenticates the clone", u.Redacted())
-	case u.Hostname() == "" || u.Path == "" || u.Path == "/":
-		return "", fmt.Errorf("%q doesn't name a host and a repository", raw)
-	case u.RawQuery != "" || u.Fragment != "":
-		return "", fmt.Errorf("%q has a query or fragment; a repository's URL has neither", raw)
-	}
-	return strings.ToLower(u.Hostname()), nil
-}
-
-// validRef reports whether ref can be a branch or tag name, as git check-ref-format
-// would allow, or is empty. It can't start with "-", so it never reads as
-// an option.
-func validRef(ref string) bool {
-	if ref == "" {
-		return true
-	}
-	if strings.HasPrefix(ref, "-") || strings.HasPrefix(ref, "/") || strings.HasSuffix(ref, "/") ||
-		strings.HasSuffix(ref, ".lock") || strings.HasSuffix(ref, ".") ||
-		strings.Contains(ref, "..") || strings.Contains(ref, "@{") || strings.Contains(ref, "//") {
-		return false
-	}
-	return !strings.ContainsFunc(ref, func(c rune) bool {
-		return c <= ' ' || c == 0x7f || strings.ContainsRune("~^:?*[\\", c)
-	})
-}
-
-// gitCredential says what's wrong with a repository's credential, or
-// nothing: it must exist, and be for the URL's git host.
-func gitCredential(set *config.Set, c *v1alpha1.CredentialRef, host string) string {
-	v := set.Lookup(v1alpha1.KindVault, c.Vault)
-	if v == nil {
-		if !set.Exists(v1alpha1.KindVault, c.Vault) {
-			return fmt.Sprintf("no Vault named %q", c.Vault)
-		}
-		return "" // the vault exists but failed to load; its own errors say why
-	}
-	for _, cr := range v.Vault().Spec.Credentials {
-		if cr.Name != c.Name {
-			continue
-		}
-		switch {
-		case cr.For.GitHost == "":
-			return fmt.Sprintf("credential %q in Vault %q isn't for a git host; set its for.gitHost to %s", c.Name, c.Vault, cmp.Or(host, "the repository's host"))
-		case host != "" && !strings.EqualFold(cr.For.GitHost, host):
-			return fmt.Sprintf("credential %q in Vault %q is for git host %s, and the repository is on %s", c.Name, c.Vault, cr.For.GitHost, host)
-		}
-		return ""
-	}
-	return fmt.Sprintf("Vault %q has no credential named %q", c.Vault, c.Name)
 }
 
 func passthrough(r *config.Resource, providers map[string]map[string]any, path ...string) diag.List {

@@ -53,7 +53,7 @@ A session starts in the environment of the agent's Environment. `solaria status 
 | `limits` | not enforced: a session runs until the agent finishes or is interrupted. Plan warns for each field set. Session budgets cap cost. |
 | `output.schema` | not supported; plan fails |
 | `workspace.access` | `read-only` fails plan: a session's files belong to the host, which can't keep them from being written. A target that binds `inputs.workspace.path` fails plan too, since runs don't work on a folder on your machine. |
-| `repositories` | On `cloud`, each GitHub repository is a `github_repository` resource the caller attaches when starting a session: `status -a` shows its URL, mount path (`/workspace/repositories/<name>`) and the secret holding its token, its `authorization_token`. `ref` becomes its branch checkout, and `depth` is ignored with a warning. A repository on another git host fails plan, and so does a read-only one: the session can write its clone. On `self-hosted`, targets take no resources, so repositories fail plan. |
+| Environment `setup` | On `self-hosted`, the worker runs the steps at the start of each session: see [Setup on the worker](#setup-on-the-worker). On `cloud`, nothing of Solaria's runs before a session, so setup fails plan; attach the resources a session needs, such as a `github_repository`, when you start it. |
 | `providers.managed-agents` on the Agent | sent in the request as they are, for fields Solaria has no word for, such as `multiagent`. Fields Solaria sets itself fail validation. |
 
 Managed Agents agents hold no credentials, and the host connects to MCP servers without custom headers: a session gets credentials from the [vaults](https://platform.claude.com/docs/en/managed-agents/vaults) attached when it starts. An agent whose MCP servers send a secret header and that lists no `vaults` gets a warning. A header with a plain value is left out, with a warning.
@@ -66,7 +66,6 @@ Apply keeps one host vault per [Vault](../concepts.md#credentials-and-vaults) an
 |---|---|
 | `for: {mcpServer: …}` | a static bearer token for the server's remote URL. The host sends `Authorization: Bearer <token>`, so the server must take the secret in its `Authorization` header, or plan fails. A leading `Bearer ` in the value is dropped, so one value works here and where a launcher sends the header as it is. A secret only a package uses isn't stored: on `cloud` it gets a warning, since Managed Agents runs no MCP packages, and for a server on the `self-hosted` worker the worker passes it to the server itself. |
 | `for: {env: NAME}` | an environment variable `NAME`. The sandbox holds a placeholder, and the host puts the value into outbound requests to any host the agent's Environment allows in `spec.network`. |
-| `for: {gitHost: …}` | nothing: it authenticates a repository's clone, and the caller passes its value as the `github_repository` resource's token. |
 
 Sessions attach the vaults when they start; Solaria doesn't start sessions. `solaria status -t <target> -a <agent>` lists the vault IDs, and `status -o json` has them as each agent's `vaults`.
 
@@ -111,10 +110,18 @@ Anthropic can't start a stdio server, so on `self-hosted` the worker runs every 
 - **Tools.** Apply lists each server's tools once, after building the image, by running `solaria-worker list-tools` in it, and records them in state. The agent declares them as custom tools named `<server>__<tool>`, narrowed by `allowTools`; later plans render from state and show changes as field diffs. Until a server has been listed, plan says apply will list it. A server that fails to start or list fails apply before any agent changes. A server whose tools change at runtime keeps the tools listed at apply until the next one.
 - **Limits.** A tool name longer than 128 characters with its prefix, an input schema with `$ref` or a top-level `oneOf`, `anyOf` or `allOf`, a property name other than letters, digits, `_`, `.` and `-`, or more than 256 tools on one agent fails apply, naming the server and tool.
 - **Calls.** Each session starts its own server process the first time it calls one of the server's tools, in the session's workdir, and stops it when the session ends. A call times out after 10 minutes and becomes an error result.
-- **Secrets.** A package variable with `secretRef` reaches the worker container from the target's secret source through docker's environment, as the key does, and the worker passes each server only its own variables, never the key. The agent's `bash` gets the container's environment without the key or any server's secrets. Every agent that uses a server is granted all its secrets, straight or through its vaults, so one worker serving several agents gives the server the same values.
+- **Secrets.** A package variable with `secretRef` reaches the worker container from the target's secret source through docker's environment, as the key does, and the worker passes each server only its own variables, never the key. The agent's `bash` gets the container's environment without the key, any server's secrets or any setup step's. Every agent that uses a server is granted all its secrets, straight or through its vaults, so one worker serving several agents gives the server the same values.
 - **Approvals.** The worker runs every custom tool call, so `permissions.ask` on a tool of a server on the worker fails plan. Use a server with a remote for tools that need approval.
 
 The server's tool names, descriptions and results reach the model, and the worker runs `bash` next to it: run only servers you trust.
+
+### Setup on the worker
+
+The worker runs its Environment's [setup steps](../concepts.md#setup-steps) at the start of each session, before it serves the session's tools, each with `sh -e` in `/workspace` ([ADR 0022](../adr/0022-environment-setup-steps.md)). A worker serves one target and Environment, so apply builds the steps and the target's values into the image, in `/etc/solaria/worker.json` next to the MCP servers.
+
+- **The workdir is shared.** Every session on a worker works in the same `/workspace`, where the SDK also keeps each session's `skills/` and `memory/` folders, so the worker doesn't empty it. A step must cope with what an earlier session left.
+- **Secrets.** A step's `secretRef` reaches the container through docker's environment, as the servers' secrets do. The step gets `PATH`, `HOME` and its own variables; the agent's `bash` and the MCP servers never see a step's secrets.
+- **Failure.** A step that exits non-zero is logged to the container's output, and every tool call of that session returns the failure, so the agent can't work on a workspace that wasn't prepared. The next session runs setup again.
 
 ## Settings
 

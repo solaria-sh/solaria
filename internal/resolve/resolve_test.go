@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -446,28 +447,33 @@ func TestWorkspaceDigest(t *testing.T) {
 	}
 }
 
-// TestRepositories checks that an agent's repositories are in its digest,
-// in any order, while where they come from isn't, and that a clone's token
-// never becomes a variable of the run (ADR 0017).
-func TestRepositories(t *testing.T) {
-	files := func(repos, url string) map[string]string {
-		return map[string]string{
-			"role.md": "You build.\n",
-			"solaria.yaml": `apiVersion: solaria.sh/v1alpha1
+// TestSetup checks that an Environment's setup steps reach its agents with
+// each target's values, that neither the steps nor the values change an
+// agent's digests, and that a step's secret never becomes a variable of the
+// run (ADR 0022).
+func TestSetup(t *testing.T) {
+	files := map[string]string{
+		"role.md": "You build.\n",
+		"solaria.yaml": `apiVersion: solaria.sh/v1alpha1
 kind: Agent
 metadata: {name: builder}
 spec:
   instructions: [role.md]
   model: {preferred: anthropic:claude-sonnet-5-5}
-` + repos + `  vaults: [{ref: git}]
 ---
 apiVersion: solaria.sh/v1alpha1
-kind: Vault
-metadata: {name: git}
+kind: Environment
+metadata: {name: product}
 spec:
-  credentials:
-    - {name: azure, secretRef: AZURE_DEVOPS_TOKEN, for: {gitHost: dev.azure.com}}
-    - {name: cli, secretRef: CLI_TOKEN, for: {env: CLI_TOKEN}}
+  setup:
+    - name: clone
+      run: git clone --branch "$REF" "$REPO_URL" product
+      env:
+        - {name: REPO_URL}
+        - {name: REF, value: main}
+        - {name: GH_TOKEN, secretRef: GH_TOKEN}
+    - name: deps
+      run: cd product && npm ci
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target
@@ -475,10 +481,11 @@ metadata: {name: local}
 spec:
   provider: stub
   placement: file
-  inputs: &inputs
-    repositories:
-      product: {url: "` + url + `", ref: main, credential: {vault: git, name: azure}}
-      spec: {url: "https://github.com/example/spec.git", depth: 1}
+  environments: [{ref: product}]
+  inputs:
+    setup:
+      env:
+        - {name: REPO_URL, value: "https://example.com/dev.git"}
 ---
 apiVersion: solaria.sh/v1alpha1
 kind: Target
@@ -486,33 +493,43 @@ metadata: {name: cloud}
 spec:
   provider: stub
   placement: file
-  inputs: *inputs
+  environments: [{ref: product}]
+  inputs:
+    setup:
+      env:
+        - {name: REPO_URL, value: "https://example.com/prod.git"}
+        - {name: REF, value: release}
+        - {name: GH_TOKEN, secretRef: PROD_TOKEN}
 `,
-		}
 	}
-	const both = "  repositories:\n    - {name: product, access: read-write}\n    - {name: spec, access: read-only}\n"
-	const reversed = "  repositories:\n    - {name: spec, access: read-only}\n    - {name: product, access: read-write}\n"
-	a := find(t, resolveAll(t, files(both, "https://dev.azure.com/example/factory/_git/product"))["local"], "builder")
-	b := find(t, resolveAll(t, files(reversed, "https://dev.azure.com/example/factory/_git/other"))["local"], "builder")
-	if a.SpecDigest != b.SpecDigest || a.ResolvedDigest != b.ResolvedDigest {
-		t.Errorf("the order of repositories, or a binding's URL, changed the digests")
-	}
-	none := find(t, resolveAll(t, files("", "https://dev.azure.com/example/factory/_git/product"))["local"], "builder")
-	if none.SpecDigest == a.SpecDigest || none.Definition.Repositories != nil {
-		t.Errorf("declaring repositories kept the digest %s", none.SpecDigest)
+	all := resolveAll(t, files)
+	dev, prod := find(t, all["local"], "builder"), find(t, all["cloud"], "builder")
+	if dev.ResolvedDigest != prod.ResolvedDigest {
+		t.Errorf("a target's setup values changed resolvedDigest")
 	}
 
-	want := []resolve.BoundRepository{
-		{Name: "product", Access: v1alpha1.AccessReadWrite, URL: "https://dev.azure.com/example/factory/_git/product", Ref: "main", SecretRef: "AZURE_DEVOPS_TOKEN"},
-		{Name: "spec", Access: v1alpha1.AccessReadOnly, URL: "https://github.com/example/spec.git", Depth: 1},
+	want := []resolve.SetupStep{
+		{Name: "clone", Run: `git clone --branch "$REF" "$REPO_URL" product`, Env: []v1alpha1.KeyValue{
+			{Name: "REPO_URL", Value: "https://example.com/prod.git"},
+			{Name: "REF", Value: "release"},
+			{Name: "GH_TOKEN", SecretRef: "PROD_TOKEN"},
+		}},
+		{Name: "deps", Run: "cd product && npm ci"},
 	}
-	if got := a.Repositories(); !slices.Equal(got, want) {
-		t.Errorf("Repositories() = %+v, want %+v", got, want)
+	if got := prod.Setup(); !reflect.DeepEqual(got, want) {
+		t.Errorf("Setup() = %+v, want %+v", got, want)
 	}
-	if got := a.CloneSecretRefs(); !slices.Equal(got, []string{"AZURE_DEVOPS_TOKEN"}) {
-		t.Errorf("CloneSecretRefs() = %v", got)
+	if got := dev.Setup()[0].Env; !reflect.DeepEqual(got, []v1alpha1.KeyValue{
+		{Name: "REPO_URL", Value: "https://example.com/dev.git"},
+		{Name: "REF", Value: "main"},
+		{Name: "GH_TOKEN", SecretRef: "GH_TOKEN"},
+	}) {
+		t.Errorf("dev's clone step gets %+v, want the target's URL and the step's defaults", got)
 	}
-	if got := a.SecretVars(); len(got) != 1 || got["CLI_TOKEN"] != "CLI_TOKEN" {
-		t.Errorf("SecretVars() = %v, want only CLI_TOKEN: a clone's token never reaches the run", got)
+	if got := prod.SetupSecretRefs(); !slices.Equal(got, []string{"PROD_TOKEN"}) {
+		t.Errorf("SetupSecretRefs() = %v", got)
+	}
+	if got := prod.SecretVars(); len(got) != 0 {
+		t.Errorf("SecretVars() = %v, want none: a step's secret never reaches the run", got)
 	}
 }

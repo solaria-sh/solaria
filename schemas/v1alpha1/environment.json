@@ -167,11 +167,77 @@
             "srt"
           ],
           "description": "Wraps each run in an OS-level sandbox, on placements that don't have one of their own. srt runs the process placement's launcher inside Anthropic's sandbox-runtime, which must be installed: writes are limited to the run's scratch folders and the inputs the agent may write, and the network to the hosts the agents need. macOS and Linux only."
+        },
+        "setup": {
+          "items": {
+            "$ref": "#/$defs/SetupStep"
+          },
+          "type": "array",
+          "description": "Steps that prepare the workspace before the agent starts, such as cloning a repository or installing its dependencies. They run in order, on every run, each with sh -e in the workspace, and a step that fails stops the run before the agent starts. Steps aren't undone after a run, so a step should cope with what it left in the workspace last time."
         }
       },
       "additionalProperties": false,
       "type": "object",
       "description": "Describes a sandbox in a form every placement understands."
+    },
+    "SetupStep": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 63,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Name of the step, unique in the Environment. Errors and plans name it."
+        },
+        "run": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The script the step runs with sh -e, in the workspace. Its output goes to the run's stderr, not to the agent."
+        },
+        "env": {
+          "items": {
+            "$ref": "#/$defs/SetupVar"
+          },
+          "type": "array",
+          "description": "Variables the step gets, on top of the run's base environment (PATH, HOME and the like). It gets no other secret: neither the run's nor another step's."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "run"
+      ],
+      "description": "One step that prepares the workspace before a run."
+    },
+    "SetupVar": {
+      "not": {
+        "required": [
+          "value",
+          "secretRef"
+        ]
+      },
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Name of the variable."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value, when it isn't secret. It's a default that a target can replace."
+        },
+        "secretRef": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "description": "A variable of a setup step: a plain value, a secret, or neither, in which case every target that uses the Environment must set it in spec.inputs.setup.env."
     }
   },
   "properties": {

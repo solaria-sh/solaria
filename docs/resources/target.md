@@ -41,13 +41,11 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.inputs` | object |  | Where agents' inputs come from in this target. |
 | `spec.inputs.workspace` | object |  | The folder agents work on. |
 | `spec.inputs.workspace.path` | string |  | A folder on the machine that runs the agent, relative to this file or absolute. When omitted, it's the folder the run starts in. Only placements that run on this machine take it. |
-| `spec.inputs.repositories` | map of objects |  | Where each repository the agents declare comes from, by name. |
-| `spec.inputs.repositories.<name>.url` | string | yes | HTTPS URL of the git repository, without a user name or password in it: the credential authenticates the clone. |
-| `spec.inputs.repositories.<name>.ref` | string |  | Branch or tag to check out. When omitted, the remote's default branch. |
-| `spec.inputs.repositories.<name>.depth` | integer |  | Number of commits to clone, for a shallow clone. When omitted, the whole history. |
-| `spec.inputs.repositories.<name>.credential` | object |  | The Vault credential that authenticates the clone. It must be for the URL's host (for.gitHost), and in a vault each agent using the repository lists. Omit it for a public repository. |
-| `spec.inputs.repositories.<name>.credential.vault` | string | yes | Name of a Vault resource. |
-| `spec.inputs.repositories.<name>.credential.name` | string | yes | Name of a credential in that vault. |
+| `spec.inputs.setup` | object |  | Values for the variables of the setup steps in the Environments this target uses. |
+| `spec.inputs.setup.env` | list of objects | yes | Variables to set, each a plain value or a secret. Each one replaces the variable of that name in every setup step of every Environment this target uses, and some step must declare it. At least 1. |
+| `spec.inputs.setup.env[].name` | string | yes | Name of the header or variable. |
+| `spec.inputs.setup.env[].value` | string |  | Value, when it isn't secret. |
+| `spec.inputs.setup.env[].secretRef` | string |  | Name of a secret in the target's secret source, in UPPER_SNAKE_CASE. Its value is never stored by Solaria. Matches `^[A-Z_][A-Z0-9_]*$`. |
 | `spec.state` | object |  | Where Solaria keeps this target's state: what it deployed, and the lock that stops two applies at once. When omitted, state is a local file under .solaria/state, which suits personal targets; a shared target needs state everyone who applies it can reach. |
 | `spec.state.azureBlob` | object | yes | Keeps the state in Azure Blob Storage, as one blob per target holding the same JSON as a local state file. The lock is a lease on that blob, renewed while a command runs, so a stopped run's lock expires within a minute. Credentials come from the Azure credential chain (environment variables, workload identity, managed identity, or an Azure CLI login), never from project files; they need read and write access to blobs in the container, such as the Storage Blob Data Contributor role. |
 | `spec.state.azureBlob.account` | string | yes | The storage account's name, as in <account>.blob.core.windows.net. Matches `^[a-z0-9]+$`. |

@@ -18,14 +18,16 @@ import (
 	"github.com/solaria-sh/solaria/internal/api/v1alpha1"
 	"github.com/solaria-sh/solaria/internal/digest"
 	"github.com/solaria-sh/solaria/internal/provider"
+	"github.com/solaria-sh/solaria/internal/providers/process"
 	"github.com/solaria-sh/solaria/internal/resolve"
 	"github.com/solaria-sh/solaria/internal/state"
 )
 
-// Where the worker image installs MCP servers and describes them.
+// Where the worker image installs MCP servers, and where it describes
+// them and the Environment's setup steps.
 const (
-	mcpRoot       = "/opt/solaria/mcp"
-	mcpConfigPath = "/etc/solaria/mcp.json"
+	mcpRoot          = "/opt/solaria/mcp"
+	workerConfigPath = "/etc/solaria/worker.json"
 )
 
 // outToolsPrefix starts the Environment binding outputs that hold each
@@ -119,10 +121,11 @@ func workerServers(e *provider.Environment) []workerServer {
 	return out
 }
 
-// workerConfig is the worker's /etc/solaria/mcp.json; the worker reads the
-// same shape.
+// workerConfig is the worker's /etc/solaria/worker.json; the worker reads
+// the same shape.
 type workerConfig struct {
 	Servers []workerConfigServer `json:"servers"`
+	Setup   []process.Step       `json:"setup,omitempty"`
 }
 
 type workerConfigServer struct {
@@ -135,11 +138,11 @@ type workerConfigServer struct {
 	SecretEnv map[string]string `json:"secretEnv,omitempty"`
 }
 
-// renderServers writes the worker image's install steps and its MCP
-// config. A secret reaches the container under its own name, so the
-// config only names it.
-func renderServers(b *strings.Builder, servers []workerServer) ([]byte, error) {
-	cfg := workerConfig{Servers: []workerConfigServer{}}
+// renderConfig writes the worker image's install steps and its config:
+// the MCP servers and the setup steps. A secret reaches the container under
+// its own name, so the config only names it.
+func renderConfig(b *strings.Builder, servers []workerServer, setup []process.Step) ([]byte, error) {
+	cfg := workerConfig{Servers: []workerConfigServer{}, Setup: setup}
 	for _, w := range servers {
 		dir := mcpRoot + "/" + w.Name
 		p := w.Package
@@ -180,10 +183,28 @@ func renderServers(b *strings.Builder, servers []workerServer) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(servers) > 0 {
-		fmt.Fprintf(b, "COPY mcp.json %s\n", mcpConfigPath)
+	if len(servers) > 0 || len(setup) > 0 {
+		fmt.Fprintf(b, "COPY worker.json %s\n", workerConfigPath)
 	}
 	return append(raw, '\n'), nil
+}
+
+// workerSetup is the setup steps of the Environment's worker, with the
+// target's values. Every agent of one Environment in one target gets the
+// same steps, so the first agent's are the worker's.
+func workerSetup(e *provider.Environment) []process.Step {
+	if len(e.Agents) == 0 {
+		return nil
+	}
+	return process.Steps(e.Agents[0])
+}
+
+// setupSecrets lists the secrets the worker's setup steps use, sorted.
+func setupSecrets(e *provider.Environment) []string {
+	if len(e.Agents) == 0 {
+		return nil
+	}
+	return e.Agents[0].SetupSecretRefs()
 }
 
 func jsonArray(args ...string) string {

@@ -8,12 +8,18 @@
 // key, since agent tool calls run here.
 //
 // The agents' stdio MCP servers run here too (ADR 0021). The image installs
-// them and describes them in /etc/solaria/mcp.json. The worker serves each
+// them and describes them in /etc/solaria/worker.json. The worker serves each
 // server's tools as custom tools named <server>__<tool>, which the agents
 // declare: it starts a session's server when the session first calls one
 // of its tools, in the session's workdir, and stops it when the session
 // ends. "solaria-worker list-tools" starts each server once and prints its
 // tools as JSON, which apply declares on the agents.
+//
+// worker.json also lists the Environment's setup steps (ADR 0022). The
+// worker runs them at the start of each session, before it serves the
+// session's tools, in the shared workdir. When one fails, every tool call
+// of that session returns the failure, so the agent can't work on a
+// workspace that wasn't prepared.
 //
 // The image builds it as module solaria-worker, from go.mod.txt and
 // go.sum.txt, which pin the same anthropic-sdk-go and MCP go-sdk versions
@@ -45,7 +51,7 @@ import (
 )
 
 // configPath is where the image describes the MCP servers it installed.
-const configPath = "/etc/solaria/mcp.json"
+const configPath = "/etc/solaria/worker.json"
 
 // Timeouts for MCP servers: starting one and listing its tools, and one
 // tool call, so a hung server fails the call instead of the session.
@@ -109,6 +115,10 @@ func run() error {
 					tools = append(tools, newWrappedTool(sessions, s, t))
 				}
 			}
+			if err := runSetup(ctx, cfg.Setup, env.Workdir, os.Stderr); err != nil {
+				fmt.Fprintln(os.Stderr, "solaria-worker:", err)
+				return failAll(tools, err)
+			}
 			return tools
 		},
 	})
@@ -149,9 +159,79 @@ func listTools(w *os.File) error {
 	return enc.Encode(out)
 }
 
-// config is /etc/solaria/mcp.json.
+// config is /etc/solaria/worker.json.
 type config struct {
 	Servers []server `json:"servers"`
+	// Setup is the Environment's setup steps, in order.
+	Setup []step `json:"setup,omitempty"`
+}
+
+// step is a setup step (ADR 0022).
+type step struct {
+	Name string `json:"name"`
+	// Run is the script, run with sh -e in the workdir.
+	Run string `json:"run"`
+	// Env holds the step's plain variables.
+	Env map[string]string `json:"env,omitempty"`
+	// SecretEnv maps the step's secret variables to the container
+	// variables that hold their values.
+	SecretEnv map[string]string `json:"secretEnv,omitempty"`
+}
+
+// runSetup runs the steps in order, each with sh -e in workdir. A step
+// gets PATH, HOME and its own variables, never the rest of the worker's
+// environment, which holds the environment's key and the MCP servers'
+// secrets. Its output goes to out, the container's log.
+func runSetup(ctx context.Context, steps []step, workdir string, out *os.File) error {
+	for _, st := range steps {
+		cmd := exec.CommandContext(ctx, "sh", "-e", "-c", st.Run)
+		cmd.Dir = workdir
+		cmd.Stdout, cmd.Stderr = out, out
+		cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}
+		for _, k := range sortedKeys(st.Env) {
+			cmd.Env = append(cmd.Env, k+"="+st.Env[k])
+		}
+		for _, k := range sortedKeys(st.SecretEnv) {
+			cmd.Env = append(cmd.Env, k+"="+os.Getenv(st.SecretEnv[k]))
+		}
+		if err := cmd.Run(); err != nil {
+			var exit *exec.ExitError
+			if errors.As(err, &exit) {
+				return fmt.Errorf("setup step %s exited with %d", st.Name, exit.ExitCode())
+			}
+			return fmt.Errorf("setup step %s: %w", st.Name, err)
+		}
+	}
+	return nil
+}
+
+// failAll wraps a session's tools so that each call returns err: the
+// session's setup failed, and the agent mustn't work on the workspace.
+func failAll(tools []anthropic.BetaTool, err error) []anthropic.BetaTool {
+	out := make([]anthropic.BetaTool, len(tools))
+	for i, t := range tools {
+		out[i] = failedTool{BetaTool: t, err: err}
+	}
+	return out
+}
+
+// failedTool is a tool whose session's setup failed.
+type failedTool struct {
+	anthropic.BetaTool
+	err error
+}
+
+func (t failedTool) Execute(context.Context, json.RawMessage) ([]anthropic.BetaToolResultBlockParamContentUnion, error) {
+	return nil, fmt.Errorf("the session's workspace isn't ready: %w", t.err)
+}
+
+// Close closes the tool it wraps, as the worker does with the tools it's
+// given when the session ends.
+func (t failedTool) Close() error {
+	if c, ok := t.BetaTool.(interface{ Close() error }); ok {
+		return c.Close()
+	}
+	return nil
 }
 
 // server is an MCP server the image installed.
@@ -172,12 +252,17 @@ type server struct {
 	SecretEnv map[string]string `json:"secretEnv,omitempty"`
 }
 
-// secretVars lists the container variables that hold the servers'
-// secrets.
+// secretVars lists the container variables that hold the servers' and
+// the setup steps' secrets.
 func (c *config) secretVars() []string {
 	var out []string
 	for _, s := range c.Servers {
 		for _, v := range s.SecretEnv {
+			out = append(out, v)
+		}
+	}
+	for _, st := range c.Setup {
+		for _, v := range st.SecretEnv {
 			out = append(out, v)
 		}
 	}
@@ -186,7 +271,7 @@ func (c *config) secretVars() []string {
 
 // bashEnv is the environment the agent's bash gets: the container's,
 // without the worker's own credentials (ANTHROPIC_*) or the variables that
-// hold the MCP servers' secrets, which only those servers get.
+// hold the MCP servers' and setup steps' secrets, which only they get.
 func bashEnv(environ, secretVars []string) map[string]string {
 	out := map[string]string{}
 	for _, kv := range environ {

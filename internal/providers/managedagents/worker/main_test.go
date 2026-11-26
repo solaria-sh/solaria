@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -190,5 +191,60 @@ func TestBashEnv(t *testing.T) {
 		if strings.Contains(got, secret) {
 			t.Errorf("bash sees %s:\n%s", secret, got)
 		}
+	}
+}
+
+// TestSetup runs setup steps in a workdir: in order, each with its own
+// variables and its secret read from the container's, never the worker's
+// key. A failing step makes every tool of the session return its error.
+func TestSetup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("setup steps run with sh in Linux containers")
+	}
+	t.Setenv("ANTHROPIC_ENVIRONMENT_KEY", "envkey-secret")
+	t.Setenv("SOLARIA_TEST_STEP_SECRET", "step-secret")
+	dir := t.TempDir()
+	steps := []step{
+		{Name: "first", Run: "echo one >> order; env > first.env", Env: map[string]string{"GREETING": "hi"}, SecretEnv: map[string]string{"TOKEN": "SOLARIA_TEST_STEP_SECRET"}},
+		{Name: "second", Run: "echo two >> order"},
+	}
+	log, err := os.CreateTemp(t.TempDir(), "log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = log.Close() }()
+	if err := runSetup(context.Background(), steps, dir, log); err != nil {
+		t.Fatal(err)
+	}
+	order, _ := os.ReadFile(filepath.Join(dir, "order"))
+	if string(order) != "one\ntwo\n" {
+		t.Errorf("steps ran as %q", order)
+	}
+	env, _ := os.ReadFile(filepath.Join(dir, "first.env"))
+	if !strings.Contains(string(env), "GREETING=hi") || !strings.Contains(string(env), "TOKEN=step-secret") {
+		t.Errorf("the first step's environment lacks its variables:\n%s", env)
+	}
+	if strings.Contains(string(env), "envkey-secret") || strings.Contains(string(env), "SOLARIA_TEST_STEP_SECRET") {
+		t.Errorf("a step sees the worker's environment:\n%s", env)
+	}
+
+	err = runSetup(context.Background(), []step{{Name: "broken", Run: "exit 3"}, {Name: "after", Run: "touch after"}}, dir, log)
+	if err == nil || err.Error() != "setup step broken exited with 3" {
+		t.Fatalf("a failing step gave %v", err)
+	}
+	if _, serr := os.Stat(filepath.Join(dir, "after")); serr == nil {
+		t.Error("a step ran after one failed")
+	}
+	tools := failAll(agenttoolset.BetaAgentToolset20260401(&agenttoolset.AgentToolContext{Workdir: dir}), err)
+	defer agenttoolset.CloseAll(tools)
+	for _, tool := range tools {
+		if _, xerr := tool.Execute(context.Background(), json.RawMessage(`{"command": "ls"}`)); xerr == nil || !strings.Contains(xerr.Error(), "setup step broken exited with 3") {
+			t.Errorf("%s after a failed setup: err = %v", tool.Name(), xerr)
+		}
+	}
+
+	cfg := &config{Setup: steps}
+	if !slices.Contains(cfg.secretVars(), "SOLARIA_TEST_STEP_SECRET") {
+		t.Errorf("secretVars() = %v lacks the step's secret, so bash would see it", cfg.secretVars())
 	}
 }

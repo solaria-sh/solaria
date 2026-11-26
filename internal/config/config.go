@@ -281,6 +281,9 @@ func loadDocument(sch *compiled, path string, doc *yaml.Node) (*Resource, diag.L
 	if d := renamed(path, root, kv); d != nil {
 		return nil, diag.List{*d}
 	}
+	if d := removed(path, root, kv); d != nil {
+		return nil, diag.List{*d}
+	}
 	if kv.Kind != yaml.ScalarNode || !slices.Contains(v1alpha1.Kinds, kv.Value) {
 		return nil, diag.List{diag.Errorf(path, pos(kv),
 			"unknown kind %q; %s has %s", kv.Value, v1alpha1.APIVersion, strings.Join(v1alpha1.Kinds, ", "))}
@@ -342,6 +345,41 @@ func renamed(path string, root, kind *yaml.Node) *diag.Diagnostic {
 			d := diag.Errorf(path, pos(k),
 				"a Target has no spec.sandbox since ADR 0020; move it into the spec of an Environment, and reference that Environment from spec.environments")
 			return &d
+		}
+	}
+	return nil
+}
+
+// removed reports a field ADR 0022 removed, with the setup step that
+// replaces it, rather than let schema validation call it unknown.
+func removed(path string, root, kind *yaml.Node) *diag.Diagnostic {
+	report := func(k *yaml.Node, format string, args ...any) *diag.Diagnostic {
+		d := diag.Errorf(path, pos(k), format, args...)
+		return &d
+	}
+	switch kind.Value {
+	case v1alpha1.KindAgent:
+		if k, _, ok := locate(root, []string{"spec", "repositories"}); ok {
+			name := "product"
+			if _, v, ok := locate(root, []string{"spec", "repositories", "0", "name"}); ok && v.Kind == yaml.ScalarNode && v.Value != "" {
+				name = v.Value
+			}
+			return report(k, "spec.repositories was removed (ADR 0022); clone each repository in a setup step of the agent's Environment, "+
+				"such as {name: clone-%[1]s, run: 'git clone \"$REPO_URL\" repositories/%[1]s', env: [{name: REPO_URL}]}, "+
+				"and set REPO_URL in each target's spec.inputs.setup.env", name)
+		}
+	case v1alpha1.KindTarget:
+		if k, _, ok := locate(root, []string{"spec", "inputs", "repositories"}); ok {
+			return report(k, "spec.inputs.repositories was removed (ADR 0022); set each repository's URL in spec.inputs.setup.env, "+
+				"for the setup step of the Environment that clones it, and give that step its token as a secretRef")
+		}
+	case v1alpha1.KindVault:
+		_, creds, _ := locate(root, []string{"spec", "credentials"})
+		for i := range creds.Content {
+			if k, _, ok := locate(root, []string{"spec", "credentials", strconv.Itoa(i), "for", "gitHost"}); ok {
+				return report(k, "spec.credentials[%d].for.gitHost was removed (ADR 0022); give the token to the setup step that clones, "+
+					"as a secretRef in its env, and remove this credential", i)
+			}
 		}
 	}
 	return nil

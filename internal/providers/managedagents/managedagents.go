@@ -141,22 +141,14 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		ModelProviders: []string{"anthropic"},
 		MCPTransports:  transports,
 		SandboxImage:   placement == PlacementSelfHosted,
-		Repositories:   repositories(placement),
-		Approvals:      true,
+		// The self-hosted worker runs setup at the start of each session;
+		// nothing of Solaria's runs before a cloud session.
+		Setup:     placement == PlacementSelfHosted,
+		Approvals: true,
 		// No Limits: a session runs until the agent finishes or is
 		// interrupted, so plan warns for each limit set.
 		Destroy: provider.DestroyArchive,
 	}
-}
-
-// repositories is how a placement gets an agent's repositories: cloud
-// sessions attach GitHub repositories; self-hosted environments take no
-// resources, and the worker doesn't clone.
-func repositories(placement string) string {
-	if placement == PlacementCloud {
-		return provider.RepositoriesGitHub
-	}
-	return ""
 }
 
 // Validate reports what the host can't take from an agent. Target-wide

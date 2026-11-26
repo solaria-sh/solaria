@@ -53,6 +53,7 @@ const (
 	outSDKVersion  = "sdkVersion"
 	outBuildDigest = "buildDigest"
 	outSecrets     = "secrets"
+	outSetupDigest = "setupDigest"
 )
 
 // New returns the provider, using this machine's runtimes and the docker
@@ -109,12 +110,12 @@ func (p *Provider) Capabilities(placement string) provider.Capabilities {
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   placement == PlacementDocker,
 		LocalWorkspace: true,
-		// The launcher clones; on process, srt keeps a read-only clone
-		// unwritten, which Validate requires.
-		Repositories:         provider.RepositoriesClone,
-		ReadOnlyRepositories: placement == process.Placement,
-		Isolation:            isolation(placement),
-		OutputSchema:         true,
+		// The launcher runs setup; on process, before srt starts, so it
+		// can prepare a workspace the run may only read.
+		Setup:              true,
+		SetupBeforeSandbox: placement == process.Placement,
+		Isolation:          isolation(placement),
+		OutputSchema:       true,
 		// The SDK stops at maxTurns and maxBudgetUsd; the launcher aborts
 		// on timeout and maxTokens, adding up usage from the stream.
 		Limits: map[string]provider.Enforcement{
@@ -257,6 +258,9 @@ func (p *Provider) outputs(b *bundle, dir string, inv *state.Invocation) map[str
 	if len(b.Secrets) > 0 {
 		out[outSecrets] = strings.Join(b.Secrets, ",")
 	}
+	if b.SetupDigest != "" {
+		out[outSetupDigest] = b.SetupDigest
+	}
 	return out
 }
 
@@ -268,8 +272,8 @@ func (b *bundle) runtime() string {
 
 // argv is the command that starts the launcher. It runs in the workspace
 // the agent works on, which is the current directory, so the bundle's
-// paths are absolute. Under srt the launcher clones the agent's
-// repositories first, then starts srt itself.
+// paths are absolute. Under srt the launcher runs setup first, then
+// starts srt itself.
 func (p *Provider) argv(dir string, b *bundle) []string {
 	if b.Runtime == RuntimePython {
 		return []string{venvPython(p.host.GOOS(), dir), filepath.Join(dir, "launch.py")}
@@ -448,18 +452,22 @@ func componentChanges(outputs map[string]string, b *bundle) []provider.Change {
 	}{
 		{"runtime", outRuntime, b.Runtime, false},
 		{"sdkVersion", outSDKVersion, b.SDKVersion, false},
+		{"setup", outSetupDigest, b.SetupDigest, true},
 		{"bundle", outBuildDigest, b.BuildDigest, true},
 	} {
-		old := outputs[c.key]
-		if old == c.now {
+		old, now := outputs[c.key], c.now
+		if old == now {
 			continue
 		}
 		if old == "" {
 			old = "none"
 		}
-		ch := provider.Change{Path: c.path, Old: old, New: c.now}
+		if now == "" {
+			now = "none"
+		}
+		ch := provider.Change{Path: c.path, Old: old, New: now}
 		if c.digest {
-			ch.Old, ch.New = provider.ShortDigest(old), provider.ShortDigest(c.now)
+			ch.Old, ch.New = provider.ShortDigest(old), provider.ShortDigest(now)
 		}
 		out = append(out, ch)
 	}

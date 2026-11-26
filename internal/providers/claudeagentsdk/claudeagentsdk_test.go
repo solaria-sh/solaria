@@ -102,7 +102,7 @@ func TestRenderGolden(t *testing.T) {
 		{"srt", "full", "dev-srt"},
 		{"srt-read-only", "full", "srt-read-only"},
 		{"docker-read-only", "full", "docker-read-only"},
-		{"repos-srt", "repos", "ci-srt"},
+		{"setup-srt", "setup", "ci-srt"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if strings.HasSuffix(tc.name, "read-only") && runtime.GOOS == "windows" {
@@ -983,7 +983,7 @@ func TestSRT(t *testing.T) {
 	_, entry := cycle(t, p, a, nil)
 	bundle := filepath.Join(work, filepath.FromSlash(entry.Binding.Outputs[outBundle]))
 	settings := filepath.Join(bundle, process.SRTSettingsFile)
-	// The launcher clones the agent's repositories, then starts srt itself.
+	// The launcher runs setup, then starts srt itself.
 	if want := []string{"node", filepath.Join(bundle, "launch.mjs")}; !slices.Equal(entry.Binding.Invocation.Argv, want) {
 		t.Errorf("argv = %q, want %q", entry.Binding.Invocation.Argv, want)
 	}
@@ -1068,28 +1068,36 @@ func TestReadOnlyWorkspace(t *testing.T) {
 	}
 }
 
-// TestRepositories checks that a clone's token reaches the command, and
-// only the clone: the run's own environment never names it.
-func TestRepositories(t *testing.T) {
-	a := load(t, filepath.Join("testdata", "repos"), "ci-docker")
+// TestSetup checks that a setup step's secret reaches the command, and
+// only that step: the run's own environment never names it (ADR 0022).
+func TestSetup(t *testing.T) {
+	a := load(t, filepath.Join("testdata", "setup"), "ci-docker")
 	b, err := render(a, testProviderDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(b.Docker.Argv, "AZURE_DEVOPS_TOKEN") {
-		t.Errorf("docker argv doesn't pass the clone's token: %q", b.Docker.Argv)
+	if !slices.Contains(b.Docker.Argv, "PRODUCT_TOKEN") {
+		t.Errorf("docker argv doesn't pass the step's secret: %q", b.Docker.Argv)
 	}
-	if inv := b.invocation(a, b.Docker.Argv, state.WorkspaceMount); !slices.Contains(inv.Env, "AZURE_DEVOPS_TOKEN") {
-		t.Errorf("invocation env %v lacks the clone's token", inv.Env)
+	if inv := b.invocation(a, b.Docker.Argv, state.WorkspaceMount); !slices.Contains(inv.Env, "PRODUCT_TOKEN") {
+		t.Errorf("invocation env %v lacks the step's secret", inv.Env)
 	}
 	var iso process.Isolation
 	if err := json.Unmarshal(b.Files[isolationFile], &iso); err != nil {
 		t.Fatal(err)
 	}
-	if slices.Contains(iso.Secrets, "AZURE_DEVOPS_TOKEN") || len(iso.SecretEnv) > 0 {
-		t.Errorf("the run is given the clone's token: %+v", iso)
+	if slices.Contains(iso.Secrets, "PRODUCT_TOKEN") || len(iso.SecretEnv) > 0 {
+		t.Errorf("the run is given the step's secret: %+v", iso)
 	}
-	if len(iso.Repositories) != 2 || iso.Repositories[0].SecretRef != "AZURE_DEVOPS_TOKEN" {
-		t.Errorf("isolation.json repositories = %+v", iso.Repositories)
+	want := []process.Step{{
+		Name: "clone", Run: `git -c http.extraHeader="Authorization: Bearer $GH_TOKEN" clone --depth 1 "$REPO_URL" product`,
+		Env:       map[string]string{"REPO_URL": "https://github.com/example/product.git"},
+		SecretEnv: map[string]string{"GH_TOKEN": "PRODUCT_TOKEN"},
+	}}
+	if !reflect.DeepEqual(iso.Setup, want) {
+		t.Errorf("isolation.json setup = %+v, want %+v", iso.Setup, want)
+	}
+	if b.SetupDigest == "" {
+		t.Error("the bundle has no setup digest")
 	}
 }

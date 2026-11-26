@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-26
 decision-makers: Renan Tarouco da Fonseca
 ---
@@ -188,3 +188,8 @@ The error for `inputs.repositories` and `gitHost` points to the same place. Ther
 - [ADR 0020](0020-targets-and-environments.md): Targets and Environments.
 - [ADR 0021](0021-self-hosted-worker-runs-stdio-mcp-servers.md): the self-hosted worker, its `ToolsFunc`, and how it keeps secrets out of `bash`.
 - The SDK's `EnvironmentWorker` gives every session the same `Workdir`, and keeps each session's skills under `skills/` and memory stores under `memory/` there (anthropic-sdk-go v2.9.0, `lib/environments/worker.go`).
+- Accepted 2026-11-26, with its implementation, which landed as one breaking pull request. Implementing it settled details this record left open:
+  - the worker's config file is `/etc/solaria/worker.json`, renamed from `mcp.json`, since it holds the setup steps too;
+  - on claude-agent-sdk, plan shows a changed step as a change of the bundle's `setup` digest, and on gitagent as a change of the sandbox and image digests; the self-hosted worker's plan shows each step, its plain values and its secrets' names;
+  - a variable with both `value` and `secretRef` fails schema validation;
+  - the migration error for `spec.repositories` suggests cloning into `repositories/<name>`, so instructions that name that path keep working.

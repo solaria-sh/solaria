@@ -44,7 +44,7 @@ The build context stays in `.solaria/gitagent/<target>/<agent>/` for inspection.
 | `secretRef` | `${NAME}` in `gitagent.yaml`; the run command passes the variable from the secret source |
 | `telemetry` | `OTEL_*` variables in the run command. gitagent doesn't read `OTEL_RESOURCE_ATTRIBUTES` yet, so the identity and `resourceAttributes` set there don't reach its traces. |
 | `workspace.access: read-only` | the workspace is mounted `:ro` |
-| `repositories` | not supported; plan fails, naming each one: the image runs gitagent directly, with nothing to clone before it. Use [claude-agent-sdk](claude-agent-sdk.md#repositories). |
+| Environment `setup` | the image's entrypoint, `/usr/local/bin/solaria-setup`, runs each step with `sh -e` in `/workspace`, then starts gitagent. A step gets `PATH`, `HOME` and its own variables. Its secrets reach the container under their own names, and the entrypoint unsets those gitagent isn't given before it starts gitagent. A failed step exits 2 and names the step on stderr. The workspace is mounted `:ro` when the agent's is read-only, so setup with a read-only workspace fails plan. |
 | identity | `SOLARIA_LOGICAL_ID`, `SOLARIA_TARGET`, `SOLARIA_SPEC_DIGEST` and `SOLARIA_RESOLVED_DIGEST` in the run command |
 
 ## Sandbox
