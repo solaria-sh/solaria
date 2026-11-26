@@ -8,6 +8,8 @@ decision-makers: Renan Tarouco da Fonseca
 
 > [ADR 0020](0020-targets-and-environments.md) renamed the `Environment` kind this ADR calls an environment to `Target`, and `-e/--environment` to `-t/--target`.
 
+> [ADR 0022](0022-environment-setup-steps.md) proposes replacing `repositories`, their `inputs.repositories` bindings and the `gitHost` credential target with an Environment's `spec.setup` steps, since cloning a repository is one workflow's preparation, not a Solaria primitive. If it's accepted, the parts below about repositories no longer hold. The workspace, its access and the srt isolation of `process` stay as described.
+
 ## Context and problem statement
 
 Most agents work on files: a product repository they read, a branch they write. Today the workspace is implicit: on `process` it's the folder the run starts in, on `docker` it's that folder mounted read-write, and on Managed Agents it's whatever the caller attaches to the session. Nothing says whether an agent may write to it, and an agent can't say it needs a repository at all. Managed Agents can attach GitHub repositories natively; other git hosts, and self-hosted workers, get nothing. Solaria never starts a run (ADR 0002), so these are inputs the caller provides, but the definition should say what an agent needs and with which access, and every host should enforce that access or refuse. How are run inputs declared, bound and enforced?
