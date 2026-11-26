@@ -574,6 +574,12 @@ func limits(base Limits, l *v1alpha1.LimitsSpec) (Limits, error) {
 		}
 		base.Timeout = t.String()
 	}
+	if l.MaxTokens > 0 {
+		base.MaxTokens = l.MaxTokens
+	}
+	if l.MaxBudgetUSD > 0 {
+		base.MaxBudgetUSD = l.MaxBudgetUSD
+	}
 	return base, nil
 }
 

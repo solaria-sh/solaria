@@ -207,6 +207,18 @@ A **provider** is the code that talks to one kind of host. A **placement** is wh
 
 Each provider declares its **capabilities**: which models it runs, which MCP transports it can use, whether it takes a custom sandbox image, whether it supports fallback models and approvals, and whether destroy deletes or archives. `plan` checks each agent against them before any host call, so an agent a host can't run fails early, with the reason. Smaller gaps are warnings, for example a limit the host doesn't enforce.
 
+### Limits
+
+`limits` bounds each run: `maxTurns`, `timeout`, `maxTokens` (input, output and cache tokens, as the host reports them) and `maxBudgetUsd` (the host's cost estimate). Whichever is reached first stops the run; the [claude-agent-sdk launcher](providers/claude-agent-sdk.md) then exits 1 with `error_max_turns`, `error_timeout`, `error_max_tokens` or `error_max_budget_usd`. Limits are budgets, not access, so `spec.overrides.<agent>.limits` can change them in either direction, and a host that can't enforce one only warns (ADR 0004).
+
+Each provider says how it enforces each field: **native** when the host stops the run, **launcher** when Solaria's launcher watches the run and stops it, or not at all.
+
+| Provider | `maxTurns` | `timeout` | `maxTokens` | `maxBudgetUsd` |
+|---|---|---|---|---|
+| [`claude-agent-sdk`](providers/claude-agent-sdk.md) | native | launcher | launcher | native |
+| [`gitagent`](providers/gitagent.md) | native | native | not enforced | not enforced |
+| [`managed-agents`](providers/managed-agents.md) | not enforced | not enforced | not enforced | not enforced |
+
 Fields that only one host understands go under `providers.<name>`: on a Target for host settings, such as `providers.gitagent.platform`, and on an Agent for host-specific agent fields. Validate warns that they make a definition less portable.
 
 ## The sandbox

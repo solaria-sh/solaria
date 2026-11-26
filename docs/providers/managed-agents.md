@@ -50,7 +50,7 @@ A session starts in the environment of the agent's Environment. `solaria status 
 | `allowTools` | the toolset's per-tool configs, with its default off, or the custom tools declared for a server on the worker |
 | `permissions.ask` | `always_ask` on that tool; every other tool is `always_allow`, because MCP toolsets would otherwise ask by default. A tool of a server on the worker fails plan: custom tools can't ask for approval. |
 | `skills` | custom skills, pinned by version |
-| `limits` | not enforced; plan warns. Session budgets cap cost. |
+| `limits` | not enforced: a session runs until the agent finishes or is interrupted. Plan warns for each field set. Session budgets cap cost. |
 | `output.schema` | not supported; plan fails |
 | `workspace.access` | `read-only` fails plan: a session's files belong to the host, which can't keep them from being written. A target that binds `inputs.workspace.path` fails plan too, since runs don't work on a folder on your machine. |
 | `repositories` | On `cloud`, each GitHub repository is a `github_repository` resource the caller attaches when starting a session: `status -a` shows its URL, mount path (`/workspace/repositories/<name>`) and the secret holding its token, its `authorization_token`. `ref` becomes its branch checkout, and `depth` is ignored with a warning. A repository on another git host fails plan, and so does a read-only one: the session can write its clone. On `self-hosted`, targets take no resources, so repositories fail plan. |

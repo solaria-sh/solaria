@@ -424,6 +424,13 @@ export async function* query({ prompt, options }) {
     await new Promise((_, reject) => options.abortController.signal.addEventListener("abort", () => reject(new Error("aborted"))));
   }
   yield { type: "system", subtype: "init" };
+  if (prompt === "spend") {
+    // Two blocks of one call, then a second call: 60 + 51 tokens, or 126
+    // when the first call is counted twice.
+    yield { type: "assistant", uuid: "u1", message: { id: "msg_a", usage: { input_tokens: 10, output_tokens: 5 } } };
+    yield { type: "assistant", uuid: "u2", message: { id: "msg_a", usage: { input_tokens: 10, output_tokens: 30, cache_read_input_tokens: 20 } } };
+    yield { type: "assistant", uuid: "u3", parent_tool_use_id: "toolu_1", message: { id: "msg_b", usage: { input_tokens: 50, output_tokens: 1 } } };
+  }
   const { abortController, ...rest } = options;
   yield {
     type: "result",
@@ -454,10 +461,19 @@ class ResultMessage:
         self.__dict__.update(kwargs)
 
 
+class AssistantMessage:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
 async def query(*, prompt, options):
     if prompt == "hang":
         await asyncio.sleep(60)
     yield {"type": "system"}
+    if prompt == "spend":
+        yield AssistantMessage(message_id="msg_a", usage={"input_tokens": 10, "output_tokens": 5})
+        yield AssistantMessage(message_id="msg_a", usage={"input_tokens": 10, "output_tokens": 30, "cache_read_input_tokens": 20})
+        yield AssistantMessage(message_id="msg_b", parent_tool_use_id="toolu_1", usage={"input_tokens": 50, "output_tokens": 1})
     yield ResultMessage(
         subtype="error_max_turns" if prompt == "fail" else "success",
         is_error=prompt == "fail",
@@ -691,6 +707,36 @@ func TestLaunchers(t *testing.T) {
 			}
 			if res, code := l.launch(t, bundle, cwd, env, "hang"); code != 1 || res["subtype"] != "error_timeout" {
 				t.Errorf("hanging run: exit %d, output %v", code, res)
+			}
+
+			// maxBudgetUsd reaches the SDK; maxTokens counts each model call
+			// once, at its latest usage, and aborts the run once it's over.
+			delete(bf, "timeout")
+			delete(bf, "timeoutMs")
+			bf["options"].(map[string]any)["maxBudgetUsd"] = 0.5
+			for _, tc := range []struct {
+				max     int
+				subtype string
+			}{{120, "success"}, {100, "error_max_tokens"}} {
+				bf["maxTokens"] = tc.max
+				if err := os.WriteFile(filepath.Join(bundle, optionsFile), marshal(bf), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				res, code := l.launch(t, bundle, cwd, env, "spend")
+				if res["subtype"] != tc.subtype || (code == 0) != (tc.subtype == "success") {
+					t.Errorf("maxTokens %d: exit %d, output %v", tc.max, code, res)
+					continue
+				}
+				if tc.subtype == "success" {
+					if err := json.Unmarshal([]byte(res["result"].(string)), &seen); err != nil {
+						t.Fatal(err)
+					}
+					if seen.Options[name("maxBudgetUsd", "max_budget_usd")] != 0.5 {
+						t.Errorf("options = %v", seen.Options)
+					}
+				} else if want := "the run used 111 tokens, more than limits.maxTokens (100)"; fmt.Sprint(res["errors"]) != "["+want+"]" {
+					t.Errorf("errors = %v, want %q", res["errors"], want)
+				}
 			}
 		})
 	}

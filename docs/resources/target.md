@@ -68,6 +68,8 @@ The same rules are in the [JSON Schema](../../schemas/v1alpha1/), which `solaria
 | `spec.overrides.<name>.limits` | object |  | Limits to replace. |
 | `spec.overrides.<name>.limits.maxTurns` | integer |  | Most model calls in one run. |
 | `spec.overrides.<name>.limits.timeout` | string |  | Longest a run may take, as a duration such as 30m or 1h30m. Matches `^([0-9]+(h\|m\|s))+$`. |
+| `spec.overrides.<name>.limits.maxTokens` | integer |  | Most tokens one run may use: input, output and cache tokens, as the host reports them. A run that goes over stops with error_max_tokens. |
+| `spec.overrides.<name>.limits.maxBudgetUsd` | number |  | Most one run may cost, in US dollars, by the host's own estimate. A run that goes over stops with error_max_budget_usd. |
 | `spec.overrides.<name>.workspace` | object |  | Workspace access to narrow in this target: an override can make a read-write workspace read-only, never the reverse. |
 | `spec.overrides.<name>.workspace.access` | `read-write` or `read-only` |  | read-write (the default) or read-only. A placement that can't keep the workspace read-only fails plan rather than ignore it. |
 | `spec.overrides.<name>.providers` | map of objects |  | Providers fields to merge over the agent's own. |

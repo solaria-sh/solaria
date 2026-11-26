@@ -97,6 +97,27 @@ function enterSRT(bundle) {
   return res.status ?? 1;
 }
 
+// TokenCount adds up a run's tokens, as limits.maxTokens counts them:
+// input, output and cache tokens of every model call, the subagents'
+// included. The SDK streams one assistant message per content block, and
+// the blocks of one call share its message ID and carry its usage so far,
+// so each call counts once, at its latest usage.
+class TokenCount {
+  #calls = new Map();
+  add(m) {
+    const u = m.message?.usage;
+    if (u) this.#calls.set(m.message.id ?? m.uuid, u);
+    return this.total();
+  }
+  total() {
+    let n = 0;
+    for (const u of this.#calls.values()) {
+      n += (u.input_tokens ?? 0) + (u.output_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+    }
+    return n;
+  }
+}
+
 async function main() {
   const bundle = readJSON("options.json");
   const print = (fields) => {
@@ -140,18 +161,33 @@ async function main() {
           abort.abort();
         }, bundle.timeoutMs)
       : null;
+    const tokens = new TokenCount();
+    let overTokens = false;
     let result = null;
     try {
       for await (const m of query({ prompt: task, options: { ...opts, abortController: abort } })) {
         if (m.type === "result") result = m;
+        if (bundle.maxTokens && m.type === "assistant" && tokens.add(m) > bundle.maxTokens) {
+          overTokens = true;
+          abort.abort();
+          break;
+        }
       }
     } catch (err) {
-      if (!timedOut) throw err;
+      if (!timedOut && !overTokens) throw err;
     } finally {
       clearTimeout(timer);
     }
     if (timedOut) {
       print({ subtype: "error_timeout", is_error: true, errors: [`the run took longer than limits.timeout (${bundle.timeout})`] });
+      return 1;
+    }
+    if (overTokens) {
+      print({
+        subtype: "error_max_tokens",
+        is_error: true,
+        errors: [`the run used ${tokens.total()} tokens, more than limits.maxTokens (${bundle.maxTokens})`],
+      });
       return 1;
     }
     if (result === null) throw new Error("the SDK ended without a result");

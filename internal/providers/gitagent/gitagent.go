@@ -101,7 +101,9 @@ func (p *Provider) Capabilities(string) provider.Capabilities {
 		MCPTransports:  []string{provider.TransportStdio, provider.TransportStreamableHTTP, provider.TransportSSE},
 		SandboxImage:   true,
 		LocalWorkspace: true,
-		Destroy:        provider.DestroyDelete,
+		// gitagent.yaml has max_turns and timeout_s, and no token or cost cap.
+		Limits:  map[string]provider.Enforcement{"maxTurns": provider.EnforcedNative, "timeout": provider.EnforcedNative},
+		Destroy: provider.DestroyDelete,
 	}
 }
 

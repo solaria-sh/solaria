@@ -91,11 +91,11 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
     "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
     "OTEL_LOGS_EXPORTER": "otlp",
     "OTEL_METRICS_EXPORTER": "otlp",
-    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,service.version=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.agent.spec_digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614,solaria.target=dev-docker",
+    "OTEL_RESOURCE_ATTRIBUTES": "gen_ai.agent.name=reviewer,gen_ai.agent.version=sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52,service.version=sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52,solaria.agent.spec_digest=sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52,solaria.target=dev-docker",
     "OTEL_SERVICE_NAME": "reviewer",
     "SOLARIA_LOGICAL_ID": "Agent/reviewer",
-    "SOLARIA_RESOLVED_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
-    "SOLARIA_SPEC_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52",
+    "SOLARIA_SPEC_DIGEST": "sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52",
     "SOLARIA_TARGET": "dev-docker"
   },
   "scratch": {
@@ -124,7 +124,7 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
   "agent": {
     "logicalId": "Agent/reviewer",
     "target": "dev-docker",
-    "resolvedDigest": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614"
+    "resolvedDigest": "sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52"
   },
   "sdk": {
     "runtime": "node",
@@ -134,12 +134,14 @@ ENTRYPOINT ["node","/opt/solaria/agent/launch.mjs"]
   "cacheDir": "/var/cache/solaria",
   "timeout": "15m0s",
   "timeoutMs": 900000,
+  "maxTokens": 2000000,
   "systemPromptFile": "system-prompt.md",
   "options": {
     "model": "claude-sonnet-5-5",
     "fallbackModel": "claude-haiku-5-5",
     "effort": "high",
     "maxTurns": 40,
+    "maxBudgetUsd": 5,
     "tools": [
       "Edit",
       "Grep",
@@ -257,9 +259,9 @@ You review pull requests.
 
 Never push.
 === image
-solaria/dev-docker/reviewer:131cae7bc57e for linux/arm64
+solaria/dev-docker/reviewer:8eab3949d974 for linux/arm64
 === run
-docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY solaria/dev-docker/reviewer:131cae7bc57e
+docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace --env-file $ROOT/.env --env ANTHROPIC_API_KEY solaria/dev-docker/reviewer:8eab3949d974
 === invocation
 {
   "argv": [
@@ -277,7 +279,7 @@ docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace
     "$ROOT/.env",
     "--env",
     "ANTHROPIC_API_KEY",
-    "solaria/dev-docker/reviewer:131cae7bc57e"
+    "solaria/dev-docker/reviewer:8eab3949d974"
   ],
   "workspace": "mount",
   "workspaceAccess": "read-write",
@@ -294,10 +296,10 @@ docker run --rm -i --platform linux/arm64 --memory 4g --volume "$PWD":/workspace
 === labels
 org.opencontainers.image.description=Reviews pull requests.
 sh.solaria.logical-id=Agent/reviewer
-sh.solaria.resolved-digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614
+sh.solaria.resolved-digest=sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52
 sh.solaria.sdk-runtime=node
 sh.solaria.sdk-version=0.3.319
-sh.solaria.spec-digest=sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614
+sh.solaria.spec-digest=sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52
 sh.solaria.target=dev-docker
 === secrets
 DOCS_TOKEN,GITHUB_TOKEN

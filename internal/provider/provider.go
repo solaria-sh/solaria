@@ -94,9 +94,25 @@ type Capabilities struct {
 	// spec.output.schema (ADR 0019). When false, plan fails for an agent
 	// that has one.
 	OutputSchema bool
+	// Limits says how the placement enforces each spec.limits field, by its
+	// name there (maxTurns, timeout, maxTokens, maxBudgetUsd). A field it
+	// doesn't list isn't enforced, and plan warns (ADR 0004).
+	Limits map[string]Enforcement
 	// Destroy says what destroy does on this host.
 	Destroy DestroyKind
 }
+
+// Enforcement is how a host enforces a limit.
+type Enforcement string
+
+// Enforcement levels.
+const (
+	// EnforcedNative means the host stops the run itself.
+	EnforcedNative Enforcement = "native"
+	// EnforcedLauncher means Solaria's launcher watches the run and stops
+	// it.
+	EnforcedLauncher Enforcement = "launcher"
+)
 
 // DestroyKind is what destroying a host object means.
 type DestroyKind string

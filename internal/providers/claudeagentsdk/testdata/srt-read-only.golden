@@ -45,8 +45,8 @@
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
     "NODE_USE_ENV_PROXY": "1",
     "SOLARIA_LOGICAL_ID": "Agent/reviewer",
-    "SOLARIA_RESOLVED_DIGEST": "sha256:6db02469623cb7b3ebfdd7cc7c31aa21ec25dc175a051bf4579e70737741b1ab",
-    "SOLARIA_SPEC_DIGEST": "sha256:7901953f1d4fb18e0c08e813c53e98e61bdb8f1e095baa6f5311235dccf53614",
+    "SOLARIA_RESOLVED_DIGEST": "sha256:c365f2643d424bb4f869e248b22cb093ae71b4025607c743a59c7d166b2f7b63",
+    "SOLARIA_SPEC_DIGEST": "sha256:9f5fb78bb8b78d729eb27da56541a616b5e15c76ccf184c06be2594b54149d52",
     "SOLARIA_TARGET": "srt-read-only"
   },
   "scratch": {
@@ -76,7 +76,7 @@
   "agent": {
     "logicalId": "Agent/reviewer",
     "target": "srt-read-only",
-    "resolvedDigest": "sha256:6db02469623cb7b3ebfdd7cc7c31aa21ec25dc175a051bf4579e70737741b1ab"
+    "resolvedDigest": "sha256:c365f2643d424bb4f869e248b22cb093ae71b4025607c743a59c7d166b2f7b63"
   },
   "sdk": {
     "runtime": "node",
@@ -86,6 +86,7 @@
   "cacheDir": "../../../.cache",
   "timeout": "15m0s",
   "timeoutMs": 900000,
+  "maxTokens": 2000000,
   "systemPromptFile": "system-prompt.md",
   "workspace": "$ROOT/product",
   "srt": "srt-settings.json",
@@ -94,6 +95,7 @@
     "fallbackModel": "claude-haiku-5-5",
     "effort": "high",
     "maxTurns": 40,
+    "maxBudgetUsd": 5,
     "tools": [
       "Edit",
       "Grep",

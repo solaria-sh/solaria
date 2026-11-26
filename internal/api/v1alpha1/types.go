@@ -227,6 +227,12 @@ type LimitsSpec struct {
 	MaxTurns int `json:"maxTurns,omitempty" jsonschema:"minimum=1"`
 	// Longest a run may take, as a duration such as 30m or 1h30m.
 	Timeout string `json:"timeout,omitempty" jsonschema:"pattern=^([0-9]+(h|m|s))+$"`
+	// Most tokens one run may use: input, output and cache tokens, as the
+	// host reports them. A run that goes over stops with error_max_tokens.
+	MaxTokens int64 `json:"maxTokens,omitempty" jsonschema:"minimum=1"`
+	// Most one run may cost, in US dollars, by the host's own estimate. A
+	// run that goes over stops with error_max_budget_usd.
+	MaxBudgetUSD float64 `json:"maxBudgetUsd,omitempty" jsonschema:"exclusiveMinimum=0"`
 }
 
 // Target binds agents to a provider and placement, and says which

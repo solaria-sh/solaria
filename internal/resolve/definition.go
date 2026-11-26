@@ -141,7 +141,28 @@ type Permissions struct {
 type Limits struct {
 	MaxTurns int `json:"maxTurns,omitempty"`
 	// Timeout in Go duration form (1h30m0s), so 90m and 1h30m are equal.
-	Timeout string `json:"timeout,omitempty"`
+	Timeout      string  `json:"timeout,omitempty"`
+	MaxTokens    int64   `json:"maxTokens,omitempty"`
+	MaxBudgetUSD float64 `json:"maxBudgetUsd,omitempty"`
+}
+
+// Set lists the limits fields that are set, by their names in
+// spec.limits.
+func (l Limits) Set() []string {
+	var out []string
+	if l.MaxTurns > 0 {
+		out = append(out, "maxTurns")
+	}
+	if l.Timeout != "" {
+		out = append(out, "timeout")
+	}
+	if l.MaxTokens > 0 {
+		out = append(out, "maxTokens")
+	}
+	if l.MaxBudgetUSD > 0 {
+		out = append(out, "maxBudgetUsd")
+	}
+	return out
 }
 
 // ProviderFields are passthrough fields for one provider.

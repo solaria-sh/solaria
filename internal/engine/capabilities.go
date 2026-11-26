@@ -93,6 +93,21 @@ func checkCapabilities(a *resolve.Agent, caps provider.Capabilities, file, envFi
 	if len(d.Permissions.Ask) > 0 && !caps.Approvals {
 		warnf("this host can't ask for approval in unattended runs, so %s will be denied", strings.Join(d.Permissions.Ask, ", "))
 	}
+	// Limits are budgets, not access, so one the host can't enforce only
+	// warns (ADR 0004).
+	var unenforced []string
+	for _, f := range d.Limits.Set() {
+		if caps.Limits[f] == "" {
+			unenforced = append(unenforced, "limits."+f)
+		}
+	}
+	switch len(unenforced) {
+	case 0:
+	case 1:
+		warnf("%s isn't enforced on this host, so it won't stop a run", unenforced[0])
+	default:
+		warnf("%s aren't enforced on this host, so they won't stop a run", strings.Join(unenforced, ", "))
+	}
 	return diags
 }
 

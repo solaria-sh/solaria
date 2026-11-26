@@ -384,9 +384,6 @@ func validateAgent(a *resolve.Agent, s settings, where string) diag.List {
 			warnf("permissions.ask lists %s, but allowTools doesn't enable it", t)
 		}
 	}
-	if d.Limits.MaxTurns > 0 || d.Limits.Timeout != "" {
-		warnf("limits aren't enforced on Managed Agents; a session runs until the agent finishes or is interrupted, and session budgets cap its cost")
-	}
 	for _, k := range slices.Sorted(maps.Keys(d.Providers[Name])) {
 		if slices.Contains(ownedFields, k) {
 			errorf("providers.%s.%s is set from the card; change the card instead", Name, k)
