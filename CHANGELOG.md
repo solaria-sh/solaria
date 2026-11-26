@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.19.0](https://github.com/solaria-sh/solaria/compare/v0.18.0...v0.19.0) (2026-11-26)
+
+
+### Added
+
+* **managed-agents:** run stdio MCP servers on the self-hosted worker ([#57](https://github.com/solaria-sh/solaria/issues/57)) ([c5f0837](https://github.com/solaria-sh/solaria/commit/c5f0837b0de4e99c9fbc9d4a846244d8aa917401))
+
 ## [0.18.0](https://github.com/solaria-sh/solaria/compare/v0.17.0...v0.18.0) (2026-11-13)
 
 
