@@ -25,6 +25,6 @@ Each significant design decision is recorded here using [MADR](https://adr.githu
 | [0019](0019-agent-output-schema.md) | An agent can declare the JSON its answer must match | accepted |
 | [0020](0020-targets-and-environments.md) | Targets bind agents to hosts; an Environment is a reusable sandbox | accepted |
 | [0021](0021-self-hosted-worker-runs-stdio-mcp-servers.md) | The Managed Agents self-hosted worker runs stdio MCP servers and serves their tools | accepted |
-| [0022](0022-environment-setup-steps.md) | Environments run setup steps before the agent starts; repositories stop being a primitive | proposed |
+| [0022](0022-environment-setup-steps.md) | Environments run setup steps before the agent starts; repositories stop being a primitive | accepted |
 
 ADRs 0005–0009 were revised on 2026-11-04 with findings from the [M1 spikes](../spikes/). ADR 0008 records the digest input format since M3.

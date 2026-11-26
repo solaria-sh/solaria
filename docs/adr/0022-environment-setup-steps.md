@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-26
 decision-makers: Renan Tarouco da Fonseca
 ---
@@ -188,3 +188,4 @@ The error for `inputs.repositories` and `gitHost` points to the same place. Ther
 - [ADR 0020](0020-targets-and-environments.md): Targets and Environments.
 - [ADR 0021](0021-self-hosted-worker-runs-stdio-mcp-servers.md): the self-hosted worker, its `ToolsFunc`, and how it keeps secrets out of `bash`.
 - The SDK's `EnvironmentWorker` gives every session the same `Workdir`, and keeps each session's skills under `skills/` and memory stores under `memory/` there (anthropic-sdk-go v2.9.0, `lib/environments/worker.go`).
+- Accepted 2026-11-26, before its implementation, which lands as one breaking pull request.
