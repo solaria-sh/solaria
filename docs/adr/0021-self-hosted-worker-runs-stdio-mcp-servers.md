@@ -61,7 +61,7 @@ The worker serves the wrapped tools to every session it claims, through the SDK'
 
 ### Secrets
 
-A server's `environmentVariables` that use `secretRef` reach the worker container from the target's secret source, through docker's environment as the environment key does, never its command line, state or the image. The worker passes each server only its own variables. With vaults (ADR 0016), a credential `for: {mcpServer: …}` grants the secret to a server that runs on the worker, instead of being dropped with a warning as it is today.
+A server's `environmentVariables` that use `secretRef` reach the worker container from the target's secret source, through docker's environment as the environment key does, never its command line, state or the image. The worker passes each server only its own variables, and the agent's `bash` gets the container's environment without the environment key or any server's secrets, since the SDK otherwise drops only `ANTHROPIC_*` from it. With vaults (ADR 0016), a credential `for: {mcpServer: …}` grants the secret to a server that runs on the worker, instead of being dropped with a warning as it is today.
 
 One worker serves every agent in its Environment, so a server's process gets the same secrets whichever agent calls it. That's safe because `validate` already requires every agent that uses a server to be granted all of its secrets, straight from the secret source or through its vaults (ADR 0016), so agents sharing a worker can't disagree about what the server gets.
 

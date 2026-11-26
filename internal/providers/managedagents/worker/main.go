@@ -98,6 +98,10 @@ func run() error {
 		EnvironmentKey: key,
 		Workdir:        "/workspace",
 		ToolsFunc: func(env *agenttoolset.AgentToolContext) []anthropic.BetaTool {
+			// Without Env, bash inherits this container's environment minus
+			// only ANTHROPIC_*, which would hand the agent the secrets of
+			// the servers below.
+			env.Env = bashEnv(os.Environ(), cfg.secretVars())
 			tools := agenttoolset.BetaAgentToolset20260401(env)
 			sessions := &sessionServers{workdir: env.Workdir}
 			for _, s := range cfg.Servers {
@@ -166,6 +170,33 @@ type server struct {
 	// SecretEnv maps the server's secret variables to the container
 	// variables that hold their values.
 	SecretEnv map[string]string `json:"secretEnv,omitempty"`
+}
+
+// secretVars lists the container variables that hold the servers'
+// secrets.
+func (c *config) secretVars() []string {
+	var out []string
+	for _, s := range c.Servers {
+		for _, v := range s.SecretEnv {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// bashEnv is the environment the agent's bash gets: the container's,
+// without the worker's own credentials (ANTHROPIC_*) or the variables that
+// hold the MCP servers' secrets, which only those servers get.
+func bashEnv(environ, secretVars []string) map[string]string {
+	out := map[string]string{}
+	for _, kv := range environ {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok || strings.HasPrefix(k, "ANTHROPIC_") || slices.Contains(secretVars, k) {
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
 
 func loadConfig(path string) (*config, error) {

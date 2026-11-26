@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/anthropics/anthropic-sdk-go/v2"
+	"github.com/anthropics/anthropic-sdk-go/v2/tools/agenttoolset"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -146,6 +148,47 @@ func TestNpmBin(t *testing.T) {
 		}
 		if err != nil || got != tc.want {
 			t.Errorf("%s %s: %q, %v, want %q", tc.name, tc.bin, got, err, tc.want)
+		}
+	}
+}
+
+// TestBashEnv checks that the agent's bash sees the container's ordinary
+// variables, but neither the worker's key nor the MCP servers' secrets.
+func TestBashEnv(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the worker's bash runs in Linux containers")
+	}
+	cfg := &config{Servers: []server{{Name: "files", SecretEnv: map[string]string{"FILES_TOKEN": "FILES_TOKEN"}}}}
+	environ := []string{"PATH=" + os.Getenv("PATH"), "HOME=/root", "GOPATH=/opt/go", "FILES_TOKEN=files-secret", "ANTHROPIC_ENVIRONMENT_KEY=envkey-secret"}
+	env := &agenttoolset.AgentToolContext{Workdir: t.TempDir(), Env: bashEnv(environ, cfg.secretVars())}
+	tools := agenttoolset.BetaAgentToolset20260401(env)
+	defer agenttoolset.CloseAll(tools)
+	var bash anthropic.BetaTool
+	for _, tool := range tools {
+		if tool.Name() == "bash" {
+			bash = tool
+		}
+	}
+	if bash == nil {
+		t.Fatal("no bash tool in the toolset")
+	}
+	out, err := bash.Execute(context.Background(), json.RawMessage(`{"command": "env"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var text strings.Builder
+	for _, b := range out {
+		if b.OfText != nil {
+			text.WriteString(b.OfText.Text)
+		}
+	}
+	got := text.String()
+	if !strings.Contains(got, "GOPATH=/opt/go") {
+		t.Errorf("bash lacks the container's variables:\n%s", got)
+	}
+	for _, secret := range []string{"files-secret", "envkey-secret"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("bash sees %s:\n%s", secret, got)
 		}
 	}
 }
