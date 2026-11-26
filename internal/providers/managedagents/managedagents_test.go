@@ -783,23 +783,27 @@ func TestWorkerDockerfileGolden(t *testing.T) {
 	r.check("worker-dockerfile")
 }
 
-// TestWorkerModuleMatches keeps the worker's SDK version in step with
-// Solaria's, so the embedded go.sum stays valid.
+// TestWorkerModuleMatches keeps the worker's SDK versions in step with
+// Solaria's, so the embedded go.sum stays valid. Dependabot bumps only
+// go.mod, so its pull requests fail here until someone runs make worker-mod.
 func TestWorkerModuleMatches(t *testing.T) {
-	want := sdkRequire(t, readFile(t, filepath.Join("..", "..", "..", "go.mod")))
-	if got := sdkRequire(t, string(workerGoMod)); got != want {
-		t.Errorf("worker/go.mod.txt requires %s, Solaria %s; regenerate it (see worker/main.go)", got, want)
+	solaria := readFile(t, filepath.Join("..", "..", "..", "go.mod"))
+	for _, mod := range []string{"github.com/anthropics/anthropic-sdk-go/v2", "github.com/modelcontextprotocol/go-sdk"} {
+		want := requireOf(t, solaria, mod)
+		if got := requireOf(t, string(workerGoMod), mod); got != want {
+			t.Errorf("worker/go.mod.txt requires %s %s, Solaria %s; run make worker-mod, then go test ./internal/providers/managedagents -update", mod, got, want)
+		}
 	}
 }
 
-func sdkRequire(t *testing.T, gomod string) string {
+func requireOf(t *testing.T, gomod, mod string) string {
 	t.Helper()
 	for _, line := range strings.Split(gomod, "\n") {
-		if f := strings.Fields(line); len(f) >= 2 && slices.Contains(f, "github.com/anthropics/anthropic-sdk-go/v2") {
-			return f[len(f)-1]
+		if f := strings.Fields(line); len(f) >= 2 && slices.Contains(f, mod) {
+			return f[slices.Index(f, mod)+1]
 		}
 	}
-	t.Fatal("no anthropic-sdk-go requirement")
+	t.Fatalf("no %s requirement", mod)
 	return ""
 }
 

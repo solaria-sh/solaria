@@ -19,9 +19,10 @@ make test
 | `make lint` | Runs golangci-lint (installed on demand with `go run`) |
 | `make vuln` | Runs govulncheck |
 | `make schema` | Regenerates `schemas/` from the Go types in `internal/api` |
+| `make worker-mod` | Regenerates the managed-agents worker's embedded `go.mod.txt` and `go.sum.txt` at Solaria's SDK versions |
 | `make check` | Everything CI runs |
 
-After changing a resource type, run `make schema` and commit the result; the tests fail otherwise. After an intended change to CLI output, run `go test ./internal/cli -update` and review the diff.
+After changing a resource type, run `make schema` and commit the result; the tests fail otherwise. After `anthropic-sdk-go` or the MCP `go-sdk` changes in `go.mod`, as in Dependabot's pull requests, run `make worker-mod` and `go test ./internal/providers/managedagents -update`: the worker image's tag follows its module files. After an intended change to CLI output, run `go test ./internal/cli -update` and review the diff.
 
 Unit tests never touch the network or real hosts. Integration tests that do are opt-in through environment variables, documented next to each test:
 

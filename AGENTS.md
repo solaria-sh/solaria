@@ -13,6 +13,7 @@ make build     # bin/solaria
 make test      # go test -race ./...
 make lint      # golangci-lint
 make schema    # regenerate schemas/ after changing internal/api
+make worker-mod  # regenerate the managed-agents worker module after an SDK bump
 make check     # everything CI runs; run this before you finish
 ```
 
