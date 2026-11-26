@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The project uses [Seman
 
 After 0.1.0, [release-please](https://github.com/googleapis/release-please) writes this file from the Conventional Commit messages on `main`: `feat` under Added, `fix` under Fixed, `perf` and `revert` under Changed, breaking changes first. Don't edit it by hand; see [Releasing](CONTRIBUTING.md#releasing) for how to change an entry. 0.1.0 was written by hand in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.20.0](https://github.com/solaria-sh/solaria/compare/v0.19.0...v0.20.0) (2026-11-26)
+
+
+### Added
+
+* add limits.maxTokens and limits.maxBudgetUsd ([#62](https://github.com/solaria-sh/solaria/issues/62)) ([52fd0e6](https://github.com/solaria-sh/solaria/commit/52fd0e660b9d1f5713394e0ebba3fff6ac179db2))
+
+
+### Fixed
+
+* **managed-agents:** keep MCP server secrets out of the worker's bash ([#64](https://github.com/solaria-sh/solaria/issues/64)) ([237d76b](https://github.com/solaria-sh/solaria/commit/237d76b5fee2d7e06fe53917aa82a77fee66f320))
+
 ## [0.19.0](https://github.com/solaria-sh/solaria/compare/v0.18.0...v0.19.0) (2026-11-26)
 
 
