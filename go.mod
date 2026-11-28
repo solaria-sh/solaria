@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.24.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.15.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.3
-	github.com/anthropics/anthropic-sdk-go/v2 v2.9.0
+	github.com/anthropics/anthropic-sdk-go/v2 v2.15.0
 	github.com/gowebpki/jcs v1.0.2
 	github.com/invopop/jsonschema v0.14.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
