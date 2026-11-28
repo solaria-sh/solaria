@@ -25,8 +25,8 @@ github.com/AzureAD/microsoft-authentication-library-for-go v1.10.1 h1:0O6j18nQDo
 github.com/AzureAD/microsoft-authentication-library-for-go v1.10.1/go.mod h1:xdYAf5bjkOpsd3auA8riiJW4vneBubt9caavL7626jQ=
 github.com/andybalholm/brotli v1.2.2 h1:HzTuoo2ErYQqf5qvcJInB8uvqSVxRttzkFexPWtnceM=
 github.com/andybalholm/brotli v1.2.2/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
-github.com/anthropics/anthropic-sdk-go/v2 v2.9.0 h1:kn8rCJlgcOTd5/yjofmTuUdfMRP14OL9vDS4tsdJqZg=
-github.com/anthropics/anthropic-sdk-go/v2 v2.9.0/go.mod h1:LAOInMKgn6reTIrPvKXa5weyqzxsJkxSBuzhnxzukpQ=
+github.com/anthropics/anthropic-sdk-go/v2 v2.15.0 h1:f9mGPtrw4dLOdcBWU7J7VI+F0XNR45mpwxTwg2AVll4=
+github.com/anthropics/anthropic-sdk-go/v2 v2.15.0/go.mod h1:9MisVFnaVHMm4A8Pm1h75dsxyM3M8vv6NW9O5Tm2Q4k=
 github.com/apache/arrow-go/v18 v18.7.0 h1:Vw/i+cJyebUofT7JlqFpe65LrmwxULn166jjwStM4HY=
 github.com/apache/arrow-go/v18 v18.7.0/go.mod h1:PM6IigLJkdMwIpeHXnymo+xZ52f42a9EYiLtRel4p/A=
 github.com/apache/thrift v0.24.0 h1:zy31L1a49QTNB2bG1BBfMXol3yJrTH975G3pPubQVLQ=
